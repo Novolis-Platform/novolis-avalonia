@@ -1,1 +1,23 @@
-{"packages":{}}
+{
+  "packages": {
+    "Novolis.Avalonia.Layout": {
+      "paths": [
+        "src/Novolis.Avalonia.Layout/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Layout/Novolis.Avalonia.Layout.csproj"
+    },
+    "Novolis.Avalonia.Controls": {
+      "paths": [
+        "src/Novolis.Avalonia.Controls/**",
+        "tests/Novolis.Avalonia.Controls.Tests/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj"
+    }
+  }
+}

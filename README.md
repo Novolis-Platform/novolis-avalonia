@@ -1,7 +1,32 @@
-# novolis-template-dotnet
+# novolis-avalonia
 
-Canonical template for Novolis package, tool, analyzer, app, and template repositories.
+Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (packet analyzers, studios, inspectors).
 
-Use **Use this template** on GitHub to create a new repository.
+## Packages
 
-Supports: library, CLI tool, analyzer, game/app, and template repos without over-specializing.
+| Package | Description |
+|---------|-------------|
+| `Novolis.Avalonia.Layout` | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
+| `Novolis.Avalonia.Controls` | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `HexDumpFormatter` |
+
+## Build
+
+```bash
+dotnet build
+dotnet test
+```
+
+## Dogfood app
+
+[WireFish Viewer](../novolis-dogfooding/apps/WireFishViewer) — live capture UI for `Novolis.Transports.WireFish` (WireShark-inspired layout).
+
+```bash
+cd novolis-dogfooding
+dotnet run --project apps/WireFishViewer
+```
+
+On Windows, install [Npcap](https://npcap.com/) for live capture.
+
+## Templates
+
+For new Avalonia apps, see [novolis-templates](https://github.com/Novolis-Platform/novolis-templates) (`novolis-noxaml-avalonia-sln`).

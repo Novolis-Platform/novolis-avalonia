@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Novolis.Avalonia.Layout/Novolis.Avalonia.Layout.csproj" />
+    <Project Path="src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Novolis.Avalonia.Controls.Tests/Novolis.Avalonia.Controls.Tests.csproj" />
+  </Folder>
+</Solution>
