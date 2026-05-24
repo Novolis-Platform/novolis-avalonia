@@ -9,6 +9,12 @@ namespace Novolis.Avalonia.Layout;
 /// </summary>
 public sealed class AnalyzerWorkspace : Grid
 {
+    /// <summary>
+    /// Creates the workspace layout and wires the supplied list, tree, and hex panes.
+    /// </summary>
+    /// <param name="packetList">Primary packet or event list (top pane).</param>
+    /// <param name="protocolTree">Structured detail tree (bottom left).</param>
+    /// <param name="hexDump">Hex dump panel (bottom right).</param>
     public AnalyzerWorkspace(Control packetList, Control protocolTree, Control hexDump)
     {
         RowDefinitions =
@@ -62,13 +68,18 @@ public sealed class AnalyzerWorkspace : Grid
         Grid.SetRow(bottomSplit, 4);
     }
 
+    /// <summary>Top toolbar row for capture controls and status.</summary>
     public ToolbarRow Toolbar { get; }
 
+    /// <summary>Filter expression bar below the toolbar.</summary>
     public FilterBar FilterBar { get; }
 
+    /// <summary>Packet or event list hosted in the upper main pane.</summary>
     public Control PacketList { get; }
 
+    /// <summary>Protocol or object detail tree in the lower-left pane.</summary>
     public Control ProtocolTree { get; }
 
+    /// <summary>Hex dump view in the lower-right pane.</summary>
     public Control HexDump { get; }
 }

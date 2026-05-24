@@ -9,6 +9,7 @@ public sealed class TreeDetailsView : ScrollViewer
 {
     private readonly TreeView _tree;
 
+    /// <summary>Creates an empty scrollable tree view.</summary>
     public TreeDetailsView()
     {
         _tree = new TreeView();
@@ -16,6 +17,8 @@ public sealed class TreeDetailsView : ScrollViewer
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
     }
 
+    /// <summary>Replaces the tree contents with the given root node.</summary>
+    /// <param name="root">Root detail node, or <see langword="null"/> to clear.</param>
     public void SetRoot(DetailTreeNode? root)
     {
         _tree.Items.Clear();
@@ -25,6 +28,7 @@ public sealed class TreeDetailsView : ScrollViewer
         _tree.Items.Add(CreateItem(root));
     }
 
+    /// <summary>Removes all tree items.</summary>
     public void Clear() => _tree.Items.Clear();
 
     private static TreeViewItem CreateItem(DetailTreeNode node)

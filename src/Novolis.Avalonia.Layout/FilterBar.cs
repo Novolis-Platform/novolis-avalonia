@@ -9,6 +9,8 @@ public sealed class FilterBar : Border
 {
     private readonly TextBox _filterBox;
 
+    /// <summary>Creates a filter bar with the given label prefix.</summary>
+    /// <param name="labelText">Text shown before the filter text box.</param>
     public FilterBar(string labelText = "Filter:")
     {
         Padding = new Thickness(8, 4);
@@ -40,11 +42,16 @@ public sealed class FilterBar : Border
         Child = row;
     }
 
+    /// <summary>Current filter expression text.</summary>
     public string FilterText => _filterBox.Text ?? string.Empty;
 
+    /// <summary>Sets the filter text box contents.</summary>
+    /// <param name="text">Expression to display.</param>
     public void SetFilterText(string text) => _filterBox.Text = text;
 
+    /// <summary>Raised when the user clicks Apply.</summary>
     public event EventHandler<string>? ApplyRequested;
 
+    /// <summary>Raised when the user clicks Clear.</summary>
     public event EventHandler? ClearRequested;
 }

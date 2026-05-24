@@ -5,6 +5,10 @@ namespace Novolis.Avalonia.Controls;
 /// <summary>Formats bytes as a classic hex dump (offset, hex, ASCII).</summary>
 public static class HexDumpFormatter
 {
+    /// <summary>Formats bytes as offset, hex columns, and ASCII columns.</summary>
+    /// <param name="data">Bytes to format.</param>
+    /// <param name="bytesPerLine">Hex bytes per line (default 16).</param>
+    /// <returns>Multi-line hex dump text, or empty when <paramref name="data"/> is empty.</returns>
     public static string Format(ReadOnlySpan<byte> data, int bytesPerLine = 16)
     {
         if (data.IsEmpty)
