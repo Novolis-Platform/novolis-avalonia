@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Layout</PackageId>
-    <Version>0.1.0-preview.1</Version>
-    <IsPackable>true</IsPackable>
+<IsPackable>true</IsPackable>
     <Description>WireShark-style analyzer workspace layout primitives for Avalonia (no XAML).</Description>
     <RootNamespace>Novolis.Avalonia.Layout</RootNamespace>
   </PropertyGroup>

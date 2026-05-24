@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Controls</PackageId>
-    <Version>0.1.0-preview.1</Version>
-    <IsPackable>true</IsPackable>
+<IsPackable>true</IsPackable>
     <Description>Reusable Avalonia controls for packet and data analyzers (no XAML).</Description>
     <RootNamespace>Novolis.Avalonia.Controls</RootNamespace>
   </PropertyGroup>
