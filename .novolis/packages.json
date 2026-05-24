@@ -12,7 +12,7 @@
     "Novolis.Avalonia.Controls": {
       "paths": [
         "src/Novolis.Avalonia.Controls/**",
-        "tests/Novolis.Avalonia.Controls.Tests/**",
+        "tests/Novolis.Avalonia.Unit/Controls/**",
         "Directory.Build.props",
         "Directory.Packages.props",
         "global.json"
