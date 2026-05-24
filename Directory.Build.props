@@ -1,6 +1,9 @@
 <Project>
   
-  <Import Project="$(MSBuildThisFileDirectory).novolis\version.props"
+    <PropertyGroup>
+    <NovolisGitHubRepository>novolis-avalonia</NovolisGitHubRepository>
+  </PropertyGroup>
+<Import Project="$(MSBuildThisFileDirectory).novolis\version.props"
           Condition="Exists('$(MSBuildThisFileDirectory).novolis\version.props')" />
 
   <PropertyGroup>
@@ -31,4 +34,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildThisFileDirectory)..\novolis-governance\build\Novolis.LocalPack.props"
           Condition="Exists('$(MSBuildThisFileDirectory)..\novolis-governance\build\Novolis.LocalPack.props')" />
+  <Import Project="$(MSBuildThisFileDirectory)..\novolis-governance\build\Novolis.GitHubPackages.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\novolis-governance\build\Novolis.GitHubPackages.props')" />
 </Project>
