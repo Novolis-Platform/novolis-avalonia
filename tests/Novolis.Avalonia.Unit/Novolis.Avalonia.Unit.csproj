@@ -6,5 +6,6 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
   </ItemGroup>
 </Project>

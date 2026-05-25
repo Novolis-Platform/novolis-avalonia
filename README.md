@@ -8,6 +8,7 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 |---------|-------------|
 | `Novolis.Avalonia.Layout` | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
 | `Novolis.Avalonia.Controls` | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `HexDumpFormatter` |
+| `Novolis.Avalonia.Rendering` | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
 
 ## Build
 
@@ -15,6 +16,14 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 dotnet build
 dotnet test
 ```
+
+## Samples
+
+```bash
+dotnet run --project samples/RenderingAvalonia
+```
+
+Side-by-side **TwoD** (OpenGL) and **CPU RGBA** frame hosts.
 
 ## Dogfood app
 
