@@ -2,13 +2,23 @@
 
 Avalonia hosts for Novolis rendering stacks (no XAML).
 
-## Packages
+## Install
 
 ```bash
 dotnet add package Novolis.Avalonia.Rendering
 ```
 
 **Prerequisites:** Avalonia 12+, .NET 10. Published `Novolis.Rendering.TwoD` and `Backends.TwoD.Silk` on GitHub Packages.
+
+## Quick start
+
+```csharp
+using Novolis.Avalonia.Rendering;
+using Novolis.Rendering.TwoD;
+
+var view = new TwoDSceneControl { Scene = new TwoDScene() };
+view.FrameUpdating += (_, e) => { /* game logic */ };
+```
 
 ## Controls
 
@@ -18,14 +28,6 @@ dotnet add package Novolis.Avalonia.Rendering
 | `Rgba32FrameControl` | CPU `Rgba32` buffer (`IFramePresenter`) | Path tracing preview, software ray trace |
 
 ## TwoD scene (OpenGL)
-
-```csharp
-using Novolis.Avalonia.Rendering;
-using Novolis.Rendering.TwoD;
-
-var view = new TwoDSceneControl { Scene = new TwoDScene() };
-view.FrameUpdating += (_, e) => { /* game logic */ };
-```
 
 On **Windows**, prefer WGL so `OpenGlControlBase` initializes:
 
