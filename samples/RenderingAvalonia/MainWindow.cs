@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Novolis.Avalonia.Raylib;
 using Novolis.Avalonia.Rendering;
 
 namespace RenderingAvalonia;
@@ -14,7 +15,7 @@ internal sealed class MainWindow : Window
     public MainWindow()
     {
         Title = "Novolis Rendering — Avalonia hosts";
-        Width = 1280;
+        Width = 1440;
         Height = 720;
 
         var twoD = new TwoDSceneControl { MinHeight = 280 };
@@ -23,10 +24,19 @@ internal sealed class MainWindow : Window
         var cpu = new Rgba32FrameControl { MinHeight = 280 };
         _cpuDemo = new CpuFrameDemo(cpu, 320, 240);
 
+        var raylib = new RaylibHostControl
+        {
+            MinHeight = 280,
+            FrameWidth = 320,
+            FrameHeight = 240,
+        };
+        _ = new RaylibViewportDemo(raylib);
+
         var grid = new Grid
         {
             ColumnDefinitions =
             [
+                new ColumnDefinition(GridLength.Star),
                 new ColumnDefinition(GridLength.Star),
                 new ColumnDefinition(GridLength.Star),
             ],
@@ -34,8 +44,10 @@ internal sealed class MainWindow : Window
         };
         Grid.SetColumn(twoD, 0);
         Grid.SetColumn(cpu, 1);
+        Grid.SetColumn(raylib, 2);
         grid.Children.Add(twoD);
         grid.Children.Add(cpu);
+        grid.Children.Add(raylib);
 
         Content = new DockPanel
         {
@@ -44,7 +56,7 @@ internal sealed class MainWindow : Window
             {
                 new TextBlock
                 {
-                    Text = "Left: TwoDSceneControl (OpenGL)  |  Right: Rgba32FrameControl (CPU / path-trace presenter)",
+                    Text = "TwoD (OpenGL)  |  CPU RGBA  |  RaylibHostControl (embedded GLFW)",
                     Margin = new Thickness(8),
                     [DockPanel.DockProperty] = Dock.Top,
                 },

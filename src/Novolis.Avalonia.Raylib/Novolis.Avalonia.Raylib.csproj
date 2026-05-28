@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Raylib</PackageId>
+    <IsPackable>true</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>Avalonia host control for embedded Raylib viewports (hidden GLFW + RGBA streaming).</Description>
+    <RootNamespace>Novolis.Avalonia.Raylib</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Math.Geometry" />
+    <PackageReference Include="Novolis.Raylib.Abstractions" />
+    <PackageReference Include="Novolis.Raylib.Runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
+  </ItemGroup>
+</Project>

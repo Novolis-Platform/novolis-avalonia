@@ -18,6 +18,16 @@
         "global.json"
       ],
       "project": "src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj"
+    },
+    "Novolis.Avalonia.Raylib": {
+      "paths": [
+        "src/Novolis.Avalonia.Raylib/**",
+        "src/Novolis.Avalonia.Rendering/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj"
     }
   }
 }

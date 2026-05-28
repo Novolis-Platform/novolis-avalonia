@@ -57,3 +57,4 @@ frame.PresentCpuFrame(pixels, width, height);
 
 - References **Rendering** packages only — not Simulation, Physics, or Raylib.
 - Apps wire simulation → scene or `PresentCpuFrame` at compose time.
+- For Raylib inside Avalonia, use **`Novolis.Avalonia.Raylib`** (`RaylibHostControl`).

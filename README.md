@@ -9,6 +9,7 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 | `Novolis.Avalonia.Layout` | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
 | `Novolis.Avalonia.Controls` | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `HexDumpFormatter` |
 | `Novolis.Avalonia.Rendering` | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
+| `Novolis.Avalonia.Raylib` | `RaylibHostControl` (embedded Raylib viewport) |
 
 ## Build
 

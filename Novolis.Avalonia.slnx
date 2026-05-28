@@ -3,6 +3,7 @@
     <Project Path="src/Novolis.Avalonia.Layout/Novolis.Avalonia.Layout.csproj" />
     <Project Path="src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj" />
     <Project Path="src/Novolis.Avalonia.Rendering/Novolis.Avalonia.Rendering.csproj" />
+    <Project Path="src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />
