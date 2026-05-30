@@ -37,12 +37,6 @@ public class Rgba32FrameControl : Panel, IFramePresenter
         if (width <= 0 || height <= 0)
             return;
 
-        if (pixels is Rgba32[] arr && Dispatcher.UIThread.CheckAccess())
-        {
-            ApplyFrame(arr, width, height);
-            return;
-        }
-
         var count = width * height;
         if (_staging is null || _staging.Length != count)
             _staging = new Rgba32[count];

@@ -17,6 +17,8 @@ namespace Novolis.Avalonia.Raylib;
 /// </summary>
 public class RaylibHostControl : Panel
 {
+    private static readonly TimeSpan ResizeDebounce = TimeSpan.FromMilliseconds(150);
+
     /// <summary>Internal render width in pixels.</summary>
     public static readonly StyledProperty<int> FrameWidthProperty =
         AvaloniaProperty.Register<RaylibHostControl, int>(nameof(FrameWidth), 640);
@@ -35,10 +37,12 @@ public class RaylibHostControl : Panel
 
     private readonly Image _image;
     private readonly HostFrameRenderer _renderer = new();
-    private readonly DispatcherTimer _presentTimer = new(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) => PresentLatestFrame());
+    private readonly DispatcherTimer _presentTimer;
+    private readonly DispatcherTimer _resizeDebounceTimer;
     private RaylibHostSession? _session;
     private WriteableBitmap? _bitmap;
     private Rgba32[]? _presentScratch;
+    private bool _hostActiveRequested;
 
     /// <summary>Creates the control.</summary>
     public RaylibHostControl()
@@ -51,6 +55,13 @@ public class RaylibHostControl : Panel
             VerticalAlignment = VerticalAlignment.Stretch,
         };
         Children.Add(_image);
+        _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) => PresentLatestFrame());
+        _resizeDebounceTimer = new DispatcherTimer(ResizeDebounce, DispatcherPriority.Background, (_, _) => ApplyDebouncedResize());
+        LayoutUpdated += (_, _) =>
+        {
+            if (_hostActiveRequested)
+                EnsureHostStarted();
+        };
     }
 
     /// <summary>Internal render width in pixels.</summary>
@@ -81,24 +92,66 @@ public class RaylibHostControl : Panel
         private set => SetValue(IsHostRunningProperty, value);
     }
 
+    /// <summary>Milliseconds since the last captured frame, or <c>-1</c> when none yet.</summary>
+    public double LastFrameAgeMs
+    {
+        get
+        {
+            if (_session is null || _session.LastFrameAt == DateTimeOffset.MinValue)
+                return -1;
+            return (DateTimeOffset.UtcNow - _session.LastFrameAt).TotalMilliseconds;
+        }
+    }
+
     /// <summary>
     /// Raised on the Raylib render thread between <c>BeginDrawing</c> and <c>EndDrawing</c>.
     /// Only invoke Raylib draw APIs from this handler.
     /// </summary>
     public event EventHandler<RaylibFrameEventArgs>? FrameRendering;
 
+    /// <summary>Queues a redraw on the render thread (on-demand pipeline).</summary>
+    public void RequestFrame()
+    {
+        if (_session is { IsRunning: true })
+            _session.RequestRedraw();
+    }
+
+    /// <summary>Starts the host when attached, sized, and active; safe to call repeatedly.</summary>
+    public void EnsureHostStarted()
+    {
+        if (!_hostActiveRequested || VisualRoot is null)
+            return;
+
+        var width = System.Math.Clamp(FrameWidth, 64, 4096);
+        var height = System.Math.Clamp(FrameHeight, 64, 4096);
+        if (width < 64 || height < 64)
+            return;
+
+        if (_session is { IsRunning: true })
+        {
+            RequestFrame();
+            return;
+        }
+
+        StartHost();
+    }
+
     /// <summary>Starts or stops the embedded Raylib loop (only one GLFW host per process).</summary>
     public void SetHostActive(bool active)
     {
+        _hostActiveRequested = active;
         if (active)
         {
-            if (VisualRoot is not null && !IsHostRunning)
-                StartHost();
-            _presentTimer.Start();
+            EnsureHostStarted();
+            if (IsHostRunning)
+                _presentTimer.Start();
+            else
+                Dispatcher.UIThread.Post(EnsureHostStarted, DispatcherPriority.Loaded);
         }
         else
         {
             _presentTimer.Stop();
+            _resizeDebounceTimer.Stop();
             StopHost();
         }
     }
@@ -128,21 +181,32 @@ public class RaylibHostControl : Panel
             || change.Property == FrameHeightProperty
             || change.Property == TargetFpsProperty)
         {
-            if (IsHostRunning)
-                RestartHost();
+            if (!IsHostRunning)
+                return;
+
+            _resizeDebounceTimer.Stop();
+            _resizeDebounceTimer.Start();
         }
+    }
+
+    private void ApplyDebouncedResize()
+    {
+        _resizeDebounceTimer.Stop();
+        if (!IsHostRunning || _session is null)
+            return;
+
+        _session.RequestResize(FrameWidth, FrameHeight, TargetFps);
+        RequestFrame();
     }
 
     private void StartHost()
     {
         StopHost();
 
-        var width = System.Math.Clamp(FrameWidth, 64, 4096);
-        var height = System.Math.Clamp(FrameHeight, 64, 4096);
         var options = new RaylibEmbeddedOptions
         {
-            Width = width,
-            Height = height,
+            Width = System.Math.Clamp(FrameWidth, 64, 4096),
+            Height = System.Math.Clamp(FrameHeight, 64, 4096),
             TargetFps = System.Math.Clamp(TargetFps, 1, 240),
             WindowTitle = "Novolis.Avalonia.Raylib",
         };
@@ -151,18 +215,13 @@ public class RaylibHostControl : Panel
         _session = new RaylibHostSession(options, _renderer);
         _session.Start();
         IsHostRunning = true;
-    }
-
-    private void RestartHost()
-    {
-        if (VisualRoot is null)
-            return;
-
-        StartHost();
+        if (_hostActiveRequested)
+            _presentTimer.Start();
     }
 
     private void StopHost()
     {
+        _presentTimer.Stop();
         _session?.Dispose();
         _session = null;
         _renderer.Control = null;
@@ -171,16 +230,19 @@ public class RaylibHostControl : Panel
 
     private void PresentLatestFrame()
     {
-        if (_session is null || !_session.TryTakeFrame(out var pixels, out var width, out var height))
+        if (_session is null)
             return;
 
-        if (width <= 0 || height <= 0)
+        if (!_session.TryReadFrame(out var packet) || packet is null)
+            return;
+
+        if (packet.Width <= 0 || packet.Height <= 0)
             return;
 
         if (Dispatcher.UIThread.CheckAccess())
-            ApplyFrame(pixels, width, height);
+            ApplyFrame(packet.Pixels, packet.Width, packet.Height);
         else
-            Dispatcher.UIThread.Post(() => ApplyFrame(pixels, width, height), DispatcherPriority.Render);
+            Dispatcher.UIThread.Post(() => ApplyFrame(packet.Pixels, packet.Width, packet.Height), DispatcherPriority.Render);
     }
 
     private void ApplyFrame(Rgba32[] pixels, int width, int height)
