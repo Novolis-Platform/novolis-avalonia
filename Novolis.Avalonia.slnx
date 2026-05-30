@@ -4,6 +4,9 @@
     <Project Path="src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj" />
     <Project Path="src/Novolis.Avalonia.Rendering/Novolis.Avalonia.Rendering.csproj" />
     <Project Path="src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj" />
+    <Project Path="src/Novolis.Avalonia.Studio/Novolis.Avalonia.Studio.csproj" />
+    <Project Path="src/Novolis.Avalonia.Voice/Novolis.Avalonia.Voice.csproj" />
+    <Project Path="src/Novolis.Avalonia.Timeline/Novolis.Avalonia.Timeline.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />

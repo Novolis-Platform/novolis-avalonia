@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Voice</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Avalonia controls for Novolis voice preset design, preview, and C# export.</Description>
+    <RootNamespace>Novolis.Avalonia.Voice</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Audio.Voice.Design" />
+    <PackageReference Include="Novolis.Audio.Voice.Profiles" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
+  </ItemGroup>
+</Project>

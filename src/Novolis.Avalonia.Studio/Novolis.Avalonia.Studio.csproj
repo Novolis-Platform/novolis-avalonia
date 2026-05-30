@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Studio</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Studio chrome for Avalonia editors: status, flash, busy overlay, and three-column layout.</Description>
+    <RootNamespace>Novolis.Avalonia.Studio</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+</Project>

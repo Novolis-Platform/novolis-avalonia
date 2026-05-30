@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Timeline</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Git-graph timeline list controls for Avalonia studio apps.</Description>
+    <RootNamespace>Novolis.Avalonia.Timeline</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Timeline.Presentation" />
+  </ItemGroup>
+</Project>
