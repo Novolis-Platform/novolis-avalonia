@@ -9,6 +9,8 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Audio.Voice.Design" />
+    <PackageReference Include="Novolis.Audio.Voice.Kokoro" />
+    <PackageReference Include="Novolis.Audio.Voice.Platform.Windows" />
     <PackageReference Include="Novolis.Audio.Voice.Profiles" />
   </ItemGroup>
   <ItemGroup>

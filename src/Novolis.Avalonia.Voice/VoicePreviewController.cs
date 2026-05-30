@@ -1,6 +1,8 @@
 using Avalonia.Threading;
 using Novolis.Audio.Voice;
 using Novolis.Audio.Voice.Design;
+using Novolis.Audio.Voice.Phraseology;
+using Novolis.Audio.Voice.Platform;
 
 namespace Novolis.Avalonia.Voice;
 
@@ -78,7 +80,7 @@ public sealed class VoicePreviewController : IDisposable
         try
         {
             RaiseStatus("Synthesizing…");
-            _voice = VoicePresetPreviewFactory.Create(draft);
+            _voice = CreateVoice(draft);
             await _voice.SpeakAsync(PreviewPhrase, _speakCts.Token).ConfigureAwait(false);
             RaiseStatus("Preview complete.");
         }
@@ -91,6 +93,22 @@ public sealed class VoicePreviewController : IDisposable
             RaiseStatus($"Preview failed: {ex.Message}");
             RaisePreviewFailed(ex);
         }
+    }
+
+    private static IVoiceService CreateVoice(VoicePresetDraft draft)
+    {
+        if (draft.Backend != VoiceSynthesizerBackend.Platform)
+            return VoicePresetPreviewFactory.Create(draft);
+
+        Func<string, string>? normalize = null;
+        if (draft.UsePhraseology)
+        {
+            var phraseology = new DefaultPhraseologyNormalizer();
+            normalize = phraseology.Normalize;
+        }
+
+        var speech = draft.Platform ?? new PlatformSpeechOptions();
+        return PlatformVoicePreviewFactory.Create(speech, normalize);
     }
 
     private void RaiseStatus(string message)

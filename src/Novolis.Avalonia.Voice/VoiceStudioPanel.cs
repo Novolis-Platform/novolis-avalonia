@@ -12,6 +12,7 @@ public sealed class VoiceStudioPanel : Grid
     private readonly VoicePresetListBox _presets = new();
     private readonly VoiceArchetypeInspector _archetype = new();
     private readonly VoiceEffectChainInspector _effects = new();
+    private readonly VoicePlatformInspector _platform = new();
     private readonly VoiceCodeExportPanel _export = new();
     private readonly TextBox _phrase = new() { Text = "Tower, ready for departure.", MinWidth = 280 };
     private readonly VoicePreviewController _preview;
@@ -95,6 +96,7 @@ public sealed class VoiceStudioPanel : Grid
             {
                 new TabItem { Header = "Archetype", Content = archetypeScroll },
                 new TabItem { Header = "Effect chain", Content = _effects },
+                new TabItem { Header = "Platform", Content = _platform },
             },
         };
 
@@ -108,6 +110,7 @@ public sealed class VoiceStudioPanel : Grid
 
         _archetype.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
         _effects.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
+        _platform.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
         _preview.StatusChanged += msg => feedback.SetStatus(msg);
 
         Grid.SetColumn(left, 0);
@@ -127,6 +130,7 @@ public sealed class VoiceStudioPanel : Grid
     {
         _archetype.Bind(draft);
         _effects.Bind(draft);
+        _platform.Bind(draft);
         _export.Bind(draft);
         _preview.PreviewPhrase = _phrase.Text ?? string.Empty;
     }
