@@ -21,45 +21,62 @@ public sealed class StudioFeedback
         _busyText = busyText;
     }
 
-    public void SetStatus(string text) => _statusLine.Text = text;
+    public void SetStatus(string text) => RunOnUiThread(() => _statusLine.Text = text);
 
     public void Flash(string message, TimeSpan? duration = null)
     {
-        _flashLine.Text = message;
-        _flashLine.Foreground = Brushes.LightGreen;
-        _clearFlashTimer?.Stop();
-        _clearFlashTimer = new DispatcherTimer(duration ?? TimeSpan.FromSeconds(3), DispatcherPriority.Normal, (_, _) =>
+        RunOnUiThread(() =>
         {
-            _flashLine.Text = string.Empty;
+            _flashLine.Text = message;
+            _flashLine.Foreground = Brushes.LightGreen;
             _clearFlashTimer?.Stop();
+            _clearFlashTimer = new DispatcherTimer(duration ?? TimeSpan.FromSeconds(3), DispatcherPriority.Normal, (_, _) =>
+            {
+                _flashLine.Text = string.Empty;
+                _clearFlashTimer?.Stop();
+            });
+            _clearFlashTimer.Start();
         });
-        _clearFlashTimer.Start();
     }
 
     public void FlashWarning(string message) => Flash(message, TimeSpan.FromSeconds(4));
 
     public void FlashError(string message)
     {
-        _flashLine.Text = message;
-        _flashLine.Foreground = Brushes.OrangeRed;
-        _clearFlashTimer?.Stop();
-        _clearFlashTimer = new DispatcherTimer(TimeSpan.FromSeconds(6), DispatcherPriority.Normal, (_, _) =>
+        RunOnUiThread(() =>
         {
-            _flashLine.Text = string.Empty;
-            _flashLine.Foreground = Brushes.LightGreen;
+            _flashLine.Text = message;
+            _flashLine.Foreground = Brushes.OrangeRed;
             _clearFlashTimer?.Stop();
+            _clearFlashTimer = new DispatcherTimer(TimeSpan.FromSeconds(6), DispatcherPriority.Normal, (_, _) =>
+            {
+                _flashLine.Text = string.Empty;
+                _flashLine.Foreground = Brushes.LightGreen;
+                _clearFlashTimer?.Stop();
+            });
+            _clearFlashTimer.Start();
         });
-        _clearFlashTimer.Start();
     }
 
     public void SetBusy(string message)
     {
-        _busyText.Text = message;
-        _busyOverlay.IsVisible = true;
+        RunOnUiThread(() =>
+        {
+            _busyText.Text = message;
+            _busyOverlay.IsVisible = true;
+        });
         Flash(message, TimeSpan.FromSeconds(30));
     }
 
-    public void ClearBusy() => _busyOverlay.IsVisible = false;
+    public void ClearBusy() => RunOnUiThread(() => _busyOverlay.IsVisible = false);
+
+    private static void RunOnUiThread(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            action();
+        else
+            Dispatcher.UIThread.Post(action);
+    }
 
     public async Task RunAsync(string busyMessage, string successMessage, Func<Task> action)
     {

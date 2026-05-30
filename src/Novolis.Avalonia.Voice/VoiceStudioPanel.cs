@@ -14,11 +14,18 @@ public sealed class VoiceStudioPanel : Grid
     private readonly AtcDeliveryInspector _atc = new();
     private readonly VoiceCodeExportPanel _export = new();
     private readonly TextBox _phrase = new() { Text = "Tower, ready for departure." };
-    private readonly VoicePreviewController _preview = new();
+    private readonly VoicePreviewController _preview;
 
     public VoiceStudioPanel(StudioFeedback feedback)
+        : this(feedback, new VoicePreviewController())
+    {
+    }
+
+    public VoiceStudioPanel(StudioFeedback feedback, VoicePreviewController preview)
     {
         ArgumentNullException.ThrowIfNull(feedback);
+        ArgumentNullException.ThrowIfNull(preview);
+        _preview = preview;
         RowDefinitions = new RowDefinitions("*,Auto");
         ColumnDefinitions = new ColumnDefinitions("220,*,280");
 

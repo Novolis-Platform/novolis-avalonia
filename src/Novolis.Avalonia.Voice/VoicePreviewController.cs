@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using Novolis.Audio.Voice;
 using Novolis.Audio.Voice.Design;
 
@@ -66,7 +67,7 @@ public sealed class VoicePreviewController : IDisposable
         var validation = VoicePresetValidation.Validate(draft);
         if (!validation.IsValid)
         {
-            StatusChanged?.Invoke(string.Join("; ", validation.Errors));
+            RaiseStatus(string.Join("; ", validation.Errors));
             return;
         }
 
@@ -76,19 +77,35 @@ public sealed class VoicePreviewController : IDisposable
 
         try
         {
-            StatusChanged?.Invoke("Synthesizing…");
+            RaiseStatus("Synthesizing…");
             _voice = VoicePresetPreviewFactory.Create(draft);
             await _voice.SpeakAsync(PreviewPhrase, _speakCts.Token).ConfigureAwait(false);
-            StatusChanged?.Invoke("Preview complete.");
+            RaiseStatus("Preview complete.");
         }
         catch (OperationCanceledException)
         {
-            StatusChanged?.Invoke("Preview cancelled.");
+            RaiseStatus("Preview cancelled.");
         }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke($"Preview failed: {ex.Message}");
-            PreviewFailed?.Invoke(ex);
+            RaiseStatus($"Preview failed: {ex.Message}");
+            RaisePreviewFailed(ex);
         }
+    }
+
+    private void RaiseStatus(string message)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            StatusChanged?.Invoke(message);
+        else
+            Dispatcher.UIThread.Post(() => StatusChanged?.Invoke(message));
+    }
+
+    private void RaisePreviewFailed(Exception ex)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            PreviewFailed?.Invoke(ex);
+        else
+            Dispatcher.UIThread.Post(() => PreviewFailed?.Invoke(ex));
     }
 }
