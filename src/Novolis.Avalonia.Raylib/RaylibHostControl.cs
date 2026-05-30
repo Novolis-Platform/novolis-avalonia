@@ -107,7 +107,7 @@ public class RaylibHostControl : Panel
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _presentTimer.Start();
+        SetHostActive(true);
     }
 
     /// <inheritdoc />
