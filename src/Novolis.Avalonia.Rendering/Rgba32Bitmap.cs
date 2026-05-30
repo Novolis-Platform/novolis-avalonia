@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
@@ -27,25 +28,29 @@ public static class Rgba32Bitmap
     {
         ArgumentNullException.ThrowIfNull(bitmap);
         if (pixels.Length < width * height)
-        {
             throw new ArgumentException("Pixel span is too small for the given dimensions.", nameof(pixels));
-        }
 
         using var frame = bitmap.Lock();
+        CopyPixelsToLockedFrame(frame, pixels, width, height);
+    }
+
+    /// <summary>Uploads RGBA pixels into a locked framebuffer.</summary>
+    public static unsafe void CopyPixelsToLockedFrame(ILockedFramebuffer frame, ReadOnlySpan<Rgba32> pixels, int width, int height)
+    {
+        var dstBase = (byte*)frame.Address;
         var stride = frame.RowBytes;
-        var dst = frame.Address;
         for (var y = 0; y < height; y++)
         {
             var rowSrc = pixels.Slice(y * width, width);
-            var rowDst = dst + y * stride;
+            var rowDst = dstBase + y * stride;
             for (var x = 0; x < width; x++)
             {
                 var p = rowSrc[x];
                 var offset = x * 4;
-                Marshal.WriteByte(rowDst, offset + 0, p.B);
-                Marshal.WriteByte(rowDst, offset + 1, p.G);
-                Marshal.WriteByte(rowDst, offset + 2, p.R);
-                Marshal.WriteByte(rowDst, offset + 3, p.A);
+                rowDst[offset] = p.B;
+                rowDst[offset + 1] = p.G;
+                rowDst[offset + 2] = p.R;
+                rowDst[offset + 3] = p.A;
             }
         }
     }

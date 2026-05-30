@@ -12,10 +12,10 @@ using Novolis.Raylib.Shell;
 namespace Novolis.Avalonia.Raylib;
 
 /// <summary>
-/// Avalonia control that hosts a Raylib viewport (hidden GLFW window + RGBA streaming).
+/// Avalonia panel that hosts a Raylib viewport (hidden GLFW window + RGBA streaming).
 /// Handle <see cref="FrameRendering"/> to draw with Raylib APIs on the render thread.
 /// </summary>
-public class RaylibHostControl : Control
+public class RaylibHostControl : Panel
 {
     /// <summary>Internal render width in pixels.</summary>
     public static readonly StyledProperty<int> FrameWidthProperty =
@@ -33,16 +33,24 @@ public class RaylibHostControl : Control
     public static readonly StyledProperty<bool> IsHostRunningProperty =
         AvaloniaProperty.Register<RaylibHostControl, bool>(nameof(IsHostRunning));
 
-    private readonly DispatcherTimer _presentTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private readonly Image _image;
     private readonly HostFrameRenderer _renderer = new();
+    private readonly DispatcherTimer _presentTimer = new(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) => PresentLatestFrame());
     private RaylibHostSession? _session;
     private WriteableBitmap? _bitmap;
-    private Image? _image;
+    private Rgba32[]? _presentScratch;
 
     /// <summary>Creates the control.</summary>
     public RaylibHostControl()
     {
-        _presentTimer.Tick += (_, _) => PresentLatestFrame();
+        Background = new SolidColorBrush(Color.FromRgb(24, 24, 28));
+        _image = new Image
+        {
+            Stretch = Stretch.Fill,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+        };
+        Children.Add(_image);
     }
 
     /// <summary>Internal render width in pixels.</summary>
@@ -79,22 +87,35 @@ public class RaylibHostControl : Control
     /// </summary>
     public event EventHandler<RaylibFrameEventArgs>? FrameRendering;
 
+    /// <summary>Starts or stops the embedded Raylib loop (only one GLFW host per process).</summary>
+    public void SetHostActive(bool active)
+    {
+        if (active)
+        {
+            if (VisualRoot is not null && !IsHostRunning)
+                StartHost();
+            _presentTimer.Start();
+        }
+        else
+        {
+            _presentTimer.Stop();
+            StopHost();
+        }
+    }
+
     /// <inheritdoc />
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        StartHost();
         _presentTimer.Start();
     }
 
     /// <inheritdoc />
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _presentTimer.Stop();
-        StopHost();
-        VisualChildren.Clear();
-        _image = null;
+        SetHostActive(false);
         _bitmap = null;
+        _presentScratch = null;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -108,9 +129,7 @@ public class RaylibHostControl : Control
             || change.Property == TargetFpsProperty)
         {
             if (IsHostRunning)
-            {
                 RestartHost();
-            }
         }
     }
 
@@ -137,9 +156,7 @@ public class RaylibHostControl : Control
     private void RestartHost()
     {
         if (VisualRoot is null)
-        {
             return;
-        }
 
         StartHost();
     }
@@ -155,36 +172,31 @@ public class RaylibHostControl : Control
     private void PresentLatestFrame()
     {
         if (_session is null || !_session.TryTakeFrame(out var pixels, out var width, out var height))
-        {
             return;
-        }
 
         if (width <= 0 || height <= 0)
-        {
             return;
+
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyFrame(pixels, width, height);
+        else
+            Dispatcher.UIThread.Post(() => ApplyFrame(pixels, width, height), DispatcherPriority.Render);
+    }
+
+    private void ApplyFrame(Rgba32[] pixels, int width, int height)
+    {
+        if (_bitmap is null || _bitmap.PixelSize.Width != width || _bitmap.PixelSize.Height != height)
+        {
+            _bitmap = Rgba32Bitmap.CreateBitmap(width, height);
+            _image.Source = _bitmap;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_bitmap is null || _bitmap.PixelSize.Width != width || _bitmap.PixelSize.Height != height)
-            {
-                _bitmap = Rgba32Bitmap.CreateBitmap(width, height);
-                _image ??= new Image
-                {
-                    Stretch = Stretch.Fill,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                };
-                _image.Source = _bitmap;
-                if (_image.Parent is null)
-                {
-                    VisualChildren.Add(_image);
-                }
-            }
+        if (_presentScratch is null || _presentScratch.Length != pixels.Length)
+            _presentScratch = new Rgba32[pixels.Length];
 
-            Rgba32Bitmap.CopyPixels(_bitmap, pixels, width, height);
-            InvalidateVisual();
-        }, DispatcherPriority.Render);
+        pixels.AsSpan().CopyTo(_presentScratch);
+        Rgba32Bitmap.CopyPixels(_bitmap, _presentScratch, width, height);
+        InvalidateVisual();
     }
 
     private sealed class HostFrameRenderer : IRaylibFrameRenderer
@@ -194,12 +206,7 @@ public class RaylibHostControl : Control
         public void OnFrame(float deltaSeconds, int screenWidth, int screenHeight)
         {
             var control = Control;
-            if (control is null)
-            {
-                return;
-            }
-
-            control.FrameRendering?.Invoke(control, new RaylibFrameEventArgs(deltaSeconds, screenWidth, screenHeight));
+            control?.FrameRendering?.Invoke(control, new RaylibFrameEventArgs(deltaSeconds, screenWidth, screenHeight));
         }
     }
 }
