@@ -12,10 +12,23 @@ namespace Novolis.Avalonia.Rendering;
 /// <summary>
 /// Displays CPU path-traced or software-rendered RGBA frames (implements the same contract as <see cref="IFramePresenter"/>).
 /// </summary>
-public class Rgba32FrameControl : Control, IFramePresenter
+public class Rgba32FrameControl : Panel, IFramePresenter
 {
+    private readonly Image _image;
     private WriteableBitmap? _bitmap;
-    private Image? _image;
+
+    /// <summary>Creates the control with a fill-stretched image child.</summary>
+    public Rgba32FrameControl()
+    {
+        Background = new SolidColorBrush(Color.FromRgb(24, 24, 28));
+        _image = new Image
+        {
+            Stretch = Stretch.Fill,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+        };
+        Children.Add(_image);
+    }
 
     /// <inheritdoc />
     public void PresentCpuFrame(ReadOnlySpan<Rgba32> pixels, int width, int height)
@@ -26,35 +39,25 @@ public class Rgba32FrameControl : Control, IFramePresenter
         }
 
         var copy = pixels.ToArray();
-        Dispatcher.UIThread.Post(() =>
+        if (Dispatcher.UIThread.CheckAccess())
         {
-            if (_bitmap is null || _bitmap.PixelSize.Width != width || _bitmap.PixelSize.Height != height)
-            {
-                _bitmap = Rgba32Bitmap.CreateBitmap(width, height);
-                _image ??= new Image
-                {
-                    Stretch = Stretch.Fill,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                };
-                _image.Source = _bitmap;
-                if (_image.Parent is null)
-                {
-                    VisualChildren.Add(_image);
-                }
-            }
-
-            Rgba32Bitmap.CopyPixels(_bitmap, copy, width, height);
-            InvalidateVisual();
-        }, DispatcherPriority.Render);
+            ApplyFrame(copy, width, height);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() => ApplyFrame(copy, width, height), DispatcherPriority.Render);
+        }
     }
 
-    /// <inheritdoc />
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    private void ApplyFrame(ReadOnlySpan<Rgba32> pixels, int width, int height)
     {
-        VisualChildren.Clear();
-        _image = null;
-        _bitmap = null;
-        base.OnDetachedFromVisualTree(e);
+        if (_bitmap is null || _bitmap.PixelSize.Width != width || _bitmap.PixelSize.Height != height)
+        {
+            _bitmap = Rgba32Bitmap.CreateBitmap(width, height);
+            _image.Source = _bitmap;
+        }
+
+        Rgba32Bitmap.CopyPixels(_bitmap, pixels, width, height);
+        InvalidateVisual();
     }
 }
