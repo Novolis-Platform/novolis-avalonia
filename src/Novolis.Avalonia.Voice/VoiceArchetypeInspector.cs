@@ -24,10 +24,10 @@ public sealed class VoiceArchetypeInspector : StackPanel
         Children.Add(InspectorFields.Labeled("Profile id", _profileId));
         Children.Add(InspectorFields.Labeled("C# property name", _propertyName));
         Children.Add(InspectorFields.Labeled("Piper model", _modelCombo));
-        _speakingRate = InspectorFields.CreateSlider(0.8, 2.0, 1.24, 0.01, v => ApplyIfBound(d => d.SpeakingRate = (float)v));
-        Children.Add(InspectorFields.Labeled("Speaking rate", _speakingRate));
-        _rateMultiplier = InspectorFields.CreateSlider(0.8, 1.5, 1.0, 0.01, v => ApplyIfBound(d => d.RateMultiplier = (float)v));
-        Children.Add(InspectorFields.Labeled("Preview rate multiplier", _rateMultiplier));
+        _speakingRate = InspectorFields.CreateSlider(1.0, 2.2, 1.4, 0.02, v => ApplyIfBound(d => d.SpeakingRate = (float)v));
+        Children.Add(InspectorFields.Labeled("Speaking rate (higher = faster)", _speakingRate));
+        _rateMultiplier = InspectorFields.CreateSlider(0.9, 1.4, VoiceEffectChainBuilder.StudioPreviewRateBoost, 0.01, v => ApplyIfBound(d => d.RateMultiplier = (float)v));
+        Children.Add(InspectorFields.Labeled("Preview boost", _rateMultiplier));
         Children.Add(InspectorFields.Labeled("Description", _description));
 
         _profileId.TextChanged += (_, _) => ApplyIfBound(d => d.ProfileId = _profileId.Text ?? string.Empty);

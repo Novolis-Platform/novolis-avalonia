@@ -55,7 +55,11 @@ public sealed class VoicePresetListBox : ListBox
             ProfileId = "new_voice",
             PropertyName = "NewVoice",
             Description = "New voice preset",
+            RateMultiplier = VoiceEffectChainBuilder.StudioPreviewRateBoost,
         };
+        foreach (var step in VoiceEffectChainBuilder.CreateDefaultStudioChain())
+            draft.EffectSteps.Add(step.Clone());
+        draft.SyncLegacyFlagsFromSteps();
         _drafts.Add(draft);
         ItemsSource = null;
         ItemsSource = _drafts;

@@ -11,9 +11,9 @@ public sealed class VoiceStudioPanel : Grid
 {
     private readonly VoicePresetListBox _presets = new();
     private readonly VoiceArchetypeInspector _archetype = new();
-    private readonly AtcDeliveryInspector _atc = new();
+    private readonly VoiceEffectChainInspector _effects = new();
     private readonly VoiceCodeExportPanel _export = new();
-    private readonly TextBox _phrase = new() { Text = "Tower, ready for departure." };
+    private readonly TextBox _phrase = new() { Text = "Tower, ready for departure.", MinWidth = 280 };
     private readonly VoicePreviewController _preview;
 
     public VoiceStudioPanel(StudioFeedback feedback)
@@ -26,8 +26,8 @@ public sealed class VoiceStudioPanel : Grid
         ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(preview);
         _preview = preview;
-        RowDefinitions = new RowDefinitions("*,Auto");
-        ColumnDefinitions = new ColumnDefinitions("220,*,280");
+        ColumnDefinitions = new ColumnDefinitions("220,*");
+        RowDefinitions = new RowDefinitions("*");
 
         _presets.LoadCatalogSeeds();
         _presets.SelectionChangedDraft += OnPresetSelected;
@@ -68,35 +68,46 @@ public sealed class VoiceStudioPanel : Grid
         left.Children.Add(presetHeader);
         left.Children.Add(_presets);
 
-        var inspectors = new Grid { RowDefinitions = new RowDefinitions("*,*") };
-        Grid.SetRow(_archetype, 0);
-        inspectors.Children.Add(_archetype);
-        Grid.SetRow(_atc, 1);
-        inspectors.Children.Add(_atc);
-
-        var previewBar = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new Thickness(8),
-        };
-        previewBar.Children.Add(InspectorFields.Header("Preview"));
-        previewBar.Children.Add(_phrase);
-        var playBtn = new Button { Content = "Play" };
+        var playBtn = new Button { Content = "Play", MinWidth = 72 };
         playBtn.Click += async (_, _) => await PlayPreviewAsync(feedback).ConfigureAwait(true);
+
+        var previewBar = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            Margin = new Thickness(8, 8, 8, 0),
+        };
+        Grid.SetColumn(InspectorFields.Header("Preview"), 0);
+        previewBar.Children.Add(InspectorFields.Header("Preview"));
+        Grid.SetColumn(_phrase, 1);
+        previewBar.Children.Add(_phrase);
+        Grid.SetColumn(playBtn, 2);
         previewBar.Children.Add(playBtn);
 
-        var center = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto") };
+        var archetypeScroll = new ScrollViewer
+        {
+            Content = _archetype,
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        };
+
+        var editorTabs = new TabControl
+        {
+            Items =
+            {
+                new TabItem { Header = "Archetype", Content = archetypeScroll },
+                new TabItem { Header = "Effect chain", Content = _effects },
+            },
+        };
+
+        var center = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
         Grid.SetRow(previewBar, 0);
         center.Children.Add(previewBar);
-        Grid.SetRow(inspectors, 1);
-        center.Children.Add(inspectors);
+        Grid.SetRow(editorTabs, 1);
+        center.Children.Add(editorTabs);
         Grid.SetRow(_export, 2);
         center.Children.Add(_export);
 
         _archetype.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
-        _atc.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
-
+        _effects.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
         _preview.StatusChanged += msg => feedback.SetStatus(msg);
 
         Grid.SetColumn(left, 0);
@@ -115,7 +126,7 @@ public sealed class VoiceStudioPanel : Grid
     private void BindDraft(VoicePresetDraft draft)
     {
         _archetype.Bind(draft);
-        _atc.Bind(draft);
+        _effects.Bind(draft);
         _export.Bind(draft);
         _preview.PreviewPhrase = _phrase.Text ?? string.Empty;
     }
