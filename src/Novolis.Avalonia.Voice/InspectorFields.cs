@@ -5,7 +5,8 @@ using Avalonia.Media;
 
 namespace Novolis.Avalonia.Voice;
 
-internal static class InspectorFields
+/// <summary>Shared inspector layout helpers for voice studio panels and host extensions.</summary>
+public static class InspectorFields
 {
     public static TextBlock Header(string text) =>
         new()
