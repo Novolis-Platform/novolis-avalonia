@@ -13,19 +13,25 @@ public sealed class VoiceStudioPanel : Grid
     private readonly VoiceArchetypeInspector _archetype = new();
     private readonly VoiceEffectChainInspector _effects = new();
     private readonly VoicePlatformInspector _platform = new();
-    private readonly VoiceCodeExportPanel _export = new();
+    private readonly IVoicePresetCodeExport _export;
     private readonly TextBox _phrase = new() { Text = "Tower, ready for departure.", MinWidth = 280 };
     private readonly VoicePreviewController _preview;
 
     public VoiceStudioPanel(StudioFeedback feedback)
-        : this(feedback, new VoicePreviewController())
+        : this(feedback, new VoicePreviewController(), null)
     {
     }
 
     public VoiceStudioPanel(StudioFeedback feedback, VoicePreviewController preview)
+        : this(feedback, preview, null)
+    {
+    }
+
+    public VoiceStudioPanel(StudioFeedback feedback, VoicePreviewController preview, IVoicePresetCodeExport? codeExport)
     {
         ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(preview);
+        _export = codeExport ?? new VoiceCodeExportPanel();
         _preview = preview;
         ColumnDefinitions = new ColumnDefinitions("220,*");
         RowDefinitions = new RowDefinitions("*");
@@ -105,8 +111,8 @@ public sealed class VoiceStudioPanel : Grid
         center.Children.Add(previewBar);
         Grid.SetRow(editorTabs, 1);
         center.Children.Add(editorTabs);
-        Grid.SetRow(_export, 2);
-        center.Children.Add(_export);
+        Grid.SetRow(_export.View, 2);
+        center.Children.Add(_export.View);
 
         _archetype.DraftChanged += (_, d) => OnDraftEdited(d, feedback);
         _effects.DraftChanged += (_, d) => OnDraftEdited(d, feedback);

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Novolis.Audio.Voice.Design;
 

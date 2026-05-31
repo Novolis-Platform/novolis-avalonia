@@ -8,8 +8,10 @@ using Novolis.Audio.Voice.Design;
 namespace Novolis.Avalonia.Voice;
 
 /// <summary>Read-only C# export with template picker and clipboard copy.</summary>
-public sealed class VoiceCodeExportPanel : DockPanel
+public sealed class VoiceCodeExportPanel : DockPanel, IVoicePresetCodeExport
 {
+    Control IVoicePresetCodeExport.View => this;
+
     private readonly ComboBox _template = new();
     private readonly TextBox _code = new()
     {

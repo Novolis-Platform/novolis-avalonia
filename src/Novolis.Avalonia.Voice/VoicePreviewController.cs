@@ -1,7 +1,6 @@
 using Avalonia.Threading;
 using Novolis.Audio.Voice;
 using Novolis.Audio.Voice.Design;
-using Novolis.Audio.Voice.Phraseology;
 using Novolis.Audio.Voice.Platform;
 
 namespace Novolis.Avalonia.Voice;
@@ -21,6 +20,12 @@ public sealed class VoicePreviewController : IDisposable
     public event Action<string>? StatusChanged;
 
     public event Action<Exception>? PreviewFailed;
+
+    /// <summary>
+    /// Optional host factory for <see cref="VoiceSynthesizerBackend.Platform"/> previews.
+    /// Windows hosts should set this to construct <c>Novolis.Audio.Voice.Platform.Windows</c> services.
+    /// </summary>
+    public Func<VoicePresetDraft, IVoiceService>? PlatformPreviewFactory { get; set; }
 
     public void SchedulePreview(VoicePresetDraft draft)
     {
@@ -95,20 +100,16 @@ public sealed class VoicePreviewController : IDisposable
         }
     }
 
-    private static IVoiceService CreateVoice(VoicePresetDraft draft)
+    private IVoiceService CreateVoice(VoicePresetDraft draft)
     {
         if (draft.Backend != VoiceSynthesizerBackend.Platform)
             return VoicePresetPreviewFactory.Create(draft);
 
-        Func<string, string>? normalize = null;
-        if (draft.UsePhraseology)
-        {
-            var phraseology = new DefaultPhraseologyNormalizer();
-            normalize = phraseology.Normalize;
-        }
+        if (PlatformPreviewFactory is null)
+            throw new InvalidOperationException(
+                "Platform TTS preview requires a Windows host. Set VoicePreviewController.PlatformPreviewFactory.");
 
-        var speech = draft.Platform ?? new PlatformSpeechOptions();
-        return PlatformVoicePreviewFactory.Create(speech, normalize);
+        return PlatformPreviewFactory(draft);
     }
 
     private void RaiseStatus(string message)
