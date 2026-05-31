@@ -22,7 +22,7 @@ public sealed class VoicePresetListBox : ListBox
 
     public IReadOnlyList<VoicePresetDraft> Drafts => _drafts;
 
-    public virtual void LoadCatalogSeeds()
+    public void LoadCatalogSeeds()
     {
         _drafts.Clear();
         foreach (var archetype in VoiceArchetypeCatalog.All)
