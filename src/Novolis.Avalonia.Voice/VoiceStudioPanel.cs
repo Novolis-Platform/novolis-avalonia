@@ -130,6 +130,9 @@ public sealed class VoiceStudioPanel : Grid
 
     public VoicePreviewController PreviewController => _preview;
 
+    /// <summary>Preset list for host apps to append dogfood seeds after construction.</summary>
+    public VoicePresetListBox Presets => _presets;
+
     private void OnPresetSelected(object? sender, VoicePresetDraft draft) => BindDraft(draft);
 
     private void BindDraft(VoicePresetDraft draft)

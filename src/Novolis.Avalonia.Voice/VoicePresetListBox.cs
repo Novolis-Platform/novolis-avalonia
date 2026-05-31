@@ -22,7 +22,7 @@ public sealed class VoicePresetListBox : ListBox
 
     public IReadOnlyList<VoicePresetDraft> Drafts => _drafts;
 
-    public void LoadCatalogSeeds()
+    public virtual void LoadCatalogSeeds()
     {
         _drafts.Clear();
         foreach (var archetype in VoiceArchetypeCatalog.All)
@@ -31,6 +31,15 @@ public sealed class VoicePresetListBox : ListBox
         ItemsSource = _drafts;
         if (_drafts.Count > 0)
             SelectedIndex = 0;
+    }
+
+    /// <summary>Appends a preset after <see cref="LoadCatalogSeeds"/> (e.g. dogfood Kokoro variants).</summary>
+    public void AddDraft(VoicePresetDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        _drafts.Add(draft);
+        ItemsSource = null;
+        ItemsSource = _drafts;
     }
 
     public VoicePresetDraft CloneSelected()
