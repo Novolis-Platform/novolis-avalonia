@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>Novolis.Audio.Live.Studio</AssemblyName>
     <RootNamespace>LiveAvalonia</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
@@ -9,6 +10,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live\Novolis.Audio.Live.csproj" />
+    <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Dsl\Novolis.Audio.Live.Dsl.csproj" />
     <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Protocol\Novolis.Audio.Live.Protocol.csproj" />
     <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Repl\Novolis.Audio.Live.Repl.csproj" />
     <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Visuals\Novolis.Audio.Live.Visuals.csproj" />

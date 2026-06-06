@@ -31,7 +31,13 @@ Side-by-side **TwoD** (OpenGL) and **CPU RGBA** frame hosts.
 dotnet run --project samples/LiveAvalonia
 ```
 
-Launches the live studio sample, starts the headless audio host, connects over local IPC, compiles a typed program, and renders the current snapshot/graph view.
+Launches the live studio dashboard, starts the headless audio host, connects over local IPC, compiles a typed showcase set, and renders timing, diagnostics, and the live program graph together.
+
+## Releases
+
+Windows users can download the shipped live studio installer from the GitHub Release assets. The installer runs in user space, installs under `%LOCALAPPDATA%\Programs\Novolis\Novolis Audio Live`, and does not require administrator privileges.
+
+The release pipeline still publishes NuGet packages for library consumers. The installer is an additional release asset for the end-user app.
 
 ## Dogfood app
 

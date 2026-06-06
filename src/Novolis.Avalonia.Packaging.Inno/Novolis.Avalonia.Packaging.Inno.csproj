@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Packaging.Inno</PackageId>
+    <Description>Inno Setup script generation helpers for Novolis Avalonia installers.</Description>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Packaging.Inno</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="build\Novolis.Avalonia.Packaging.Inno.targets" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+  <Import Project="build\Novolis.Avalonia.Packaging.Inno.targets" Condition="Exists('build\Novolis.Avalonia.Packaging.Inno.targets')" />
+</Project>
