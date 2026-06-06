@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Live</PackageId>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Description>Avalonia controls for Novolis Audio Live transport snapshots and program graphs.</Description>
+    <RootNamespace>Novolis.Avalonia.Live</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
+    <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Protocol\Novolis.Audio.Live.Protocol.csproj" />
+    <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Visuals\Novolis.Audio.Live.Visuals.csproj" />
+  </ItemGroup>
+</Project>
