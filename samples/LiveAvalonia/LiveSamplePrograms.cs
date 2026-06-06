@@ -1,4 +1,5 @@
 using Novolis.Audio.Live;
+using Novolis.Audio.Live.Dsl;
 using Novolis.Audio.MusicTheory;
 using Novolis.Audio.Patterns;
 
@@ -6,63 +7,93 @@ namespace LiveAvalonia;
 
 internal static class LiveSamplePrograms
 {
+    public static IReadOnlyList<LiveProgramPreset> CreateShowcasePresets() =>
+    [
+        new LiveProgramPreset(
+            Name: "Pulse Bloom",
+            Description: "A clean triad motif with a steady pulse.",
+            Version: 1,
+            SwapPolicy: SwapPolicy.Immediately,
+            DelayBeforeCompile: TimeSpan.Zero,
+            Definition: CreateProgram(1)),
+        new LiveProgramPreset(
+            Name: "Signal Drift",
+            Description: "A brighter transpose with a bass shift.",
+            Version: 2,
+            SwapPolicy: SwapPolicy.NextBeat,
+            DelayBeforeCompile: TimeSpan.FromSeconds(2),
+            Definition: CreateProgram(2)),
+        new LiveProgramPreset(
+            Name: "Phrase Lift",
+            Description: "The motif opens out and the accents lift on phrase boundaries.",
+            Version: 3,
+            SwapPolicy: SwapPolicy.NextPhrase,
+            DelayBeforeCompile: TimeSpan.FromSeconds(2),
+            Definition: CreateProgram(3)),
+    ];
+
     public static LiveProgramDefinition CreateProgram(int version)
     {
         var lead = CreateLeadPattern(version);
         var bass = CreateBassPattern(version);
         var rhythm = CreateRhythmPattern(version);
 
-        return new LiveProgramDefinition(
-            Bpm: 120m,
-            Tracks:
-            [
-                new TrackDefinition("lead", InstrumentKind.Sine, lead),
-                new TrackDefinition("bass", InstrumentKind.Saw, bass, Channel: 1),
-                new TrackDefinition("pulse", InstrumentKind.Square, rhythm, Channel: 2),
-            ],
-            Root: new LayerPattern([lead, bass, rhythm]));
+        return LiveDsl.Program(
+            120m,
+            LiveDsl.Layer(lead, bass, rhythm),
+            LiveDsl.Track("lead", Instruments.Pluck, lead, effects: [Fx.Delay, Fx.Reverb]),
+            LiveDsl.Track("bass", Instruments.Bass, bass, channel: 1, effects: [Fx.Filter]),
+            LiveDsl.Track("pulse", Instruments.Kick, rhythm, channel: 2, effects: [Fx.Compressor]));
     }
 
     private static PatternNode CreateLeadPattern(int version)
     {
-        PatternNode motif =
-            new SequencePattern(
-            [
-                new NotePattern(new Note(new Pitch(PitchClass.C, Octave.MiddleC), Duration.Quarter, Velocity.Default, InstrumentKind.Sine)),
-                new NotePattern(new Note(new Pitch(PitchClass.D, Octave.MiddleC), Duration.Quarter, Velocity.Default, InstrumentKind.Sine)),
-                new NotePattern(new Note(new Pitch(PitchClass.E, Octave.MiddleC), Duration.Quarter, Velocity.Default, InstrumentKind.Sine)),
-                new RestPattern(Duration.Quarter),
-            ]);
+        PatternNode motif = LiveDsl.Sequence(
+            LiveDsl.Note(PitchClass.C, Octave.MiddleC, Duration.Quarter, instrument: Instruments.Pluck),
+            LiveDsl.Note(PitchClass.D, Octave.MiddleC, Duration.Quarter, instrument: Instruments.Pluck),
+            LiveDsl.Note(PitchClass.E, Octave.MiddleC, Duration.Quarter, instrument: Instruments.Pluck),
+            LiveDsl.Rest(Duration.Quarter));
 
         return version switch
         {
             1 => motif,
-            2 => new TransposePattern(motif, 2),
-            _ => new TransposePattern(motif, version),
+            2 => LiveDsl.Transpose(motif, 2),
+            3 => LiveDsl.Layer(
+                motif,
+                LiveDsl.Transpose(motif, 7)),
+            _ => LiveDsl.Transpose(motif, version),
         };
     }
 
     private static PatternNode CreateBassPattern(int version)
     {
-        var root = version % 2 == 0 ? PitchClass.F : PitchClass.C;
+        var root = version switch
+        {
+            1 => PitchClass.C,
+            2 => PitchClass.F,
+            3 => PitchClass.G,
+            _ => PitchClass.C,
+        };
 
-        return new RepeatPattern(
-            new SequencePattern(
-            [
-                new NotePattern(new Note(new Pitch(root, Octave.MiddleC), Duration.Half, Velocity.Default, InstrumentKind.Saw)),
-                new RestPattern(Duration.Half),
-            ]),
+        return LiveDsl.Repeat(
+            LiveDsl.Sequence(
+                LiveDsl.Note(root, Octave.MiddleC, Duration.Half, instrument: Instruments.Bass),
+                LiveDsl.Rest(Duration.Half)),
             2);
     }
 
     private static PatternNode CreateRhythmPattern(int version)
     {
-        var accent = version == 1 ? Velocity.Default : new Velocity(112);
+        var accent = version switch
+        {
+            1 => Velocity.Default,
+            2 => new Velocity(112),
+            3 => new Velocity(118),
+            _ => Velocity.Default,
+        };
 
-        return new LayerPattern(
-        [
-            new RepeatPattern(new NotePattern(new Note(new Pitch(PitchClass.C, Octave.MiddleC), Duration.Eighth, accent, InstrumentKind.Square)), 4),
-            new RepeatPattern(new RestPattern(Duration.Eighth), 4),
-        ]);
+        return LiveDsl.Layer(
+            LiveDsl.Repeat(LiveDsl.Note(PitchClass.C, Octave.MiddleC, Duration.Eighth, accent, Instruments.Kick), 4),
+            LiveDsl.Repeat(LiveDsl.Rest(Duration.Eighth), 4));
     }
 }

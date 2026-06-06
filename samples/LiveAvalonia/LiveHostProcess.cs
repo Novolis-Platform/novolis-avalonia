@@ -11,25 +11,7 @@ internal sealed class LiveHostProcess : IAsyncDisposable
         if (_process is not null)
             return;
 
-        var projectPath = ResolveHostProjectPath();
-        var workingDirectory = Path.GetDirectoryName(projectPath)
-            ?? throw new InvalidOperationException($"Unable to resolve working directory for {projectPath}.");
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-
-        startInfo.ArgumentList.Add("run");
-        startInfo.ArgumentList.Add("--project");
-        startInfo.ArgumentList.Add(projectPath);
-        startInfo.ArgumentList.Add("--configuration");
-        startInfo.ArgumentList.Add("Debug");
+        var startInfo = CreateStartInfo();
 
         _process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Failed to launch Novolis.Audio.Live.Host.");
@@ -66,6 +48,54 @@ internal sealed class LiveHostProcess : IAsyncDisposable
         }
     }
 
+    private static ProcessStartInfo CreateStartInfo()
+    {
+        if (TryResolvePublishedHostExecutable(out var executablePath, out var useDotNet))
+        {
+            var publishedStartInfo = new ProcessStartInfo
+            {
+                WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            if (useDotNet)
+            {
+                publishedStartInfo.FileName = "dotnet";
+                publishedStartInfo.ArgumentList.Add(executablePath);
+            }
+            else
+            {
+                publishedStartInfo.FileName = executablePath;
+            }
+
+            return publishedStartInfo;
+        }
+
+        var projectPath = ResolveHostProjectPath();
+        var workingDirectory = Path.GetDirectoryName(projectPath)
+            ?? throw new InvalidOperationException($"Unable to resolve working directory for {projectPath}.");
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        startInfo.ArgumentList.Add("run");
+        startInfo.ArgumentList.Add("--project");
+        startInfo.ArgumentList.Add(projectPath);
+        startInfo.ArgumentList.Add("--configuration");
+        startInfo.ArgumentList.Add("Debug");
+        return startInfo;
+    }
+
     private static async Task DrainAsync(TextReader reader, TextWriter writer, CancellationToken cancellationToken)
     {
         try
@@ -94,6 +124,43 @@ internal sealed class LiveHostProcess : IAsyncDisposable
             throw new FileNotFoundException("Unable to locate the Novolis Audio live host project.", projectPath);
 
         return projectPath;
+    }
+
+    private static bool TryResolvePublishedHostExecutable(out string executablePath, out bool useDotNet)
+    {
+        var overridePath = Environment.GetEnvironmentVariable("NOVOLIS_AUDIO_LIVE_HOST_PATH");
+        if (!string.IsNullOrWhiteSpace(overridePath))
+        {
+            var candidate = Path.GetFullPath(overridePath);
+            if (File.Exists(candidate))
+            {
+                executablePath = candidate;
+                useDotNet = Path.GetExtension(candidate).Equals(".dll", StringComparison.OrdinalIgnoreCase);
+                return true;
+            }
+        }
+
+        var publishRoot = AppContext.BaseDirectory;
+        var hostName = OperatingSystem.IsWindows() ? "Novolis.Audio.Live.Host.exe" : "Novolis.Audio.Live.Host";
+        var candidateHost = Path.Combine(publishRoot, "host", hostName);
+        if (File.Exists(candidateHost))
+        {
+            executablePath = candidateHost;
+            useDotNet = false;
+            return true;
+        }
+
+        var candidateDll = Path.Combine(publishRoot, "host", "Novolis.Audio.Live.Host.dll");
+        if (File.Exists(candidateDll))
+        {
+            executablePath = candidateDll;
+            useDotNet = true;
+            return true;
+        }
+
+        executablePath = string.Empty;
+        useDotNet = false;
+        return false;
     }
 
     private static string FindAncestorDirectory(string name)

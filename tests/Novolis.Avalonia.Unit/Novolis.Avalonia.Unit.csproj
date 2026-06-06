@@ -8,5 +8,6 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Packaging.Inno\Novolis.Avalonia.Packaging.Inno.csproj" />
   </ItemGroup>
 </Project>
