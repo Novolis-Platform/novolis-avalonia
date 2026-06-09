@@ -27,6 +27,11 @@ public sealed class MarkdownSourceEditor : Border
     public static readonly StyledProperty<string?> PlaceholderTextProperty =
         AvaloniaProperty.Register<MarkdownSourceEditor, string?>(nameof(PlaceholderText), "Write Markdown…");
 
+    public static readonly StyledProperty<MarkdownSourceHighlightingProfile> HighlightingProfileProperty =
+        AvaloniaProperty.Register<MarkdownSourceEditor, MarkdownSourceHighlightingProfile>(
+            nameof(HighlightingProfile),
+            MarkdownSourceHighlightingProfile.Markdown);
+
     private readonly TextEditor _editor;
 
     /// <summary>Creates a styled Markdown source editor.</summary>
@@ -70,6 +75,7 @@ public sealed class MarkdownSourceEditor : Border
 
         _editor.Watermark = PlaceholderText ?? string.Empty;
         UpdateTypography();
+        ApplySyntaxHighlighting();
     }
 
     /// <summary>Shared monospace font family for gutter and editor.</summary>
@@ -111,6 +117,13 @@ public sealed class MarkdownSourceEditor : Border
         set => SetValue(PlaceholderTextProperty, value);
     }
 
+    /// <summary>Gets or sets the syntax highlighting profile applied to the source editor.</summary>
+    public MarkdownSourceHighlightingProfile HighlightingProfile
+    {
+        get => GetValue(HighlightingProfileProperty);
+        set => SetValue(HighlightingProfileProperty, value);
+    }
+
     /// <summary>Raised when the editor text changes.</summary>
     public event EventHandler<TextChangedEventArgs>? TextChanged;
 
@@ -142,6 +155,10 @@ public sealed class MarkdownSourceEditor : Border
         {
             _editor.Watermark = PlaceholderText ?? string.Empty;
         }
+        else if (change.Property == HighlightingProfileProperty)
+        {
+            ApplySyntaxHighlighting();
+        }
     }
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
@@ -156,5 +173,10 @@ public sealed class MarkdownSourceEditor : Border
     {
         _editor.FontSize = MarkdownZoom.ScaledFontSize(BaseFontSize, ZoomScale);
         _editor.Options.LineHeightFactor = 1.35;
+    }
+
+    private void ApplySyntaxHighlighting()
+    {
+        _editor.SyntaxHighlighting = MarkdownSyntaxHighlighting.GetDefinition(HighlightingProfile);
     }
 }

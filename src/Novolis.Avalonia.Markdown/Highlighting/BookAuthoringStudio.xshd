@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="Novolis.BookAuthoring" extensions=".md;.markdown" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Heading" foreground="#569CD6" fontWeight="bold" />
+  <Color name="Strong" foreground="#FFFFFF" fontWeight="bold" />
+  <Color name="Emphasis" foreground="#C586C0" fontStyle="italic" />
+  <Color name="InlineCode" foreground="#CE9178" />
+  <Color name="FencedCode" foreground="#9DA5AE" background="#252526" />
+  <Color name="BlockQuote" foreground="#6EB5FF" />
+  <Color name="MetadataTag" foreground="#4EC9B0" fontWeight="bold" />
+  <Color name="Dialogue" foreground="#F2D188" background="#2A2418" />
+  <Color name="Link" foreground="#6EB5FF" />
+  <Color name="HorizontalRule" foreground="#555555" />
+
+  <RuleSet ignoreCase="false">
+    <Span color="FencedCode" multiline="true">
+      <Begin>^```[\w-]*\s*$</Begin>
+      <End>^```\s*$</End>
+    </Span>
+
+    <Span color="BlockQuote" multiline="true">
+      <Begin>^&gt;\s?</Begin>
+      <End>^(?!&gt;)</End>
+    </Span>
+
+    <Rule color="Heading">
+      ^\#{1,6}\s+.*$
+    </Rule>
+
+    <Rule color="HorizontalRule">
+      ^(\*{3,}|-{3,}|_{3,})\s*$
+    </Rule>
+
+    <Rule color="MetadataTag">
+      \[![a-z0-9_-]+\]
+    </Rule>
+
+    <Rule color="Dialogue">
+      &quot;([^&quot;\\]|\\.)*&quot;
+    </Rule>
+
+    <Rule color="Strong">
+      \*\*[^*\n]+\*\*
+    </Rule>
+
+    <Rule color="Strong">
+      __[^_\n]+__
+    </Rule>
+
+    <Rule color="Emphasis">
+      \*(?!\s)[^*\n]+\*
+    </Rule>
+
+    <Rule color="Emphasis">
+      _(?!_)[^_\n]+_
+    </Rule>
+
+    <Rule color="InlineCode">
+      `[^`\n]+`
+    </Rule>
+
+    <Rule color="Link">
+      !?\[[^\]]+\]\([^\)]+\)
+    </Rule>
+
+    <Rule color="Link">
+      \[[^\]]+\]\[[^\]]+\]
+    </Rule>
+  </RuleSet>
+</SyntaxDefinition>

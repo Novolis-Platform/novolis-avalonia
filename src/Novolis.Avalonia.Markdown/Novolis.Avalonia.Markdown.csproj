@@ -13,4 +13,7 @@
     <PackageReference Include="Markdig" />
     <PackageReference Include="Mermaider" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Highlighting\*.xshd" />
+  </ItemGroup>
 </Project>
