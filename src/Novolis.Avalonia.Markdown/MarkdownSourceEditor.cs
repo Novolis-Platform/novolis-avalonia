@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 
 namespace Novolis.Avalonia.Markdown;
 
@@ -95,6 +96,8 @@ public sealed class MarkdownSourceEditor : Border
 
         _editor.TextChanged += OnEditorTextChanged;
         _editor.PropertyChanged += OnEditorPropertyChanged;
+        _editor.SizeChanged += OnLayoutChanged;
+        _scroll.SizeChanged += OnLayoutChanged;
         _scroll.ScrollChanged += OnScrollChanged;
 
         CtrlScrollZoom.Attach(this, () => ZoomScale, value => ZoomScale = value);
@@ -174,6 +177,7 @@ public sealed class MarkdownSourceEditor : Border
             _scroll.HorizontalScrollBarVisibility = WordWrap
                 ? ScrollBarVisibility.Disabled
                 : ScrollBarVisibility.Auto;
+            UpdateGutter();
         }
         else if (change.Property == PlaceholderTextProperty)
             _editor.PlaceholderText = PlaceholderText ?? string.Empty;
@@ -194,6 +198,8 @@ public sealed class MarkdownSourceEditor : Border
             UpdateGutter();
     }
 
+    private void OnLayoutChanged(object? sender, SizeChangedEventArgs e) => UpdateGutter();
+
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (_syncingScroll)
@@ -209,15 +215,54 @@ public sealed class MarkdownSourceEditor : Border
         var size = MarkdownZoom.ScaledFontSize(BaseFontSize, ZoomScale);
         _editor.FontSize = size;
         _gutter.FontSize = size;
-        _gutter.LineHeight = size * 1.35;
+        UpdateGutter();
     }
 
     private void UpdateGutter()
     {
         var text = _editor.Text ?? string.Empty;
-        var lineCount = LineNumberGutterFormatter.CountLines(text);
         var activeLine = LineNumberGutterFormatter.LineAtCaret(text, _editor.CaretIndex);
-        _gutter.Text = LineNumberGutterFormatter.Format(lineCount, activeLine);
+        var typeface = new Typeface(_editor.FontFamily ?? EditorFontFamily);
+        var fontSize = _editor.FontSize;
+        var contentWidth = GetEditorContentWidth();
+
+        _gutter.Text = WrappedLineNumberGutter.Build(
+            text,
+            typeface,
+            fontSize,
+            contentWidth,
+            WordWrap,
+            activeLine);
+
+        _gutter.LineHeight = ResolveGutterLineHeight(text, typeface, fontSize, contentWidth);
         _gutter.Foreground = new SolidColorBrush(Color.Parse("#6e7681"));
+    }
+
+    private double GetEditorContentWidth()
+    {
+        var width = _editor.Bounds.Width;
+        if (width <= 0)
+            width = _scroll.Viewport.Width;
+
+        var padding = _editor.Padding.Left + _editor.Padding.Right;
+        return Math.Max(1, width - padding);
+    }
+
+    private double ResolveGutterLineHeight(string text, Typeface typeface, double fontSize, double contentWidth)
+    {
+        if (!WordWrap || string.IsNullOrEmpty(text) || contentWidth <= 1)
+            return fontSize * 1.35;
+
+        using var layout = new TextLayout(
+            text,
+            typeface,
+            fontSize,
+            textWrapping: TextWrapping.Wrap,
+            maxWidth: contentWidth);
+
+        if (layout.TextLines.Count == 0)
+            return fontSize * 1.35;
+
+        return layout.Height / layout.TextLines.Count;
     }
 }

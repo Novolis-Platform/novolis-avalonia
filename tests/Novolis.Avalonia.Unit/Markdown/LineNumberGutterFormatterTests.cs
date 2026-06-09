@@ -23,4 +23,17 @@ public class LineNumberGutterFormatterTests
         await Assert.That(gutter).Contains(" 1");
         await Assert.That(gutter).Contains(" 3");
     }
+
+    [Test]
+    public async Task FormatWrapped_PadsContinuationRows()
+    {
+        var gutter = LineNumberGutterFormatter.FormatWrapped([1, 3, 1], activeLogicalLine: 2);
+        var rows = gutter.Split('\n');
+        await Assert.That(rows.Length).IsEqualTo(5);
+        await Assert.That(rows[0]).Contains(" 1");
+        await Assert.That(rows[1]).Contains(">2");
+        await Assert.That(rows[2]).IsEqualTo("  ");
+        await Assert.That(rows[3]).IsEqualTo("  ");
+        await Assert.That(rows[4]).Contains(" 3");
+    }
 }

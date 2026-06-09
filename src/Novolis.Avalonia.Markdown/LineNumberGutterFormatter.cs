@@ -64,4 +64,42 @@ public static class LineNumberGutterFormatter
 
         return builder.ToString();
     }
+
+    /// <summary>
+    /// Formats gutter text with blank rows for wrapped continuations so numbers align with the editor.
+    /// </summary>
+    /// <param name="visualLinesPerLogicalLine">Visual row count for each logical line.</param>
+    /// <param name="activeLogicalLine">1-based active logical line to emphasize.</param>
+    /// <returns>Multiline gutter text with continuation padding rows.</returns>
+    public static string FormatWrapped(IReadOnlyList<int> visualLinesPerLogicalLine, int activeLogicalLine = 0)
+    {
+        if (visualLinesPerLogicalLine.Count == 0)
+            return Format(1, activeLogicalLine);
+
+        var logicalLineCount = visualLinesPerLogicalLine.Count;
+        var width = logicalLineCount.ToString().Length;
+        var builder = new StringBuilder();
+        var firstRow = true;
+
+        for (var logical = 0; logical < logicalLineCount; logical++)
+        {
+            var visualCount = Math.Max(1, visualLinesPerLogicalLine[logical]);
+            var lineNumber = logical + 1;
+            var number = lineNumber.ToString().PadLeft(width);
+            var isActive = lineNumber == activeLogicalLine;
+
+            for (var visual = 0; visual < visualCount; visual++)
+            {
+                if (!firstRow)
+                    builder.Append('\n');
+                firstRow = false;
+
+                builder.Append(visual == 0
+                    ? isActive ? $">{number}" : $" {number}"
+                    : new string(' ', width + 1));
+            }
+        }
+
+        return builder.ToString();
+    }
 }
