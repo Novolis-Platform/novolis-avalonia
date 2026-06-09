@@ -8,7 +8,9 @@
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.2" />
+    <PackageVersion Include="Avalonia.HtmlRenderer" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.2" />
+    <PackageVersion Include="Markdig" Version="0.41.3" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
     <PackageVersion Include="TUnit" Version="1.44.39" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />

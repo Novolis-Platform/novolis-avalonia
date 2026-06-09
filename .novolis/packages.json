@@ -28,6 +28,17 @@
         "global.json"
       ],
       "project": "src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj"
+    },
+    "Novolis.Avalonia.Markdown": {
+      "paths": [
+        "src/Novolis.Avalonia.Markdown/**",
+        "tests/Novolis.Avalonia.Unit/Markdown/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj"
     }
   }
 }

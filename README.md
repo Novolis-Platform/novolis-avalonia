@@ -11,6 +11,7 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 | `Novolis.Avalonia.Rendering` | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
 | `Novolis.Avalonia.Raylib` | `RaylibHostControl` (embedded Raylib viewport) |
 | `Novolis.Avalonia.Live` | Live audio panels for transport snapshots and program graphs |
+| `Novolis.Avalonia.Markdown` | Markdown editor, live HTML preview, split-pane studio controls |
 
 ## Build
 

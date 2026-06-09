@@ -9,6 +9,7 @@
     <Project Path="src/Novolis.Avalonia.Live/Novolis.Avalonia.Live.csproj" />
     <Project Path="src/Novolis.Avalonia.Voice/Novolis.Avalonia.Voice.csproj" />
     <Project Path="src/Novolis.Avalonia.Timeline/Novolis.Avalonia.Timeline.csproj" />
+    <Project Path="src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />
