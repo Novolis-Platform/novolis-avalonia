@@ -10,9 +10,15 @@ dotnet add package Novolis.Avalonia.Markdown
 
 **Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia 12.
 
-Add AvaloniaEdit styles to your application (required for the editor to render):
+Add AvaloniaEdit to your app project and include its styles (required for the editor to render):
 
 ```xml
+<!-- .csproj -->
+<PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+```
+
+```xml
+<!-- App.axaml -->
 <Application.Styles>
   <FluentTheme />
   <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
