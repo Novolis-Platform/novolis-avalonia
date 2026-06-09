@@ -2,14 +2,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Media.TextFormatting;
+using AvaloniaEdit;
 
 namespace Novolis.Avalonia.Markdown;
 
 /// <summary>
-/// Markdown source editor with line-number gutter, word wrap, active-line highlight, and Ctrl+scroll zoom.
+/// Markdown source editor built on AvaloniaEdit with line numbers, word wrap, current-line highlight, and Ctrl+scroll zoom.
 /// </summary>
 public sealed class MarkdownSourceEditor : Border
 {
@@ -28,10 +27,7 @@ public sealed class MarkdownSourceEditor : Border
     public static readonly StyledProperty<string?> PlaceholderTextProperty =
         AvaloniaProperty.Register<MarkdownSourceEditor, string?>(nameof(PlaceholderText), "Write Markdown…");
 
-    private readonly TextBlock _gutter;
-    private readonly TextBox _editor;
-    private readonly ScrollViewer _scroll;
-    private bool _syncingScroll;
+    private readonly TextEditor _editor;
 
     /// <summary>Creates a styled Markdown source editor.</summary>
     public MarkdownSourceEditor()
@@ -42,71 +38,37 @@ public sealed class MarkdownSourceEditor : Border
         CornerRadius = new CornerRadius(4);
         ClipToBounds = true;
 
-        _gutter = new TextBlock
+        _editor = new TextEditor
         {
-            FontFamily = EditorFontFamily,
-            TextAlignment = TextAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            Padding = new Thickness(8, 10, 6, 10),
-            Foreground = new SolidColorBrush(Color.Parse("#6e7681")),
-            IsHitTestVisible = false,
-        };
-
-        var gutterBorder = new Border
-        {
-            Background = new SolidColorBrush(Color.Parse("#252526")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#333337")),
-            BorderThickness = new Thickness(0, 0, 1, 0),
-            Child = _gutter,
-            MinWidth = 44,
-        };
-
-        _editor = new TextBox
-        {
-            AcceptsReturn = true,
-            AcceptsTab = true,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            CaretBrush = new SolidColorBrush(Color.Parse("#aeafad")),
-            FontFamily = EditorFontFamily,
+            Background = new SolidColorBrush(Color.Parse("#1e1e1e")),
             Foreground = new SolidColorBrush(Color.Parse("#d4d4d4")),
-            Padding = new Thickness(8, 10, 12, 10),
-            SelectionBrush = new SolidColorBrush(Color.Parse("#264f78")),
-            SelectionForegroundBrush = Brushes.White,
-            TextWrapping = TextWrapping.Wrap,
-        };
-
-        _scroll = new ScrollViewer
-        {
+            FontFamily = EditorFontFamily,
+            ShowLineNumbers = true,
+            WordWrap = true,
+            LineNumbersForeground = new SolidColorBrush(Color.Parse("#6e7681")),
+            LineNumbersMargin = new Thickness(8, 10, 6, 10),
+            Padding = new Thickness(0, 10, 12, 10),
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Content = _editor,
+            BorderThickness = new Thickness(0),
         };
 
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-        };
-        Grid.SetColumn(gutterBorder, 0);
-        Grid.SetColumn(_scroll, 1);
-        grid.Children.Add(gutterBorder);
-        grid.Children.Add(_scroll);
+        _editor.Options.HighlightCurrentLine = true;
+        _editor.Options.AcceptsTab = true;
 
-        Child = grid;
+        _editor.TextArea.CaretBrush = new SolidColorBrush(Color.Parse("#aeafad"));
+        _editor.TextArea.SelectionBrush = new SolidColorBrush(Color.Parse("#264f78"));
+        _editor.TextArea.SelectionForeground = Brushes.White;
+
+        Child = _editor;
 
         _editor.TextChanged += OnEditorTextChanged;
-        _editor.PropertyChanged += OnEditorPropertyChanged;
-        _editor.SizeChanged += OnLayoutChanged;
-        _scroll.SizeChanged += OnLayoutChanged;
-        _scroll.ScrollChanged += OnScrollChanged;
 
         CtrlScrollZoom.Attach(this, () => ZoomScale, value => ZoomScale = value);
-        CtrlScrollZoom.Attach(_scroll, () => ZoomScale, value => ZoomScale = value);
         CtrlScrollZoom.Attach(_editor, () => ZoomScale, value => ZoomScale = value);
 
-        _editor.PlaceholderText = PlaceholderText ?? string.Empty;
+        _editor.Watermark = PlaceholderText ?? string.Empty;
         UpdateTypography();
-        UpdateGutter();
     }
 
     /// <summary>Shared monospace font family for gutter and editor.</summary>
@@ -151,7 +113,7 @@ public sealed class MarkdownSourceEditor : Border
     /// <summary>Raised when the editor text changes.</summary>
     public event EventHandler<TextChangedEventArgs>? TextChanged;
 
-    /// <summary>Focuses the underlying text box.</summary>
+    /// <summary>Focuses the underlying text editor.</summary>
     public void FocusEditor() => _editor.Focus();
 
     /// <inheritdoc />
@@ -162,10 +124,7 @@ public sealed class MarkdownSourceEditor : Border
         if (change.Property == TextProperty)
         {
             if (!string.Equals(_editor.Text, Text, StringComparison.Ordinal))
-            {
                 _editor.Text = Text ?? string.Empty;
-                UpdateGutter();
-            }
         }
         else if (change.Property == ZoomScaleProperty || change.Property == BaseFontSizeProperty)
         {
@@ -173,96 +132,28 @@ public sealed class MarkdownSourceEditor : Border
         }
         else if (change.Property == WordWrapProperty)
         {
-            _editor.TextWrapping = WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
-            _scroll.HorizontalScrollBarVisibility = WordWrap
+            _editor.WordWrap = WordWrap;
+            _editor.HorizontalScrollBarVisibility = WordWrap
                 ? ScrollBarVisibility.Disabled
                 : ScrollBarVisibility.Auto;
-            UpdateGutter();
         }
         else if (change.Property == PlaceholderTextProperty)
-            _editor.PlaceholderText = PlaceholderText ?? string.Empty;
+        {
+            _editor.Watermark = PlaceholderText ?? string.Empty;
+        }
     }
 
-    private void OnEditorTextChanged(object? sender, TextChangedEventArgs e)
+    private void OnEditorTextChanged(object? sender, EventArgs e)
     {
         if (!string.Equals(Text, _editor.Text, StringComparison.Ordinal))
             SetCurrentValue(TextProperty, _editor.Text);
 
-        UpdateGutter();
-        TextChanged?.Invoke(this, e);
-    }
-
-    private void OnEditorPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        if (e.Property == TextBox.CaretIndexProperty)
-            UpdateGutter();
-    }
-
-    private void OnLayoutChanged(object? sender, SizeChangedEventArgs e) => UpdateGutter();
-
-    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
-    {
-        if (_syncingScroll)
-            return;
-
-        _syncingScroll = true;
-        _gutter.Margin = new Thickness(0, -_scroll.Offset.Y, 0, 0);
-        _syncingScroll = false;
+        TextChanged?.Invoke(this, new TextChangedEventArgs(null));
     }
 
     private void UpdateTypography()
     {
-        var size = MarkdownZoom.ScaledFontSize(BaseFontSize, ZoomScale);
-        _editor.FontSize = size;
-        _gutter.FontSize = size;
-        UpdateGutter();
-    }
-
-    private void UpdateGutter()
-    {
-        var text = _editor.Text ?? string.Empty;
-        var activeLine = LineNumberGutterFormatter.LineAtCaret(text, _editor.CaretIndex);
-        var typeface = new Typeface(_editor.FontFamily ?? EditorFontFamily);
-        var fontSize = _editor.FontSize;
-        var contentWidth = GetEditorContentWidth();
-
-        _gutter.Text = WrappedLineNumberGutter.Build(
-            text,
-            typeface,
-            fontSize,
-            contentWidth,
-            WordWrap,
-            activeLine);
-
-        _gutter.LineHeight = ResolveGutterLineHeight(text, typeface, fontSize, contentWidth);
-        _gutter.Foreground = new SolidColorBrush(Color.Parse("#6e7681"));
-    }
-
-    private double GetEditorContentWidth()
-    {
-        var width = _editor.Bounds.Width;
-        if (width <= 0)
-            width = _scroll.Viewport.Width;
-
-        var padding = _editor.Padding.Left + _editor.Padding.Right;
-        return Math.Max(1, width - padding);
-    }
-
-    private double ResolveGutterLineHeight(string text, Typeface typeface, double fontSize, double contentWidth)
-    {
-        if (!WordWrap || string.IsNullOrEmpty(text) || contentWidth <= 1)
-            return fontSize * 1.35;
-
-        using var layout = new TextLayout(
-            text,
-            typeface,
-            fontSize,
-            textWrapping: TextWrapping.Wrap,
-            maxWidth: contentWidth);
-
-        if (layout.TextLines.Count == 0)
-            return fontSize * 1.35;
-
-        return layout.Height / layout.TextLines.Count;
+        _editor.FontSize = MarkdownZoom.ScaledFontSize(BaseFontSize, ZoomScale);
+        _editor.Options.LineHeightFactor = 1.35;
     }
 }

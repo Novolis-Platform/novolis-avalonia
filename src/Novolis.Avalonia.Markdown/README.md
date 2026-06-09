@@ -10,6 +10,15 @@ dotnet add package Novolis.Avalonia.Markdown
 
 **Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia 12.
 
+Add AvaloniaEdit styles to your application (required for the editor to render):
+
+```xml
+<Application.Styles>
+  <FluentTheme />
+  <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+</Application.Styles>
+```
+
 ## Quick start
 
 ```csharp
@@ -27,7 +36,7 @@ var editor = new MarkdownSourceEditor { WordWrap = true };
 var preview = new MarkdownPreviewPane();
 ```
 
-**Editor features:** line-number gutter, word wrap, active-line marker, Ctrl+mouse wheel zoom.  
+**Editor features:** AvaloniaEdit source surface, line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
 **Preview features:** Markdig HTML with built-in studio/GitHub themes, Ctrl+scroll zoom.
 
 ## Related packages
