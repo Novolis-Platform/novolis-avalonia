@@ -51,6 +51,7 @@ public sealed class MarkdownPreviewPane : Border
 
         CtrlScrollZoom.Attach(this, () => ZoomScale, value => ZoomScale = value);
         CtrlScrollZoom.Attach(_scroll, () => ZoomScale, value => ZoomScale = value);
+        CtrlScrollZoom.Attach(_html, () => ZoomScale, value => ZoomScale = value);
 
         RefreshHtml();
     }

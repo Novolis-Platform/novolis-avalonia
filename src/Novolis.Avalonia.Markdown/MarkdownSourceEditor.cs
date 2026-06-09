@@ -66,6 +66,7 @@ public sealed class MarkdownSourceEditor : Border
 
         CtrlScrollZoom.Attach(this, () => ZoomScale, value => ZoomScale = value);
         CtrlScrollZoom.Attach(_editor, () => ZoomScale, value => ZoomScale = value);
+        CtrlScrollZoom.Attach(_editor.TextArea, () => ZoomScale, value => ZoomScale = value);
 
         _editor.Watermark = PlaceholderText ?? string.Empty;
         UpdateTypography();
