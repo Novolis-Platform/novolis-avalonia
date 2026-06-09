@@ -43,7 +43,7 @@ var preview = new MarkdownPreviewPane();
 ```
 
 **Editor features:** AvaloniaEdit source surface, line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
-**Preview features:** Markdig HTML with built-in studio/GitHub themes, Ctrl+scroll zoom.
+**Preview features:** Markdig GFM HTML with Mermaid diagram rendering (via Mermaider), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
 
 ## Related packages
 
