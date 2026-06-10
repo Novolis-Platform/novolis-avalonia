@@ -40,9 +40,9 @@ public class InnoScriptGeneratorTests
 
         await Assert.That(script).Contains("UsePreviousAppDir=yes");
         await Assert.That(script).Contains("DisableDirPage=auto");
-        await Assert.That(script).Contains("CloseApplications=filter:ManuscriptStudio.exe;ManuscriptStudio.exe");
+        await Assert.That(script).Contains("CloseApplications=yes");
+        await Assert.That(script).Contains("CloseApplicationsFilter=ManuscriptStudio.exe");
         await Assert.That(script).Contains("RestartApplications=yes");
-        await Assert.That(script).Contains("AllowDowngrades=no");
         await Assert.That(script).Contains("AppPublisher=Novolis Platform");
         await Assert.That(script).Contains("AppSupportURL=https://github.com/Novolis-Platform/novolis-apps/issues");
         await Assert.That(script).Contains("AppUpdatesURL=https://github.com/Novolis-Platform/novolis-apps/releases");

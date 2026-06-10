@@ -35,9 +35,9 @@
       <_NovolisInnoScriptLines Include="PrivilegesRequired=lowest" />
       <_NovolisInnoScriptLines Include="UsePreviousAppDir=yes" />
       <_NovolisInnoScriptLines Include="DisableDirPage=auto" />
-      <_NovolisInnoScriptLines Include="CloseApplications=filter:$(NovolisInnoAppExeName)%3B$(NovolisInnoAppExeName)" />
+      <_NovolisInnoScriptLines Include="CloseApplications=yes" />
+      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=$(NovolisInnoAppExeName)" />
       <_NovolisInnoScriptLines Include="RestartApplications=yes" />
-      <_NovolisInnoScriptLines Include="AllowDowngrades=no" />
       <_NovolisInnoScriptLines Include="DisableProgramGroupPage=yes" />
       <_NovolisInnoScriptLines Include="WizardStyle=modern" />
       <_NovolisInnoScriptLines Include="ArchitecturesAllowed=x64compatible" />

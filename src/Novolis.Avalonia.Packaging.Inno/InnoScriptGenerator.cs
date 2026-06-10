@@ -85,9 +85,9 @@ public sealed class InnoScriptGenerator
         sb.AppendLine("PrivilegesRequired=lowest");
         sb.AppendLine("UsePreviousAppDir=yes");
         sb.AppendLine("DisableDirPage=auto");
-        sb.AppendLine($"CloseApplications=filter:{AppExeName};{AppExeName}");
+        sb.AppendLine("CloseApplications=yes");
+        sb.AppendLine($"CloseApplicationsFilter={AppExeName}");
         sb.AppendLine("RestartApplications=yes");
-        sb.AppendLine("AllowDowngrades=no");
         sb.AppendLine("DisableProgramGroupPage=yes");
         sb.AppendLine("WizardStyle=modern");
         sb.AppendLine("ArchitecturesAllowed=x64compatible");
