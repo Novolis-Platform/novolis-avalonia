@@ -10,6 +10,9 @@
     <NovolisInnoOutputBaseFilename Condition="'$(NovolisInnoOutputBaseFilename)' == ''">NovolisAudioLiveSetup</NovolisInnoOutputBaseFilename>
     <NovolisInnoInstallDirName Condition="'$(NovolisInnoInstallDirName)' == ''">Novolis\Novolis Audio Live</NovolisInnoInstallDirName>
     <NovolisInnoScriptPath Condition="'$(NovolisInnoScriptPath)' == ''">$(NovolisInnoOutputDir)\novolis-audio-live.iss</NovolisInnoScriptPath>
+    <NovolisInnoAppPublisher Condition="'$(NovolisInnoAppPublisher)' == ''">Novolis Platform</NovolisInnoAppPublisher>
+    <NovolisInnoAppPublisherURL Condition="'$(NovolisInnoAppPublisherURL)' == ''">https://github.com/Novolis-Platform</NovolisInnoAppPublisherURL>
+    <NovolisInnoAppCopyright Condition="'$(NovolisInnoAppCopyright)' == ''">Copyright (C) Novolis Platform</NovolisInnoAppCopyright>
   </PropertyGroup>
 
   <Target Name="NovolisGenerateInnoScript">
@@ -19,11 +22,22 @@
       <_NovolisInnoScriptLines Include="AppId=$(NovolisInnoAppId)" />
       <_NovolisInnoScriptLines Include="AppName=$(NovolisInnoAppName)" />
       <_NovolisInnoScriptLines Include="AppVersion=$(NovolisInnoAppVersion)" />
+      <_NovolisInnoScriptLines Include="AppPublisher=$(NovolisInnoAppPublisher)" />
+      <_NovolisInnoScriptLines Include="AppPublisherURL=$(NovolisInnoAppPublisherURL)" />
+      <_NovolisInnoScriptLines Include="AppSupportURL=$(NovolisInnoAppSupportURL)" Condition="'$(NovolisInnoAppSupportURL)' != ''" />
+      <_NovolisInnoScriptLines Include="AppUpdatesURL=$(NovolisInnoAppUpdatesURL)" Condition="'$(NovolisInnoAppUpdatesURL)' != ''" />
+      <_NovolisInnoScriptLines Include="AppCopyright=$(NovolisInnoAppCopyright)" />
+      <_NovolisInnoScriptLines Include="VersionInfoVersion=$(NovolisInnoAppVersion)" />
       <_NovolisInnoScriptLines Include="DefaultDirName={localappdata}\Programs\$(NovolisInnoInstallDirName)" />
       <_NovolisInnoScriptLines Include="DefaultGroupName=$(NovolisInnoDefaultGroupName)" />
       <_NovolisInnoScriptLines Include="OutputBaseFilename=$(NovolisInnoOutputBaseFilename)" />
       <_NovolisInnoScriptLines Include="OutputDir=$(NovolisInnoOutputDir)" />
       <_NovolisInnoScriptLines Include="PrivilegesRequired=lowest" />
+      <_NovolisInnoScriptLines Include="UsePreviousAppDir=yes" />
+      <_NovolisInnoScriptLines Include="DisableDirPage=auto" />
+      <_NovolisInnoScriptLines Include="CloseApplications=filter:$(NovolisInnoAppExeName)%3B$(NovolisInnoAppExeName)" />
+      <_NovolisInnoScriptLines Include="RestartApplications=yes" />
+      <_NovolisInnoScriptLines Include="AllowDowngrades=no" />
       <_NovolisInnoScriptLines Include="DisableProgramGroupPage=yes" />
       <_NovolisInnoScriptLines Include="WizardStyle=modern" />
       <_NovolisInnoScriptLines Include="ArchitecturesAllowed=x64compatible" />

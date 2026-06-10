@@ -32,6 +32,21 @@ public sealed class InnoScriptGenerator
     /// <summary>Per-user installation directory suffix under LocalAppData\Programs.</summary>
     public string InstallDirName { get; init; } = @"Novolis\Novolis Audio Live";
 
+    /// <summary>Publisher name shown in Add/Remove Programs.</summary>
+    public string AppPublisher { get; init; } = "Novolis Platform";
+
+    /// <summary>Publisher website URL.</summary>
+    public string AppPublisherUrl { get; init; } = "https://github.com/Novolis-Platform";
+
+    /// <summary>Support URL (issues, help desk).</summary>
+    public string? AppSupportUrl { get; init; }
+
+    /// <summary>Update/download URL for new releases.</summary>
+    public string? AppUpdatesUrl { get; init; }
+
+    /// <summary>Copyright string embedded in version info.</summary>
+    public string AppCopyright { get; init; } = "Copyright (C) Novolis Platform";
+
     /// <summary>Emits the Inno Setup script as text.</summary>
     public string Generate()
     {
@@ -44,6 +59,9 @@ public sealed class InnoScriptGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(DefaultGroupName);
         ArgumentException.ThrowIfNullOrWhiteSpace(OutputBaseFilename);
         ArgumentException.ThrowIfNullOrWhiteSpace(InstallDirName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(AppPublisher);
+        ArgumentException.ThrowIfNullOrWhiteSpace(AppPublisherUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(AppCopyright);
 
         var publish = PublishDir.TrimEnd('\\', '/');
         var sb = new StringBuilder();
@@ -52,11 +70,24 @@ public sealed class InnoScriptGenerator
         sb.AppendLine($"AppId={AppId}");
         sb.AppendLine($"AppName={AppName}");
         sb.AppendLine($"AppVersion={AppVersion}");
+        sb.AppendLine($"AppPublisher={AppPublisher}");
+        sb.AppendLine($"AppPublisherURL={AppPublisherUrl}");
+        if (!string.IsNullOrWhiteSpace(AppSupportUrl))
+            sb.AppendLine($"AppSupportURL={AppSupportUrl}");
+        if (!string.IsNullOrWhiteSpace(AppUpdatesUrl))
+            sb.AppendLine($"AppUpdatesURL={AppUpdatesUrl}");
+        sb.AppendLine($"AppCopyright={AppCopyright}");
+        sb.AppendLine($"VersionInfoVersion={AppVersion}");
         sb.AppendLine($"DefaultDirName={{localappdata}}\\Programs\\{InstallDirName}");
         sb.AppendLine($"DefaultGroupName={DefaultGroupName}");
         sb.AppendLine($"OutputBaseFilename={OutputBaseFilename}");
         sb.AppendLine($"OutputDir={OutputDir}");
         sb.AppendLine("PrivilegesRequired=lowest");
+        sb.AppendLine("UsePreviousAppDir=yes");
+        sb.AppendLine("DisableDirPage=auto");
+        sb.AppendLine($"CloseApplications=filter:{AppExeName};{AppExeName}");
+        sb.AppendLine("RestartApplications=yes");
+        sb.AppendLine("AllowDowngrades=no");
         sb.AppendLine("DisableProgramGroupPage=yes");
         sb.AppendLine("WizardStyle=modern");
         sb.AppendLine("ArchitecturesAllowed=x64compatible");

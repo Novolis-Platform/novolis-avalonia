@@ -22,4 +22,30 @@ public class InnoScriptGeneratorTests
         await Assert.That(script).Contains("OutputDir=C:\\publish\\installer");
         await Assert.That(script).Contains("Filename: \"{app}\\Novolis.Audio.Live.Studio.exe\"");
     }
+
+    [Test]
+    public async Task Generate_Includes_Upgrade_And_Publisher_Metadata()
+    {
+        var script = new InnoScriptGenerator
+        {
+            AppName = "Manuscript Studio",
+            AppVersion = "2026.1.0.42",
+            PublishDir = @"C:\publish\app",
+            AppExeName = "ManuscriptStudio.exe",
+            OutputDir = @"C:\publish\installer",
+            AppId = "Novolis.ManuscriptStudio",
+            AppSupportUrl = "https://github.com/Novolis-Platform/novolis-apps/issues",
+            AppUpdatesUrl = "https://github.com/Novolis-Platform/novolis-apps/releases",
+        }.Generate();
+
+        await Assert.That(script).Contains("UsePreviousAppDir=yes");
+        await Assert.That(script).Contains("DisableDirPage=auto");
+        await Assert.That(script).Contains("CloseApplications=filter:ManuscriptStudio.exe;ManuscriptStudio.exe");
+        await Assert.That(script).Contains("RestartApplications=yes");
+        await Assert.That(script).Contains("AllowDowngrades=no");
+        await Assert.That(script).Contains("AppPublisher=Novolis Platform");
+        await Assert.That(script).Contains("AppSupportURL=https://github.com/Novolis-Platform/novolis-apps/issues");
+        await Assert.That(script).Contains("AppUpdatesURL=https://github.com/Novolis-Platform/novolis-apps/releases");
+        await Assert.That(script).Contains("VersionInfoVersion=2026.1.0.42");
+    }
 }
