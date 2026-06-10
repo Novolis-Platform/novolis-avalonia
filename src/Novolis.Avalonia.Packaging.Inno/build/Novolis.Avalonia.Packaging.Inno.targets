@@ -46,14 +46,14 @@
       <_NovolisInnoScriptLines Include="SolidCompression=yes" />
       <_NovolisInnoScriptLines Include="UninstallDisplayIcon={app}\$(NovolisInnoAppExeName)" />
       <_NovolisInnoScriptLines Include="[Tasks]" />
-      <_NovolisInnoScriptLines Include="Name: &quot;desktopicon&quot;; Description: &quot;Create a &amp;desktop icon&quot;; GroupDescription: &quot;Additional icons:&quot;; Flags: unchecked" />
+      <_NovolisInnoScriptLines Include="Name: &quot;desktopicon&quot;%3B Description: &quot;Create a &amp;desktop icon&quot;%3B GroupDescription: &quot;Additional icons:&quot;%3B Flags: unchecked" />
       <_NovolisInnoScriptLines Include="[Files]" />
-      <_NovolisInnoScriptLines Include="Source: &quot;$(NovolisInnoPublishDir)\*&quot;; DestDir: &quot;{app}&quot;; Flags: ignoreversion recursesubdirs createallsubdirs" />
+      <_NovolisInnoScriptLines Include="Source: &quot;$(NovolisInnoPublishDir)\*&quot;%3B DestDir: &quot;{app}&quot;%3B Flags: ignoreversion recursesubdirs createallsubdirs" />
       <_NovolisInnoScriptLines Include="[Icons]" />
-      <_NovolisInnoScriptLines Include="Name: &quot;{autoprograms}\$(NovolisInnoDefaultGroupName)&quot;; Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;" />
-      <_NovolisInnoScriptLines Include="Name: &quot;{autodesktop}\$(NovolisInnoDefaultGroupName)&quot;; Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;; Tasks: desktopicon" />
+      <_NovolisInnoScriptLines Include="Name: &quot;{autoprograms}\$(NovolisInnoDefaultGroupName)&quot;%3B Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;" />
+      <_NovolisInnoScriptLines Include="Name: &quot;{autodesktop}\$(NovolisInnoDefaultGroupName)&quot;%3B Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;%3B Tasks: desktopicon" />
       <_NovolisInnoScriptLines Include="[Run]" />
-      <_NovolisInnoScriptLines Include="Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;; Description: &quot;Launch $(NovolisInnoAppName)&quot;; Flags: nowait postinstall skipifsilent" />
+      <_NovolisInnoScriptLines Include="Filename: &quot;{app}\$(NovolisInnoAppExeName)&quot;%3B Description: &quot;Launch $(NovolisInnoAppName)&quot;%3B Flags: nowait postinstall skipifsilent" />
     </ItemGroup>
 
     <WriteLinesToFile
