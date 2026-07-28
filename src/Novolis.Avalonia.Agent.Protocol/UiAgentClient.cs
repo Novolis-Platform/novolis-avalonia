@@ -67,13 +67,27 @@ public sealed class UiAgentClient : IAsyncDisposable
         string? controlId = null,
         string? text = null,
         string[]? keys = null,
+        bool clear = false,
         CancellationToken cancellationToken = default)
     {
         var connection = EnsureConnection();
-        var request = new UiTypeRequestDto(++_sequence, controlId, text, keys);
+        var request = new UiTypeRequestDto(++_sequence, controlId, text, keys, clear);
         await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Type, request, cancellationToken)
             .ConfigureAwait(false);
         return await ReadResponseAsync<UiTypeResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<UiSelectResponseDto> SelectAsync(
+        string controlId,
+        int? index = null,
+        string? itemText = null,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = EnsureConnection();
+        var request = new UiSelectRequestDto(++_sequence, controlId, index, itemText);
+        await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Select, request, cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadResponseAsync<UiSelectResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<UiWaitResponseDto> WaitAsync(

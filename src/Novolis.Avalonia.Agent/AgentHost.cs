@@ -125,6 +125,11 @@ public sealed class AgentHost : IAsyncDisposable
                                     HandleType(UiProtocolCodec.Deserialize<UiTypeRequestDto>(frame.Payload)))
                                 .ConfigureAwait(false)).ConfigureAwait(false);
                             break;
+                        case UiRpcMethodNames.Select:
+                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                                    HandleSelect(UiProtocolCodec.Deserialize<UiSelectRequestDto>(frame.Payload)))
+                                .ConfigureAwait(false)).ConfigureAwait(false);
+                            break;
                         case UiRpcMethodNames.Wait:
                             await ReplyAsync(connection, frame,
                                     await HandleWaitAsync(UiProtocolCodec.Deserialize<UiWaitRequestDto>(frame.Payload), cancellationToken)
@@ -172,6 +177,9 @@ public sealed class AgentHost : IAsyncDisposable
 
     private UiTypeResponseDto HandleType(UiTypeRequestDto request) =>
         AgentInput.Type(_window, request);
+
+    private UiSelectResponseDto HandleSelect(UiSelectRequestDto request) =>
+        AgentInput.Select(_window, request);
 
     private async Task<UiWaitResponseDto> HandleWaitAsync(UiWaitRequestDto request, CancellationToken cancellationToken)
     {

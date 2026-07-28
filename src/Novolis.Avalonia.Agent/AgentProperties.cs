@@ -41,6 +41,8 @@ public static class AgentProperties
         Button => AgentRoleNames.Button,
         TextBox => AgentRoleNames.TextBox,
         ListBox => AgentRoleNames.ListBox,
+        ComboBox => AgentRoleNames.ComboBox,
+        TabControl => AgentRoleNames.TabControl,
         MenuBase => AgentRoleNames.Menu,
         Window => AgentRoleNames.Window,
         _ => AgentRoleNames.Other

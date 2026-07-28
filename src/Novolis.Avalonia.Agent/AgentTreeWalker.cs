@@ -105,7 +105,7 @@ internal static class AgentTreeWalker
 
     private static bool IsInteractive(Control control) =>
         control is Button or TextBox or ListBox or CheckBox or ToggleButton or MenuBase or ComboBox
-            or Slider or NumericUpDown or TabItem;
+            or TabControl or Slider or NumericUpDown or TabItem;
 
     private static string ResolveId(Control control, string path)
     {

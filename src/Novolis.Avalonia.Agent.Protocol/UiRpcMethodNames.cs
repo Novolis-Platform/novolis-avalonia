@@ -7,5 +7,6 @@ public static class UiRpcMethodNames
     public const string Screenshot = "ui.screenshot";
     public const string Click = "ui.click";
     public const string Type = "ui.type";
+    public const string Select = "ui.select";
     public const string Wait = "ui.wait";
 }

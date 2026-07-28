@@ -1,6 +1,6 @@
 # Novolis.Avalonia.Agent.Protocol
 
-MessagePack DTOs, LocalIpc framing helpers, and `UiAgentClient` for the Avalonia UI agent protocol (`ui.hello`, `ui.tree`, `ui.screenshot`, `ui.click`, `ui.type`, `ui.wait`).
+MessagePack DTOs, LocalIpc framing helpers, and `UiAgentClient` for the Avalonia UI agent protocol (`ui.hello`, `ui.tree`, `ui.screenshot`, `ui.click`, `ui.type`, `ui.select`, `ui.wait`).
 
 ## Install
 
