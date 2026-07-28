@@ -12,6 +12,11 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 | `Novolis.Avalonia.Raylib` | `RaylibHostControl` (embedded Raylib viewport) |
 | `Novolis.Avalonia.Live` | Live audio panels for transport snapshots and program graphs |
 | `Novolis.Avalonia.Markdown` | Markdown editor, live HTML preview, split-pane studio controls |
+| `Novolis.Avalonia.StarMap` | Pan/zoom star map for catalog points and route edges |
+| `Novolis.Avalonia.Studio` | Studio chrome: status, flash, busy overlay |
+| `Novolis.Avalonia.Briefing` | Briefing primitives: feed, scorecard, dual metric strip, metric table |
+| `Novolis.Avalonia.Timeline` | Git-graph timeline panels |
+| `Novolis.Avalonia.Voice` | Voice preset studio UI |
 
 ## Build
 

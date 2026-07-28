@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Briefing</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Briefing</RootNamespace>
+    <Description>Avalonia briefing primitives: radio feed, scorecard, dual metric strip, and metric tables (code-only, no XAML).</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+  </ItemGroup>
+</Project>

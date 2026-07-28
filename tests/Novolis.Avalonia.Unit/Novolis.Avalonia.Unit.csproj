@@ -12,5 +12,6 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Packaging.Inno\Novolis.Avalonia.Packaging.Inno.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Markdown\Novolis.Avalonia.Markdown.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.StarMap\Novolis.Avalonia.StarMap.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Briefing\Novolis.Avalonia.Briefing.csproj" />
   </ItemGroup>
 </Project>

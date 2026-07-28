@@ -49,6 +49,17 @@
         "Novolis.Avalonia.slnx"
       ],
       "project": "src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj"
+    },
+    "Novolis.Avalonia.Briefing": {
+      "paths": [
+        "src/Novolis.Avalonia.Briefing/**",
+        "tests/Novolis.Avalonia.Unit/Briefing/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Briefing/Novolis.Avalonia.Briefing.csproj"
     }
   }
 }

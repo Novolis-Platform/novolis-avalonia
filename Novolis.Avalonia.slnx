@@ -11,6 +11,7 @@
     <Project Path="src/Novolis.Avalonia.Timeline/Novolis.Avalonia.Timeline.csproj" />
     <Project Path="src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj" />
     <Project Path="src/Novolis.Avalonia.StarMap/Novolis.Avalonia.StarMap.csproj" />
+    <Project Path="src/Novolis.Avalonia.Briefing/Novolis.Avalonia.Briefing.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />
