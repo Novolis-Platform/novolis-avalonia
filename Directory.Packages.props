@@ -15,6 +15,7 @@
     <PackageVersion Include="Mermaider" Version="0.8.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
     <PackageVersion Include="TUnit" Version="1.44.39" />
+    <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.TwoD" Version="2026.1.*" />
