@@ -1,6 +1,6 @@
 # Novolis.Avalonia.Controls
 
-Reusable Avalonia controls for packet analyzers: data grid, hex dump, and detail tree (code-only, no XAML).
+Reusable Avalonia controls (code-only, no XAML): analyzer views, choice/picker dialogs, marked lists, and job queue panels.
 
 ## Install
 
@@ -8,17 +8,31 @@ Reusable Avalonia controls for packet analyzers: data grid, hex dump, and detail
 dotnet add package Novolis.Avalonia.Controls
 ```
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia 11. References `Novolis.Avalonia.Layout`.
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia. References `Novolis.Avalonia.Layout`.
 
 ## Quick start
 
 ```csharp
 using Novolis.Avalonia.Controls;
 
-var table = new PacketTableView();
-table.SetColumns([PacketTableView.TextColumn("#", "Index", 48)]);
-var hex = new HexDumpView();
-hex.SetBytes(packetBytes);
+// Choice dialog (recovery / conflict patterns)
+var id = await ChoiceDialog.ShowAsync(window, "External change", "File changed on disk.", null,
+[
+    new ChoiceOption("keep", "Keep local", IsDefault: true),
+    new ChoiceOption("reload", "Reload disk"),
+    new ChoiceOption("compare", "Compare later", IsCancel: true)
+]);
+
+// Filtered picker
+var chapter = await FilteredPickerDialog.ShowAsync(window, "Go To", chapters, c => c.Title);
+
+// Marked nav rows
+var list = MarkedListBox.Create([new MarkedListRow("*", "3", "Quiet Harbor", "420")]);
+
+// Job queue panel
+var jobs = new JobQueuePanel();
+jobs.SetJobs([new JobQueueRow { Title = "Build PDF", StatusLabel = "Queued", CanCancel = true }]);
+jobs.CancelRequested += row => { /* cancel */ };
 ```
 
 ## Related packages
@@ -26,12 +40,8 @@ hex.SetBytes(packetBytes);
 | Package | When to use |
 |---------|-------------|
 | `Novolis.Avalonia.Layout` | Analyzer workspace shell and filter bar |
-
-## More documentation
-
-- [Getting started](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/docs/getting-started.md)
-- [Design](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/docs/design.md)
+| `Novolis.Avalonia.Studio` | Status/flash chrome and focus mode |
 
 ## Support
 
-Pre-release. Depends on Avalonia DataGrid package.
+Pre-release.

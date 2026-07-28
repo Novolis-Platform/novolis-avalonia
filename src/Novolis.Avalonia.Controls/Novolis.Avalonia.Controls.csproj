@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Controls</PackageId>
 <IsPackable>true</IsPackable>
-    <Description>Reusable Avalonia controls for packet and data analyzers (no XAML).</Description>
+    <Description>Reusable Avalonia controls: analyzer views, choice/picker dialogs, marked lists, and job queue panels (code-only, no XAML).</Description>
     <RootNamespace>Novolis.Avalonia.Controls</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

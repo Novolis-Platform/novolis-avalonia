@@ -10,11 +10,18 @@
   <Color name="Dialogue" foreground="#F2D188" background="#2A2418" />
   <Color name="Link" foreground="#6EB5FF" />
   <Color name="HorizontalRule" foreground="#555555" />
+  <Color name="Tk" foreground="#DCDCAA" fontWeight="bold" />
+  <Color name="Comment" foreground="#6A9955" />
 
   <RuleSet ignoreCase="false">
     <Span color="FencedCode" multiline="true">
       <Begin>^```[\w-]*\s*$</Begin>
       <End>^```\s*$</End>
+    </Span>
+
+    <Span color="Comment" multiline="true">
+      <Begin>&lt;!--</Begin>
+      <End>--&gt;</End>
     </Span>
 
     <Span color="BlockQuote" multiline="true">
@@ -31,7 +38,11 @@
     </Rule>
 
     <Rule color="MetadataTag">
-      \[![a-z0-9_-]+\]
+      \[![a-zA-Z0-9_-]+\]
+    </Rule>
+
+    <Rule color="Tk">
+      \b(TK|TODO|FIXME)\b
     </Rule>
 
     <Rule color="Dialogue">

@@ -19,6 +19,16 @@
       ],
       "project": "src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj"
     },
+    "Novolis.Avalonia.Studio": {
+      "paths": [
+        "src/Novolis.Avalonia.Studio/**",
+        "tests/Novolis.Avalonia.Unit/Studio/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Studio/Novolis.Avalonia.Studio.csproj"
+    },
     "Novolis.Avalonia.Raylib": {
       "paths": [
         "src/Novolis.Avalonia.Raylib/**",
