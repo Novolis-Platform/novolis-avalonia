@@ -7,3 +7,13 @@ Pan/zoom Avalonia control for stellar points and route edges. Map from `Novolis.
 ```bash
 dotnet add package Novolis.Avalonia.StarMap
 ```
+
+## Quick start
+
+```csharp
+using Novolis.Avalonia.StarMap;
+
+var map = new StarMapControl();
+map.SetSystems(points);
+map.SetRoute(routeEdges);
+```
