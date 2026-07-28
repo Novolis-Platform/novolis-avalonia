@@ -117,8 +117,8 @@ internal sealed class LiveHostProcess : IAsyncDisposable
     private static string ResolveHostProjectPath()
     {
         var repoRoot = FindAncestorDirectory("novolis-avalonia");
-        var audioRoot = Path.GetFullPath(Path.Combine(repoRoot, "..", "novolis-audio"));
-        var projectPath = Path.Combine(audioRoot, "src", "Novolis.Audio.Live.Host", "Novolis.Audio.Live.Host.csproj");
+        var appsRoot = Path.GetFullPath(Path.Combine(repoRoot, "..", "novolis-apps"));
+        var projectPath = Path.Combine(appsRoot, "src", "LiveStudio", "host", "LiveStudio.Host.csproj");
 
         if (!File.Exists(projectPath))
             throw new FileNotFoundException("Unable to locate the Novolis Audio live host project.", projectPath);

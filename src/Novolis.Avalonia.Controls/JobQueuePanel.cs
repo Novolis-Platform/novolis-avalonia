@@ -5,10 +5,10 @@ using Avalonia.Media;
 
 namespace Novolis.Avalonia.Controls;
 
-/// <summary>Job queue list with selected log tail and Cancel / Open actions.</summary>
+/// <summary>Job queue list with selected log tail, progress bars, and Cancel / Open actions.</summary>
 public sealed class JobQueuePanel : Border
 {
-    readonly ListBox _list = new() { MaxHeight = 200 };
+    readonly ListBox _list = new() { MinHeight = 120 };
     readonly TextBlock _log = new()
     {
         FontFamily = new FontFamily("Consolas, Courier New, monospace"),
@@ -96,11 +96,15 @@ public sealed class JobQueuePanel : Border
 
     static Control BuildRowContent(IJobQueueRow row)
     {
-        var grid = new Grid
+        var root = new StackPanel
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            RowDefinitions = new RowDefinitions("Auto,Auto"),
+            Spacing = 4,
             Margin = new Thickness(0, 2)
+        };
+
+        var header = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
         var title = new TextBlock
         {
@@ -114,23 +118,94 @@ public sealed class JobQueuePanel : Border
             Opacity = 0.8,
             Margin = new Thickness(8, 0, 0, 0)
         };
-        var detail = new TextBlock
-        {
-            Text = row.Detail ?? "",
-            FontSize = 11,
-            Opacity = 0.7,
-            TextWrapping = TextWrapping.Wrap,
-            MaxHeight = 36,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
         Grid.SetColumn(title, 0);
         Grid.SetColumn(status, 1);
-        Grid.SetRow(detail, 1);
-        Grid.SetColumnSpan(detail, 2);
-        grid.Children.Add(title);
-        grid.Children.Add(status);
-        grid.Children.Add(detail);
-        return grid;
+        header.Children.Add(title);
+        header.Children.Add(status);
+        root.Children.Add(header);
+
+        if (!string.IsNullOrWhiteSpace(row.Detail))
+        {
+            root.Children.Add(new TextBlock
+            {
+                Text = row.Detail,
+                FontSize = 11,
+                Opacity = 0.7,
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+        }
+
+        if (row.Progress is { } progress)
+        {
+            var overallLabel = new TextBlock
+            {
+                Text = row.ProgressLabel ?? $"{progress:P0}",
+                FontSize = 11,
+                Opacity = 0.85
+            };
+            var overallBar = new ProgressBar
+            {
+                Minimum = 0,
+                Maximum = 1,
+                Value = Math.Clamp(progress, 0, 1),
+                Height = 8,
+                MinHeight = 8
+            };
+            root.Children.Add(overallLabel);
+            root.Children.Add(overallBar);
+        }
+
+        if (row.ChapterProgress is { Count: > 0 } chapters)
+        {
+            var chapterHost = new StackPanel { Spacing = 3, Margin = new Thickness(0, 2, 0, 0) };
+            foreach (var chapter in chapters)
+            {
+                var line = new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                    RowDefinitions = new RowDefinitions("Auto,Auto")
+                };
+                var name = new TextBlock
+                {
+                    Text = chapter.Label,
+                    FontSize = 11,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                var chapterStatus = new TextBlock
+                {
+                    Text = chapter.StatusLabel ?? "",
+                    FontSize = 10,
+                    Opacity = 0.75,
+                    Margin = new Thickness(6, 0, 0, 0)
+                };
+                var bar = new ProgressBar
+                {
+                    Minimum = 0,
+                    Maximum = 1,
+                    Value = Math.Clamp(chapter.Progress, 0, 1),
+                    Height = 5,
+                    MinHeight = 5,
+                    Margin = new Thickness(0, 1, 0, 0)
+                };
+                Grid.SetColumn(name, 0);
+                Grid.SetColumn(chapterStatus, 1);
+                Grid.SetRow(bar, 1);
+                Grid.SetColumnSpan(bar, 2);
+                line.Children.Add(name);
+                line.Children.Add(chapterStatus);
+                line.Children.Add(bar);
+                chapterHost.Children.Add(line);
+            }
+
+            root.Children.Add(new ScrollViewer
+            {
+                MaxHeight = 220,
+                Content = chapterHost
+            });
+        }
+
+        return root;
     }
 
     /// <summary>Raises <see cref="CancelRequested"/> for the selected row when cancellable.</summary>

@@ -29,9 +29,23 @@ var chapter = await FilteredPickerDialog.ShowAsync(window, "Go To", chapters, c 
 // Marked nav rows
 var list = MarkedListBox.Create([new MarkedListRow("*", "3", "Quiet Harbor", "420")]);
 
-// Job queue panel
+// Job queue panel with overall + per-item progress
 var jobs = new JobQueuePanel();
-jobs.SetJobs([new JobQueueRow { Title = "Build PDF", StatusLabel = "Queued", CanCancel = true }]);
+jobs.SetJobs([
+    new JobQueueRow
+    {
+        Title = "Generate audiobook",
+        StatusLabel = "Running",
+        Progress = 0.42,
+        ProgressLabel = "Synthesizing chapters 3/10",
+        ChapterProgress =
+        [
+            new JobChapterProgress { Label = "Prologue", Progress = 1, StatusLabel = "done" },
+            new JobChapterProgress { Label = "Chapter 1", Progress = 0.4, StatusLabel = "2/5" },
+        ],
+        CanCancel = true
+    }
+]);
 jobs.CancelRequested += row => { /* cancel */ };
 ```
 

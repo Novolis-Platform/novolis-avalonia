@@ -9,9 +9,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Audio.Live.Protocol" />
+    <PackageReference Include="Novolis.Audio.Live.Visuals" />
     <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
-    <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Protocol\Novolis.Audio.Live.Protocol.csproj" />
-    <ProjectReference Include="..\..\..\novolis-audio\src\Novolis.Audio.Live.Visuals\Novolis.Audio.Live.Visuals.csproj" />
   </ItemGroup>
 </Project>

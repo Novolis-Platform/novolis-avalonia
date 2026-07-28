@@ -22,6 +22,12 @@
     <PackageVersion Include="Novolis.Rendering.Backends.TwoD.Silk" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Runtime" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Live" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Live.Dsl" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Live.Protocol" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Live.Visuals" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.MusicTheory" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Patterns" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Design" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Kokoro" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Platform.Abstractions" Version="2026.1.*" />
