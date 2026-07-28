@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.StarMap</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.StarMap</RootNamespace>
+    <Description>Avalonia pan/zoom star map control for catalog points and route edges.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+</Project>
