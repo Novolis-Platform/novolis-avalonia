@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Agent</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>In-process Avalonia UI agent host: LocalIpc ui.* protocol, tree dump, screenshot, click/type/wait.</Description>
+    <RootNamespace>Novolis.Avalonia.Agent</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Novolis.Transports.LocalIpc" />
+    <ProjectReference Include="..\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
+  </ItemGroup>
+</Project>
