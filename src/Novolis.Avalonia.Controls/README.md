@@ -1,6 +1,6 @@
 # Novolis.Avalonia.Controls
 
-Reusable Avalonia controls (code-only, no XAML): analyzer views, choice/picker dialogs, marked lists, and job queue panels.
+Reusable Avalonia controls (code-only, no XAML): analyzer views, choice/picker dialogs, marked lists, job queue panels, and an Excalidraw-inspired `SketchControl` (pen/line/spline/box/circle/eraser, meetup vertex snap, gridify).
 
 ## Install
 
@@ -47,7 +47,30 @@ jobs.SetJobs([
     }
 ]);
 jobs.CancelRequested += row => { /* cancel */ };
+
+// Freehand sketch canvas (pen → selectable/resizable strokes, grid, Gridify)
+var sketch = new SketchControl
+{
+    Tool = SketchTool.Pen,
+    GridSize = 20,
+    GridVisible = true,
+    SnapEnabled = false
+};
+sketch.GridifySelection(); // snap selected (or all) strokes to the grid
+var json = SketchJson.Serialize(sketch.Document!);
 ```
+
+## SketchControl
+
+| API | Purpose |
+|-----|---------|
+| `Tool` | `Pen` or `Select` |
+| `GridSize` / `GridVisible` / `SnapEnabled` | Resizable grid + optional live snap |
+| `GridifySelection()` | Quantize strokes onto the grid (undoable) |
+| `Undo()` / `Redo()` / `Clear()` | History and clear |
+| `SketchJson` | Serialize/deserialize `SketchDocument` |
+
+Pan with middle mouse or Space+drag; wheel zooms toward the cursor. Select tool shows bounds grips for resize.
 
 ## Related packages
 

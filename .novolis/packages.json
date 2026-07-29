@@ -19,6 +19,16 @@
       ],
       "project": "src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj"
     },
+    "Novolis.Avalonia.Cad": {
+      "paths": [
+        "src/Novolis.Avalonia.Cad/**",
+        "tests/Novolis.Avalonia.Unit/Cad/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Cad/Novolis.Avalonia.Cad.csproj"
+    },
     "Novolis.Avalonia.Studio": {
       "paths": [
         "src/Novolis.Avalonia.Studio/**",

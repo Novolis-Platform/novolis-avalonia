@@ -34,13 +34,24 @@ public sealed class StarMapEdge
     public string? BandTag { get; init; }
 }
 
-/// <summary>Pan/zoom star field with optional route edges.</summary>
+/// <summary>Pan/zoom star field with optional route edges and path highlight.</summary>
 public sealed class StarMapControl : Control
 {
-    static readonly IBrush BackgroundBrush = new SolidColorBrush(Color.Parse("#0b1020"));
+    static readonly IBrush DefaultFieldBrush = new SolidColorBrush(Color.Parse("#0b1020"));
     static readonly IBrush StarBrush = new SolidColorBrush(Color.Parse("#e8e8e8"));
     static readonly IBrush SelectedBrush = new SolidColorBrush(Color.Parse("#ffd166"));
-    static readonly IPen EdgePen = new Pen(new SolidColorBrush(Color.Parse("#6ec1ff")), 1.5);
+    static readonly IBrush RouteHubBrush = new SolidColorBrush(Color.Parse("#6ecf8e"));
+    static readonly IBrush ShipBrush = new SolidColorBrush(Color.Parse("#ff6b35"));
+    static readonly IBrush GridBrush = new SolidColorBrush(Color.FromArgb(28, 212, 160, 23));
+    static readonly IPen EdgePen = new Pen(new SolidColorBrush(Color.Parse("#3a4a66")), 1.2);
+    static readonly IPen RoutePen = new Pen(new SolidColorBrush(Color.Parse("#ffd166")), 2.6);
+    static readonly IPen ShipRingPen = new Pen(new SolidColorBrush(Color.Parse("#ffb088")), 1.5);
+
+    /// <summary>Chart field fill (game UIs may warm this without forking render).</summary>
+    public IBrush FieldBrush { get; set; } = DefaultFieldBrush;
+
+    /// <summary>Faint chart grid behind stars.</summary>
+    public bool ShowChartGrid { get; set; }
 
     Point? _lastPointer;
     double _offsetX;
@@ -51,17 +62,35 @@ public sealed class StarMapControl : Control
     public static readonly StyledProperty<IReadOnlyList<StarMapPoint>?> PointsProperty =
         AvaloniaProperty.Register<StarMapControl, IReadOnlyList<StarMapPoint>?>(nameof(Points));
 
-    /// <summary>Route edges to draw.</summary>
+    /// <summary>Route edges to draw (full network).</summary>
     public static readonly StyledProperty<IReadOnlyList<StarMapEdge>?> EdgesProperty =
         AvaloniaProperty.Register<StarMapControl, IReadOnlyList<StarMapEdge>?>(nameof(Edges));
+
+    /// <summary>Highlighted path edges (drawn on top of the network).</summary>
+    public static readonly StyledProperty<IReadOnlyList<StarMapEdge>?> HighlightedEdgesProperty =
+        AvaloniaProperty.Register<StarMapControl, IReadOnlyList<StarMapEdge>?>(nameof(HighlightedEdges));
 
     /// <summary>Selected star id.</summary>
     public static readonly StyledProperty<string?> SelectedIdProperty =
         AvaloniaProperty.Register<StarMapControl, string?>(nameof(SelectedId));
 
+    /// <summary>Ship world X (map units).</summary>
+    public static readonly StyledProperty<double> ShipWorldXProperty =
+        AvaloniaProperty.Register<StarMapControl, double>(nameof(ShipWorldX));
+
+    /// <summary>Ship world Y (map units).</summary>
+    public static readonly StyledProperty<double> ShipWorldYProperty =
+        AvaloniaProperty.Register<StarMapControl, double>(nameof(ShipWorldY));
+
+    /// <summary>Whether to draw the ship marker.</summary>
+    public static readonly StyledProperty<bool> ShipVisibleProperty =
+        AvaloniaProperty.Register<StarMapControl, bool>(nameof(ShipVisible));
+
     static StarMapControl()
     {
-        AffectsRender<StarMapControl>(PointsProperty, EdgesProperty, SelectedIdProperty);
+        AffectsRender<StarMapControl>(
+            PointsProperty, EdgesProperty, HighlightedEdgesProperty, SelectedIdProperty,
+            ShipWorldXProperty, ShipWorldYProperty, ShipVisibleProperty);
     }
 
     /// <summary>Creates the control.</summary>
@@ -85,11 +114,39 @@ public sealed class StarMapControl : Control
         set => SetValue(EdgesProperty, value);
     }
 
+    /// <summary>Highlighted path edges.</summary>
+    public IReadOnlyList<StarMapEdge>? HighlightedEdges
+    {
+        get => GetValue(HighlightedEdgesProperty);
+        set => SetValue(HighlightedEdgesProperty, value);
+    }
+
     /// <summary>Selected star id.</summary>
     public string? SelectedId
     {
         get => GetValue(SelectedIdProperty);
         set => SetValue(SelectedIdProperty, value);
+    }
+
+    /// <summary>Ship world X.</summary>
+    public double ShipWorldX
+    {
+        get => GetValue(ShipWorldXProperty);
+        set => SetValue(ShipWorldXProperty, value);
+    }
+
+    /// <summary>Ship world Y.</summary>
+    public double ShipWorldY
+    {
+        get => GetValue(ShipWorldYProperty);
+        set => SetValue(ShipWorldYProperty, value);
+    }
+
+    /// <summary>Draw you-are-here ship marker.</summary>
+    public bool ShipVisible
+    {
+        get => GetValue(ShipVisibleProperty);
+        set => SetValue(ShipVisibleProperty, value);
     }
 
     /// <summary>Raised when the user selects a star.</summary>
@@ -100,6 +157,22 @@ public sealed class StarMapControl : Control
     {
         Points = points;
         Edges = edges;
+        InvalidateVisual();
+    }
+
+    /// <summary>Sets or clears the highlighted route path.</summary>
+    public void SetRoute(IReadOnlyList<StarMapEdge>? routeEdges)
+    {
+        HighlightedEdges = routeEdges is { Count: > 0 } ? routeEdges : null;
+        InvalidateVisual();
+    }
+
+    /// <summary>Sets the you-are-here ship marker in world map units.</summary>
+    public void SetShipMarker(double worldX, double worldY, bool visible = true)
+    {
+        ShipWorldX = worldX;
+        ShipWorldY = worldY;
+        ShipVisible = visible;
         InvalidateVisual();
     }
 
@@ -179,13 +252,37 @@ public sealed class StarMapControl : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        context.FillRectangle(BackgroundBrush, new Rect(Bounds.Size));
+        context.FillRectangle(FieldBrush, new Rect(Bounds.Size));
+
+        if (ShowChartGrid && Bounds.Width > 0 && Bounds.Height > 0)
+        {
+            const double step = 48;
+            for (var x = 0.0; x < Bounds.Width; x += step)
+            {
+                context.FillRectangle(GridBrush, new Rect(x, 0, 1, Bounds.Height));
+            }
+
+            for (var y = 0.0; y < Bounds.Height; y += step)
+            {
+                context.FillRectangle(GridBrush, new Rect(0, y, Bounds.Width, 1));
+            }
+        }
 
         var points = Points;
         if (points is null || points.Count == 0)
             return;
 
         var byId = points.ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);
+        var routeHubs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (HighlightedEdges is { Count: > 0 } route)
+        {
+            foreach (var edge in route)
+            {
+                routeHubs.Add(edge.FromId);
+                routeHubs.Add(edge.ToId);
+            }
+        }
+
         if (Edges is { Count: > 0 })
         {
             foreach (var edge in Edges)
@@ -196,13 +293,31 @@ public sealed class StarMapControl : Control
             }
         }
 
+        if (HighlightedEdges is { Count: > 0 })
+        {
+            foreach (var edge in HighlightedEdges)
+            {
+                if (!byId.TryGetValue(edge.FromId, out var a) || !byId.TryGetValue(edge.ToId, out var b))
+                    continue;
+                context.DrawLine(RoutePen, WorldToScreen(a.X, a.Y), WorldToScreen(b.X, b.Y));
+            }
+        }
+
         foreach (var p in points)
         {
             var s = WorldToScreen(p.X, p.Y);
             var selected = string.Equals(p.Id, SelectedId, StringComparison.OrdinalIgnoreCase);
-            var brush = selected ? SelectedBrush : StarBrush;
-            var r = selected ? 5.0 : 3.0;
+            var onRoute = routeHubs.Contains(p.Id);
+            var brush = selected ? SelectedBrush : onRoute ? RouteHubBrush : StarBrush;
+            var r = selected ? 5.0 : onRoute ? 4.0 : 3.0;
             context.DrawEllipse(brush, null, s, r, r);
+        }
+
+        if (ShipVisible)
+        {
+            var shipScreen = WorldToScreen(ShipWorldX, ShipWorldY);
+            context.DrawEllipse(null, ShipRingPen, shipScreen, 8, 8);
+            context.DrawEllipse(ShipBrush, null, shipScreen, 4.5, 4.5);
         }
     }
 }

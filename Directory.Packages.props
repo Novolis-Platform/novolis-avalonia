@@ -21,8 +21,10 @@
     <PackageVersion Include="Novolis.Rendering.Presentation.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.TwoD" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Backends.TwoD.Silk" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Commands.Expressions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Runtime" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Rendering.Presentation.Silk" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Dsl" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Protocol" Version="2026.1.*" />

@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Markdown\Novolis.Avalonia.Markdown.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.StarMap\Novolis.Avalonia.StarMap.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Briefing\Novolis.Avalonia.Briefing.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
   </ItemGroup>
 </Project>
