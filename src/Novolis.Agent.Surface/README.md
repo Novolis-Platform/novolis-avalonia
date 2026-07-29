@@ -8,6 +8,16 @@ Author an agent surface once; auto-construct the rest:
 - Discovery env vars + `%TEMP%` markers
 - Loopback **HTTP** (`HttpListener`) + **TCP JSONL** hosts
 
+## Install
+
+```bash
+dotnet add package Novolis.Agent.Surface
+```
+
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`).
+
+## Quick start
+
 ```csharp
 [AgentSurface("scene", HttpPort = 18785, TcpPort = 18786,
     EnableEnv = "NOVOLIS_SCENE_SESSION", MarkerPrefix = "novolis-scene-session")]

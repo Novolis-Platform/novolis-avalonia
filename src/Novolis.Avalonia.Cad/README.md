@@ -10,3 +10,24 @@ Shared Avalonia CAD surface for Draft Studio and preview hosts:
 - **LLM session**: localhost HTTP `:18775` + TCP JSONL `:18776` (`CadSessionSurface` / `CadSessionService`)
 
 UI and HTTP/TCP both call `CadSessionService.Execute` for action parity.
+
+## Install
+
+```bash
+dotnet add package Novolis.Avalonia.Cad
+```
+
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia. References `Novolis.Math.Geometry` and related Avalonia packages.
+
+## Quick start
+
+```csharp
+using Novolis.Avalonia.Cad.Session;
+using Novolis.Avalonia.Cad.Ui;
+
+// Host CAD / Modeling / Preview on a shared scene
+editor.SetWorkspace(CadWorkspace.Modeling);
+
+// Session parity for UI + LLM (setworkspace / generators / modifiers)
+var result = session.Execute(command);
+```
