@@ -52,6 +52,19 @@ public static class CadModelingActions
         return entity.Id;
     }
 
+    public static Guid AddInstance(CadCommandBus bus, Guid prototypeId, CadTransform? transform = null)
+    {
+        var entity = new CadEntity
+        {
+            Kind = "instance",
+            Name = "Instance",
+            PrototypeId = prototypeId,
+            Transform = transform ?? new CadTransform(),
+        };
+        bus.Execute(new AddEntityCommand(entity));
+        return entity.Id;
+    }
+
     public static Guid AddSymmetry(CadCommandBus bus, Guid sourceId, float[]? planePoint = null, float[]? normal = null, bool merge = true)
     {
         var entity = new CadEntity
@@ -83,6 +96,31 @@ public static class CadModelingActions
             SourceId = sourceId,
             Counts = counts,
             Spacing = spacing,
+            Realization = realization,
+            BaseTransform = new CadTransform(),
+        };
+        bus.Execute(new AddEntityCommand(entity));
+        return entity.Id;
+    }
+
+    /// <summary>Radial cloner about an axis (Counts[0] copies, StepRadians between them).</summary>
+    public static Guid AddRadialClone(
+        CadCommandBus bus,
+        Guid sourceId,
+        int count,
+        float[] axis,
+        float stepRadians,
+        string realization = "instances")
+    {
+        var entity = new CadEntity
+        {
+            Kind = "arrayInstance",
+            Name = "Radial Cloner",
+            PrototypeId = sourceId,
+            SourceId = sourceId,
+            Counts = [System.Math.Max(1, count)],
+            Axis = axis,
+            StepRadians = stepRadians,
             Realization = realization,
             BaseTransform = new CadTransform(),
         };

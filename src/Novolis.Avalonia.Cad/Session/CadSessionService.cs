@@ -202,6 +202,7 @@ public sealed class CadSessionService : ICadSession
             CadSessionActionIds.Boolean => ActBoolean(command),
             CadSessionActionIds.Symmetry => ActSymmetry(command),
             CadSessionActionIds.Clone => ActClone(command),
+            CadSessionActionIds.Instance => ActInstance(command),
             CadSessionActionIds.Connect => ActConnect(command),
             CadSessionActionIds.Split => ActSplit(command),
             CadSessionActionIds.Group => ActGroup(command),
@@ -361,10 +362,30 @@ public sealed class CadSessionService : ICadSession
         var source = command.SourceId ?? command.EntityId ?? _document.SelectedId;
         if (source is null)
             return Fail(CadSessionActionIds.Clone, "Need source selection.", "noSelection");
+        var realization = command.Realization ?? "instances";
+        if (command.Axis is { Length: >= 3 } && command.StepRadians is { } step)
+        {
+            var count = command.Counts is { Length: >= 1 } ? command.Counts[0] : 6;
+            var id = CadModelingActions.AddRadialClone(_bus, source.Value, count, command.Axis, step, realization);
+            return Ok(CadSessionActionIds.Clone, $"Radial cloner {id}.");
+        }
+
         var counts = command.Counts is { Length: >= 3 } ? command.Counts : [3, 1, 1];
         var spacing = command.Spacing is { Length: >= 3 } ? command.Spacing : [1f, 0f, 0f];
-        var id = CadModelingActions.AddClone(_bus, source.Value, counts, spacing, command.Realization ?? "instances");
-        return Ok(CadSessionActionIds.Clone, $"Cloner {id}.");
+        var linearId = CadModelingActions.AddClone(_bus, source.Value, counts, spacing, realization);
+        return Ok(CadSessionActionIds.Clone, $"Cloner {linearId}.");
+    }
+
+    private CadCommandResultDto ActInstance(CadCommandDto command)
+    {
+        var prototype = command.PrototypeId ?? command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (prototype is null)
+            return Fail(CadSessionActionIds.Instance, "Need prototype selection.", "noSelection");
+        CadTransform? xf = null;
+        if (command.Center is { Length: >= 3 })
+            xf = new CadTransform { Center = command.Center };
+        var id = CadModelingActions.AddInstance(_bus, prototype.Value, xf);
+        return Ok(CadSessionActionIds.Instance, $"Instance {id}.");
     }
 
     private CadCommandResultDto ActConnect(CadCommandDto command)
@@ -573,6 +594,7 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.Boolean, "Boolean", true),
         A(CadSessionActionIds.Symmetry, "Symmetry", true),
         A(CadSessionActionIds.Clone, "Cloner", true),
+        A(CadSessionActionIds.Instance, "Instance", true),
         A(CadSessionActionIds.Connect, "Connect", true),
         A(CadSessionActionIds.Split, "Split", true),
         A(CadSessionActionIds.Group, "Group", true),

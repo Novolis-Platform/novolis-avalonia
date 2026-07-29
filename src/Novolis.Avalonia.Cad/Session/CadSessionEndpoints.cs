@@ -40,6 +40,7 @@ public static class CadSessionActionIds
     public const string Boolean = "boolean";
     public const string Symmetry = "symmetry";
     public const string Clone = "clone";
+    public const string Instance = "instance";
     public const string Connect = "connect";
     public const string Split = "split";
     public const string Group = "group";

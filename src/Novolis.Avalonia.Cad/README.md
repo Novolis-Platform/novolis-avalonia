@@ -2,7 +2,7 @@
 
 Shared Avalonia CAD surface for Draft Studio and preview hosts:
 
-- **Primitives** (`Novolis.Cad.Primitives` namespace): `.cadjson` / `.cadphys` DTOs
+- **Primitives**: PackageReference `Novolis.Cad.Primitives` (`.cadjson` / `.cadphys` DTOs — Avalonia-free)
 - **Workspaces**: **CAD** (exact solids/sketches) · **Modeling** (mesh modifiers) · **Preview** (materials/lights/cameras)
 - **Scene**: shared hierarchy (`CadSceneTree`) with generators, Mesh From Solid adapters, and modifier stacks
 - **Editor**: plan viewport, Raylib 3D host, tools, command DSL, workspace chrome
@@ -17,7 +17,7 @@ UI and HTTP/TCP both call `CadSessionService.Execute` for action parity.
 dotnet add package Novolis.Avalonia.Cad
 ```
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia. References `Novolis.Math.Geometry` and related Avalonia packages.
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia. References `Novolis.Cad.Primitives`, `Novolis.Math.Geometry`, and related Avalonia packages.
 
 ## Quick start
 

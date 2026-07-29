@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Cad.Primitives" />
     <PackageReference Include="Novolis.Commands.Expressions" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Raylib.Abstractions" />

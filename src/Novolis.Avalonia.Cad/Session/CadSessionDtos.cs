@@ -66,6 +66,8 @@ public sealed class CadCommandDto
 
     public Guid? SourceId { get; set; }
 
+    public Guid? PrototypeId { get; set; }
+
     public Guid[]? MemberIds { get; set; }
 
     public string? Operation { get; set; }
@@ -83,6 +85,14 @@ public sealed class CadCommandDto
     public int[]? Counts { get; set; }
 
     public float[]? Spacing { get; set; }
+
+    /// <summary>Radial clone axis (unit vector preferred).</summary>
+    public float[]? Axis { get; set; }
+
+    public float? StepRadians { get; set; }
+
+    /// <summary>Instance / transform translation (meters).</summary>
+    public float[]? Center { get; set; }
 
     public float? Elevation { get; set; }
 

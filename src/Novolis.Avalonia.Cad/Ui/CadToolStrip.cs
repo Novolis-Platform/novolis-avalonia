@@ -68,6 +68,7 @@ public sealed class CadToolStrip : StackPanel
                 ("boolean", "Boolean"),
                 ("symmetry", "Symmetry"),
                 ("clone", "Cloner"),
+                ("instance", "Instance"),
                 ("connect", "Connect"),
                 ("split", "Split"),
                 ("group", "Group"),

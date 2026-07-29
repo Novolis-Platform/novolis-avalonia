@@ -6,6 +6,7 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="Novolis.Math.Geometry" />
+    <PackageReference Include="Novolis.Cad.Primitives" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />

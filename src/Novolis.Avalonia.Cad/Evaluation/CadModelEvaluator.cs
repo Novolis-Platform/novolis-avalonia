@@ -82,7 +82,8 @@ public sealed class CadModelEvaluator
         _cache.CadMeshes.Clear();
         var byId = document.Entities.ToDictionary(e => e.Id);
 
-        foreach (var entity in document.Entities)
+        // Leaf solids first, then generators in dependency order (nested boolean/symmetry/connect).
+        foreach (var entity in OrderForCadEvaluation(document.Entities))
         {
             var kind = entity.Kind.ToLowerInvariant();
             if (kind is "boolean")
@@ -144,15 +145,10 @@ public sealed class CadModelEvaluator
                     continue;
                 EditableMesh? acc = null;
                 foreach (var m in members)
-                {
                     acc = acc is null ? m.Clone() : MeshBoolean.Concat(acc, m);
-                }
 
                 if (acc is not null && mode is "fusesolid")
-                {
-                    // already concatenated; weld lightly
                     MeshWeld.Apply(acc, new WeldOptions(entity.TouchEpsilonMeters ?? 1e-4f));
-                }
 
                 if (acc is not null)
                     _cache.CadMeshes[entity.Id] = acc;
@@ -165,6 +161,79 @@ public sealed class CadModelEvaluator
         }
 
         _cache.CadRevision++;
+    }
+
+    /// <summary>Solids first, then CAD generators ordered so operands evaluate before consumers.</summary>
+    public static List<CadEntity> OrderForCadEvaluation(IReadOnlyList<CadEntity> entities)
+    {
+        var byId = entities.ToDictionary(e => e.Id);
+        var isGenerator = new HashSet<Guid>();
+        var deps = new Dictionary<Guid, HashSet<Guid>>();
+
+        foreach (var entity in entities)
+        {
+            var kind = entity.Kind.ToLowerInvariant();
+            if (kind is not ("boolean" or "symmetry" or "split" or "connect"))
+                continue;
+            isGenerator.Add(entity.Id);
+            var set = new HashSet<Guid>();
+            void Add(Guid? id)
+            {
+                if (id is { } g && byId.ContainsKey(g))
+                    set.Add(g);
+            }
+
+            if (kind is "boolean")
+            {
+                Add(entity.TargetId ?? entity.LeftId);
+                Add(entity.CutterId ?? entity.RightId);
+            }
+            else if (kind is "symmetry" or "split")
+            {
+                Add(entity.SourceId ?? entity.PrototypeId ?? entity.LeftId);
+            }
+            else if (kind is "connect" && entity.MemberIds is not null)
+            {
+                foreach (var mid in entity.MemberIds)
+                    Add(mid);
+            }
+
+            deps[entity.Id] = set;
+        }
+
+        var ordered = new List<CadEntity>(entities.Count);
+        foreach (var entity in entities)
+        {
+            if (!isGenerator.Contains(entity.Id))
+                ordered.Add(entity);
+        }
+
+        var pending = entities.Where(e => isGenerator.Contains(e.Id)).ToList();
+        var done = new HashSet<Guid>(ordered.Select(e => e.Id));
+        while (pending.Count > 0)
+        {
+            var progressed = false;
+            for (var i = 0; i < pending.Count; i++)
+            {
+                var e = pending[i];
+                if (!deps[e.Id].All(d => done.Contains(d) || !isGenerator.Contains(d)))
+                    continue;
+                ordered.Add(e);
+                done.Add(e.Id);
+                pending.RemoveAt(i);
+                progressed = true;
+                break;
+            }
+
+            if (!progressed)
+            {
+                // Cycle / missing dep — append remaining in document order
+                ordered.AddRange(pending);
+                break;
+            }
+        }
+
+        return ordered;
     }
 
     private void RebuildMeshAndModifiers(CadDocument document)
@@ -283,6 +352,21 @@ public sealed class CadModelEvaluator
                     if (fused is not null)
                         _cache.ModeledMeshes[entity.Id] = fused;
                 }
+                else if (realization is "separatecopies" && mesh is not null)
+                {
+                    // Distinct mesh per transform (not a shared instance reference).
+                    EditableMesh? compound = null;
+                    foreach (var xf in transforms)
+                    {
+                        var copy = mesh.Clone();
+                        copy.Transform(xf);
+                        _cache.Instances.Add(new EvaluatedInstance(sourceId, Matrix4x4.Identity, copy));
+                        compound = compound is null ? copy.Clone() : MeshBoolean.Concat(compound, copy);
+                    }
+
+                    if (compound is not null)
+                        _cache.ModeledMeshes[entity.Id] = compound;
+                }
                 else
                 {
                     foreach (var xf in transforms)
@@ -337,17 +421,14 @@ public sealed class CadModelEvaluator
         return false;
     }
 
-    private static List<EditableMesh> ResolveMembers(CadEntity entity, Dictionary<Guid, CadEntity> byId)
+    private List<EditableMesh> ResolveMembers(CadEntity entity, Dictionary<Guid, CadEntity> byId)
     {
         var list = new List<EditableMesh>();
         if (entity.MemberIds is null)
             return list;
         foreach (var id in entity.MemberIds)
         {
-            if (!byId.TryGetValue(id, out var e))
-                continue;
-            var m = CadSolidTessellator.TryTessellate(e);
-            if (m is not null)
+            if (TryResolveMesh(byId, id, out var m) && m is not null)
                 list.Add(m);
         }
 
