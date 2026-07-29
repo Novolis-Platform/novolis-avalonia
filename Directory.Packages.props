@@ -14,15 +14,20 @@
     <PackageVersion Include="Markdig" Version="0.41.3" />
     <PackageVersion Include="Mermaider" Version="0.8.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="TUnit" Version="1.44.39" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Novolis.Transports.LocalIpc" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Agent.Surface" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Avalonia.3D" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.TwoD" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Backends.TwoD.Silk" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Commands.Expressions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Abstractions" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Raylib.Bindings" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Runtime" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Silk" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live" Version="2026.1.*" />

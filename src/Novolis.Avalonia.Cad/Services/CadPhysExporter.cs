@@ -32,9 +32,8 @@ public sealed class CadPhysExporter
         {
             switch (entity.Kind.ToLowerInvariant())
             {
-                case "box" when entity.Center is not null && entity.HalfExtents is { Length: >= 3 }:
+                case "box" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he):
                 {
-                    var he = CadVec.To(entity.HalfExtents);
                     var (mesh, verts, inds) = BoxMeshLocal(he);
                     mesh.EntityId = entity.Id;
                     mesh.Name = (entity.Name ?? "box") + "-mesh";
@@ -44,8 +43,8 @@ public sealed class CadPhysExporter
                     {
                         EntityId = entity.Id,
                         Kind = "box",
-                        Center = (float[])entity.Center.Clone(),
-                        HalfExtents = (float[])entity.HalfExtents.Clone(),
+                        Center = CadVec.From(boxCenter),
+                        HalfExtents = CadVec.From(he),
                         Body = new CadColliderBody { Mass = 1f, InertiaDiagonal = BoxInertia(1f, he), Kinematic = false },
                     });
                     _ = verts;

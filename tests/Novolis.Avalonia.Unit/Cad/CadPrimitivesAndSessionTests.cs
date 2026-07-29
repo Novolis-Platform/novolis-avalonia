@@ -90,4 +90,33 @@ public sealed class CadPrimitivesAndSessionTests
             try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
         }
     }
+
+    [Test]
+    public async Task CadShipImport_LoadsShipEntitiesAndBounds()
+    {
+        var src = CadShipImport.ResolveSourceCadjson();
+        if (src is null)
+            return; // no generated ship on this machine
+
+        var root = Path.Combine(Path.GetTempPath(), "novolis-cad-ship-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var imported = CadShipImport.ImportIntoWorkspace(root, src);
+            var settings = new CadEditorSettings(root, CadShipImport.WorkspaceFolderName);
+            var session = new CadDocumentSession(settings);
+            session.OpenFromPath(imported);
+            await Assert.That(session.Document.Entities.Count).IsGreaterThan(100);
+            await Assert.That(session.Document.Entities.Any(e => e.Kind == "wall")).IsTrue();
+            await Assert.That(session.Document.Entities.Any(e => e.Kind == "space")).IsTrue();
+            await Assert.That(session.Document.Entities.Count(e => e.Kind == "box" && CadShipGeometry.TryGetBox(e, out _, out _)))
+                .IsGreaterThan(0);
+            var (_, radius) = EntityBounds.Compute(session.Document);
+            await Assert.That(radius).IsGreaterThan(10f);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
 }

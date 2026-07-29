@@ -12,6 +12,7 @@ public sealed class CadDocumentSession
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNameCaseInsensitive = true,
     };
 
     public CadDocument Document { get; private set; } = new();
@@ -19,6 +20,9 @@ public sealed class CadDocumentSession
     public bool IsDirty { get; private set; }
 
     public Guid? SelectedId { get; set; }
+
+    /// <summary>Ordered multi-selection (Connect, Bridge). First entry mirrors <see cref="SelectedId"/> when set.</summary>
+    public List<Guid> SelectedIds { get; } = [];
 
     public string WorkspacePath => _settings.WorkspacePath;
 
@@ -114,6 +118,20 @@ public sealed class CadDocumentSession
     }
 
     public void Notify() => Changed?.Invoke();
+
+    public void SetSelection(Guid? id, bool additive = false)
+    {
+        if (!additive)
+            SelectedIds.Clear();
+        SelectedId = id;
+        if (id is { } g)
+        {
+            if (!SelectedIds.Contains(g))
+                SelectedIds.Add(g);
+        }
+
+        Notify();
+    }
 
     public CadEntity? SelectedEntity =>
         SelectedId is { } id ? Document.Entities.FirstOrDefault(e => e.Id == id) : null;

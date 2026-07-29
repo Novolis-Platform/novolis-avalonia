@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Novolis.Avalonia.Unit.Scene3D</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <ProjectReference Include="..\..\src\Novolis.Modeling.Scene\Novolis.Modeling.Scene.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Agent.Surface\Novolis.Agent.Surface.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.3D\Novolis.Avalonia.3D.csproj" />
+  </ItemGroup>
+</Project>

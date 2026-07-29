@@ -18,20 +18,46 @@ public static class CadVec
 
     public static Vector3 OnPlane(float x, float z, float elevation) => new(x, elevation, z);
 
+    public const float DeckHeightMeters = 3.6f;
+
+    /// <summary>True when the document uses decked walls/spaces (ship CAD).</summary>
+    public static bool LooksLikeShipDocument(CadDocument document) =>
+        document.Entities.Count > 0
+        && document.Entities.Count(e => e.Kind is "wall" or "space") >= System.Math.Min(8, document.Entities.Count);
+
+    /// <summary>Deck index implied by drawing elevation (0, ±3.6, … → deck 0, ±1, …).</summary>
+    public static int DeckFromElevation(float elevation) =>
+        (int)MathF.Round(elevation / DeckHeightMeters);
+
     /// <summary>Representative elevation (world Y) for level filtering.</summary>
     public static float ElevationOf(CadEntity entity) => entity.Kind.ToLowerInvariant() switch
     {
+        "wall" or "space" or "opening" => entity.Deck * DeckHeightMeters,
         "line" => To(entity.A).Y,
         "rect" => To(entity.A).Y,
         "circle" or "arc" => To(entity.Center).Y,
         "spline" when entity.FitPoints is { Count: > 0 } => To(entity.FitPoints[0]).Y,
         "spline" when entity.ControlPoints is { Count: > 0 } => To(entity.ControlPoints[0]).Y,
+        "box" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out _) =>
+            // Prefer deck banding for ship boxes; fall back to geometric center.
+            entity.Deck != 0 || entity.Points is { Count: >= 2 }
+                ? entity.Deck * DeckHeightMeters
+                : boxCenter.Y,
         "box" or "wedge" or "cylinder" or "cone" or "sphere" => To(entity.Center).Y,
         _ => To(entity.Center).Y,
     };
 
-    public static bool MatchesLevel(CadEntity entity, float elevation, float tolerance) =>
-        MathF.Abs(ElevationOf(entity) - elevation) <= System.Math.Max(0.001f, tolerance);
+    public static bool MatchesLevel(CadEntity entity, float elevation, float tolerance)
+    {
+        var kind = entity.Kind.ToLowerInvariant();
+        if (kind is "wall" or "space" or "opening"
+            || (kind == "box" && entity.Points is { Count: >= 2 }))
+        {
+            return entity.Deck == DeckFromElevation(elevation);
+        }
+
+        return MathF.Abs(ElevationOf(entity) - elevation) <= System.Math.Max(0.001f, tolerance);
+    }
 
     public static void Translate(float[]? v, float dx, float dy, float dz)
     {
@@ -133,12 +159,52 @@ public static class CadVec
 
                 break;
             case "box" or "wedge":
-                if (entity.Center is not null && entity.HalfExtents is { Length: >= 3 })
+                if (CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he))
                 {
-                    var center = To(entity.Center);
-                    var he = To(entity.HalfExtents);
-                    yield return center + he;
-                    yield return center - he;
+                    yield return boxCenter + he;
+                    yield return boxCenter - he;
+                }
+
+                break;
+            case "wall":
+                if (entity.A is not null)
+                    yield return To(entity.A);
+                if (entity.B is not null)
+                    yield return To(entity.B) + new Vector3(0, System.Math.Max(0f, entity.Height), 0);
+                if (entity.Points is not null)
+                {
+                    foreach (var p in entity.Points)
+                        yield return To(p);
+                }
+
+                break;
+            case "space":
+                if (entity.Points is not null)
+                {
+                    foreach (var p in entity.Points)
+                    {
+                        var v = To(p);
+                        yield return v;
+                        yield return v + new Vector3(0, System.Math.Max(0f, entity.Height), 0);
+                    }
+                }
+
+                break;
+            case "opening":
+                if (entity.Footprint is not null)
+                {
+                    foreach (var p in entity.Footprint)
+                        yield return To(p);
+                }
+                else if (entity.Points is not null)
+                {
+                    foreach (var p in entity.Points)
+                        yield return To(p);
+                }
+                else if (entity.A is not null && entity.B is not null)
+                {
+                    yield return To(entity.A);
+                    yield return To(entity.B);
                 }
 
                 break;

@@ -64,7 +64,7 @@ public sealed class CadDraftViewport : Control
         var w = System.Math.Max(1, Bounds.Width);
         var h = System.Math.Max(1, Bounds.Height);
         _scale = System.Math.Min(w, h) / (bounds.Radius * 2.5);
-        _scale = System.Math.Clamp(_scale, 4, 400);
+        _scale = System.Math.Clamp(_scale, 1, 800);
         _originX = bounds.Center.X;
         _originZ = bounds.Center.Z;
         InvalidateVisual();
@@ -75,7 +75,7 @@ public sealed class CadDraftViewport : Control
     {
         var center = new Point(Bounds.Width * 0.5, Bounds.Height * 0.5);
         var before = ScreenToWorld(center);
-        _scale = System.Math.Clamp(_scale * factor, 4, 400);
+        _scale = System.Math.Clamp(_scale * factor, 1, 800);
         var after = ScreenToWorld(center);
         _originX += before.X - after.X;
         _originZ += before.Z - after.Z;
@@ -199,7 +199,7 @@ public sealed class CadDraftViewport : Control
         base.OnPointerWheelChanged(e);
         var factor = e.Delta.Y > 0 ? 1.1 : 0.9;
         var before = ScreenToWorld(e.GetPosition(this));
-        _scale = System.Math.Clamp(_scale * factor, 4, 400);
+        _scale = System.Math.Clamp(_scale * factor, 1, 800);
         var after = ScreenToWorld(e.GetPosition(this));
         _originX += before.X - after.X;
         _originZ += before.Z - after.Z;
@@ -215,14 +215,10 @@ public sealed class CadDraftViewport : Control
         DrawGrid(context);
         foreach (var entity in _session.Document.Entities)
         {
-            var onLevel = IsOnLevel(entity);
-            if (_settings.Settings.IsolateLevel && !onLevel && !entity.IsSolid)
-            {
-                DrawEntity(context, entity, selected: false, dimmed: true);
+            if (_settings.Settings.IsolateLevel && !IsOnLevel(entity))
                 continue;
-            }
 
-            DrawEntity(context, entity, entity.Id == _session.SelectedId, dimmed: !onLevel);
+            DrawEntity(context, entity, entity.Id == _session.SelectedId, dimmed: false);
         }
 
         _tools.DrawPreview(context, WorldToScreen, _scale);
@@ -252,7 +248,9 @@ public sealed class CadDraftViewport : Control
     private void DrawLevelBadge(DrawingContext context)
     {
         var unit = _settings.Settings.DisplayUnit;
-        var text = $"Level {CadUnits.FormatLength(_settings.Settings.DrawElevation, unit)}";
+        var text = CadVec.LooksLikeShipDocument(_session.Document)
+            ? $"Deck {CadVec.DeckFromElevation(_settings.Settings.DrawElevation)}  ({CadUnits.FormatLength(_settings.Settings.DrawElevation, unit)})"
+            : $"Level {CadUnits.FormatLength(_settings.Settings.DrawElevation, unit)}";
         context.DrawText(
             new FormattedText(
                 text,
@@ -261,7 +259,7 @@ public sealed class CadDraftViewport : Control
                 new Typeface("Segoe UI"),
                 12,
                 new SolidColorBrush(Color.FromRgb(180, 200, 230))),
-            new Point(Bounds.Width - 140, 10));
+            new Point(Bounds.Width - 160, 10));
     }
 
     private void DrawScaleBar(DrawingContext context)
@@ -359,18 +357,55 @@ public sealed class CadDraftViewport : Control
                     context.DrawLine(pen, WorldToScreen(samples[i - 1]), WorldToScreen(samples[i]));
                 break;
             }
-            case "box" when entity.Center is not null:
+            case "box" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he):
             {
-                var center = CadVec.To(entity.Center);
-                var hx = entity.HalfExtents is { Length: >= 1 } ? entity.HalfExtents[0] : 0.5f;
-                var hz = entity.HalfExtents is { Length: >= 3 } ? entity.HalfExtents[2] : hx;
                 var solidPen = SolidFootprintPen(selected, dimmed);
                 DrawRectFootprint(
                     context,
                     solidPen,
-                    new Vector3(center.X - hx, 0, center.Z - hz),
-                    new Vector3(center.X + hx, 0, center.Z + hz));
-                DrawSolidMarker(context, WorldToScreen(center), selected);
+                    new Vector3(boxCenter.X - System.Math.Abs(he.X), 0, boxCenter.Z - System.Math.Abs(he.Z)),
+                    new Vector3(boxCenter.X + System.Math.Abs(he.X), 0, boxCenter.Z + System.Math.Abs(he.Z)));
+                DrawSolidMarker(context, WorldToScreen(boxCenter), selected);
+                break;
+            }
+            case "wall" when entity.A is not null && entity.B is not null:
+            {
+                var a = CadVec.To(entity.A);
+                var b = CadVec.To(entity.B);
+                var wallPen = new Pen(color, selected ? 3.5 : System.Math.Max(1.5, entity.Thickness * _scale * 0.5));
+                context.DrawLine(wallPen, WorldToScreen(a), WorldToScreen(b));
+                break;
+            }
+            case "space" when entity.Points is { Count: >= 2 }:
+            {
+                var pts = entity.Points;
+                for (var i = 0; i < pts.Count; i++)
+                {
+                    var a = WorldToScreen(CadVec.To(pts[i]));
+                    var b = WorldToScreen(CadVec.To(pts[(i + 1) % pts.Count]));
+                    context.DrawLine(pen, a, b);
+                }
+
+                break;
+            }
+            case "opening":
+            {
+                var ring = entity.Footprint ?? entity.Points;
+                if (ring is { Count: >= 2 })
+                {
+                    var openPen = new Pen(ToBrush([0.85f, 0.7f, 0.35f], alpha), selected ? 2.5 : 1.5);
+                    for (var i = 0; i < ring.Count; i++)
+                    {
+                        var a = WorldToScreen(CadVec.To(ring[i]));
+                        var b = WorldToScreen(CadVec.To(ring[(i + 1) % ring.Count]));
+                        context.DrawLine(openPen, a, b);
+                    }
+                }
+                else if (entity.A is not null && entity.B is not null)
+                {
+                    context.DrawLine(pen, WorldToScreen(CadVec.To(entity.A)), WorldToScreen(CadVec.To(entity.B)));
+                }
+
                 break;
             }
             case "cylinder" or "cone" when entity.Center is not null:
@@ -607,7 +642,7 @@ public sealed class CadDraftViewport : Control
         var bestDist = float.MaxValue;
         foreach (var entity in _session.Document.Entities)
         {
-            if (_settings.Settings.IsolateLevel && !IsOnLevel(entity) && !entity.IsSolid)
+            if (_settings.Settings.IsolateLevel && !IsOnLevel(entity))
                 continue;
 
             var d = DistanceToEntity(entity, world);
@@ -637,14 +672,25 @@ public sealed class CadDraftViewport : Control
                 .Select(s => Vector3.Distance(new Vector3(p.X, 0, p.Z), new Vector3(s.X, 0, s.Z)))
                 .DefaultIfEmpty(float.MaxValue)
                 .Min(),
-            "box" or "wedge" when entity.Center is not null =>
-                DistToBoxFootprint(p, CadVec.To(entity.Center), entity.HalfExtents),
+            "box" or "wedge" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he) =>
+                DistToBoxFootprint(p, boxCenter, CadVec.From(he)),
+            "wall" when entity.A is not null && entity.B is not null =>
+                DistPointSegment(p, CadVec.To(entity.A), CadVec.To(entity.B)),
+            "space" when entity.Points is { Count: >= 2 } =>
+                DistToPolygon(p, entity.Points),
+            "opening" => DistToOpening(entity, p),
             "cylinder" or "cone" or "sphere" when entity.Center is not null =>
                 System.Math.Abs(Vector3.Distance(
                     new Vector3(p.X, 0, p.Z),
                     new Vector3(CadVec.To(entity.Center).X, 0, CadVec.To(entity.Center).Z)) - entity.Radius),
             _ => float.MaxValue,
         };
+    }
+
+    private static float DistToOpening(CadEntity entity, Vector3 p)
+    {
+        var ring = entity.Footprint ?? entity.Points;
+        return ring is { Count: >= 2 } ? DistToPolygon(p, ring) : float.MaxValue;
     }
 
     private static float DistToBoxFootprint(Vector3 p, Vector3 center, float[]? halfExtents)
@@ -655,6 +701,19 @@ public sealed class CadDraftViewport : Control
             p,
             new Vector3(center.X - hx, 0, center.Z - hz),
             new Vector3(center.X + hx, 0, center.Z + hz));
+    }
+
+    private static float DistToPolygon(Vector3 p, IReadOnlyList<float[]> ring)
+    {
+        var best = float.MaxValue;
+        for (var i = 0; i < ring.Count; i++)
+        {
+            var a = CadVec.To(ring[i]);
+            var b = CadVec.To(ring[(i + 1) % ring.Count]);
+            best = System.Math.Min(best, DistPointSegment(p, a, b));
+        }
+
+        return best;
     }
 
     private static float DistToRect(Vector3 p, Vector3 a, Vector3 b)

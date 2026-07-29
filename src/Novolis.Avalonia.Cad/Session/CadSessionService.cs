@@ -49,7 +49,23 @@ public sealed class CadSessionService : ICadSession
 
     public CadCommandDispatcher Dispatcher => _dispatcher;
 
-    public CadEditorSurface? Editor { get; set; }
+    public CadEditorSurface? Editor
+    {
+        get => _editor;
+        set
+        {
+            if (_editor is not null)
+                _editor.ToolRequested -= OnEditorTool;
+            _editor = value;
+            if (_editor is not null)
+                _editor.ToolRequested += OnEditorTool;
+        }
+    }
+
+    private CadEditorSurface? _editor;
+
+    private void OnEditorTool(string toolId) =>
+        Execute(new CadCommandDto { ActionId = toolId });
 
     public CadPreviewControl? Preview { get; set; }
 
@@ -96,6 +112,11 @@ public sealed class CadSessionService : ICadSession
     public CadCommandResultDto Execute(CadCommandDto command)
     {
         ArgumentNullException.ThrowIfNull(command);
+        return InvokeOnUi(() => ExecuteCore(command));
+    }
+
+    private CadCommandResultDto ExecuteCore(CadCommandDto command)
+    {
         var id = command.ActionId?.Trim() ?? "";
         CadCommandResultDto result;
         try
@@ -167,6 +188,8 @@ public sealed class CadSessionService : ICadSession
             }),
             CadSessionActionIds.SetTool => SetTool(command),
             CadSessionActionIds.SetViewMode => SetViewMode(command),
+            CadSessionActionIds.SetWorkspace => SetWorkspace(command),
+            CadSessionActionIds.SetSelectionMode => SetSelectionMode(command),
             CadSessionActionIds.SetElevation => SetElevation(command),
             CadSessionActionIds.SetSnap => SetSnap(command),
             CadSessionActionIds.SetGrid => SetGrid(command),
@@ -175,8 +198,41 @@ public sealed class CadSessionService : ICadSession
             CadSessionActionIds.ExportModelPng or CadSessionActionIds.ExportPreviewPng => ExportModel(command),
             CadSessionActionIds.ExportViewTour => ExportTour(command),
             CadSessionActionIds.ExportPhys => ExportPhys(command),
+            CadSessionActionIds.ImportShip => ImportShip(command),
+            CadSessionActionIds.Boolean => ActBoolean(command),
+            CadSessionActionIds.Symmetry => ActSymmetry(command),
+            CadSessionActionIds.Clone => ActClone(command),
+            CadSessionActionIds.Connect => ActConnect(command),
+            CadSessionActionIds.Split => ActSplit(command),
+            CadSessionActionIds.Group => ActGroup(command),
+            CadSessionActionIds.MeshFromSolid => ActMeshFromSolid(command),
+            CadSessionActionIds.Weld => ActWeld(command),
+            CadSessionActionIds.Optimize => ActOptimize(command),
+            CadSessionActionIds.Bridge => ActBridge(command),
+            CadSessionActionIds.AddMaterial => ActMaterial(command),
+            CadSessionActionIds.AddLight => ActLight(command),
+            CadSessionActionIds.AddCamera => ActCamera(command),
             _ => Fail(id, $"Unknown action '{id}'.", "unknownAction"),
         };
+    }
+
+    private CadCommandResultDto ImportShip(CadCommandDto command)
+    {
+        try
+        {
+            var path = CadShipImport.ImportIntoWorkspace(_settings.DataRoot, command.Path);
+            _document.OpenFromPath(path);
+            _settings.Save();
+            FitHandler?.Invoke();
+            return Ok(
+                CadSessionActionIds.ImportShip,
+                $"Imported ship ({_document.Document.Entities.Count} entities).",
+                [path]);
+        }
+        catch (Exception ex)
+        {
+            return Fail(CadSessionActionIds.ImportShip, ex.Message, "importFailed");
+        }
     }
 
     private CadCommandResultDto Open(CadCommandDto command)
@@ -206,8 +262,10 @@ public sealed class CadSessionService : ICadSession
 
     private CadCommandResultDto Select(CadCommandDto command)
     {
-        _document.SelectedId = command.EntityId;
-        _document.Notify();
+        var additive = command.Properties is not null
+                       && command.Properties.TryGetValue("additive", out var a)
+                       && string.Equals(a, "true", StringComparison.OrdinalIgnoreCase);
+        _document.SetSelection(command.EntityId, additive);
         return Ok(CadSessionActionIds.Select, command.EntityId is null ? "Cleared selection." : $"Selected {command.EntityId}.");
     }
 
@@ -231,14 +289,167 @@ public sealed class CadSessionService : ICadSession
 
     private CadCommandResultDto SetViewMode(CadCommandDto command)
     {
-        var mode = string.Equals(command.ViewMode, "model", StringComparison.OrdinalIgnoreCase)
-            ? CadViewMode.Model
-            : CadViewMode.Draft;
+        // Legacy draft/model + new workspace names
+        var workspace = CadWorkspaceMapping.Parse(command.Workspace ?? command.ViewMode);
+        return ApplyWorkspace(CadSessionActionIds.SetViewMode, workspace);
+    }
+
+    private CadCommandResultDto SetWorkspace(CadCommandDto command)
+    {
+        var workspace = CadWorkspaceMapping.Parse(command.Workspace ?? command.ViewMode);
+        return ApplyWorkspace(CadSessionActionIds.SetWorkspace, workspace);
+    }
+
+    private CadCommandResultDto ApplyWorkspace(string actionId, CadWorkspace workspace)
+    {
         if (Editor is not null)
-            Editor.SetViewMode(mode);
+        {
+            Editor.SetWorkspace(workspace);
+            if (Editor.ModelRenderer is not null)
+                Editor.ModelRenderer.Workspace = workspace;
+        }
         else
-            _settings.Settings.ViewMode = mode == CadViewMode.Model ? "model" : "draft";
-        return Ok(CadSessionActionIds.SetViewMode, $"View {mode}.");
+            _settings.Settings.ViewMode = CadWorkspaceMapping.ToStorage(workspace);
+        return Ok(actionId, $"Workspace {CadWorkspaceMapping.ToDisplay(workspace)}.");
+    }
+
+    private CadCommandResultDto SetSelectionMode(CadCommandDto command)
+    {
+        var mode = ParseSelectionMode(command.SelectionMode);
+        if (Editor is not null)
+            Editor.SetSelectionMode(mode);
+        return Ok(CadSessionActionIds.SetSelectionMode, $"Selection {mode}.");
+    }
+
+    private static CadSelectionMode ParseSelectionMode(string? raw) =>
+        (raw ?? "object").Trim().ToLowerInvariant() switch
+        {
+            "body" => CadSelectionMode.Body,
+            "sketch" or "sketchelement" => CadSelectionMode.SketchElement,
+            "island" or "meshisland" => CadSelectionMode.MeshIsland,
+            "face" => CadSelectionMode.Face,
+            "edge" => CadSelectionMode.Edge,
+            "vertex" => CadSelectionMode.Vertex,
+            "material" or "materialslot" => CadSelectionMode.MaterialSlot,
+            "light" => CadSelectionMode.Light,
+            "camera" => CadSelectionMode.Camera,
+            _ => CadSelectionMode.Object,
+        };
+
+    private CadCommandResultDto ActBoolean(CadCommandDto command)
+    {
+        var target = command.TargetId ?? command.EntityId ?? _document.SelectedId;
+        var cutter = command.CutterId
+                     ?? (_document.SelectedIds.Count >= 2 ? _document.SelectedIds[1] : (Guid?)null);
+        if (target is null || cutter is null)
+            return Fail(CadSessionActionIds.Boolean, "Need targetId and cutterId (or two selected).", "badArgs");
+        var id = CadModelingActions.AddBoolean(_bus, target.Value, cutter.Value, command.Operation ?? "subtract");
+        return Ok(CadSessionActionIds.Boolean, $"Boolean {id}.");
+    }
+
+    private CadCommandResultDto ActSymmetry(CadCommandDto command)
+    {
+        var source = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (source is null)
+            return Fail(CadSessionActionIds.Symmetry, "Need source selection.", "noSelection");
+        var id = CadModelingActions.AddSymmetry(_bus, source.Value, merge: command.MergeAtPlane ?? true);
+        return Ok(CadSessionActionIds.Symmetry, $"Symmetry {id}.");
+    }
+
+    private CadCommandResultDto ActClone(CadCommandDto command)
+    {
+        var source = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (source is null)
+            return Fail(CadSessionActionIds.Clone, "Need source selection.", "noSelection");
+        var counts = command.Counts is { Length: >= 3 } ? command.Counts : [3, 1, 1];
+        var spacing = command.Spacing is { Length: >= 3 } ? command.Spacing : [1f, 0f, 0f];
+        var id = CadModelingActions.AddClone(_bus, source.Value, counts, spacing, command.Realization ?? "instances");
+        return Ok(CadSessionActionIds.Clone, $"Cloner {id}.");
+    }
+
+    private CadCommandResultDto ActConnect(CadCommandDto command)
+    {
+        var members = command.MemberIds is { Length: > 0 }
+            ? command.MemberIds
+            : _document.SelectedIds.ToArray();
+        if (members.Length < 1 && _document.SelectedId is { } one)
+            members = [one];
+        if (members.Length < 1)
+            return Fail(CadSessionActionIds.Connect, "Need member ids.", "noSelection");
+        var id = CadModelingActions.AddConnect(_bus, _document, members, command.Mode ?? "group");
+        return Ok(CadSessionActionIds.Connect, $"Connect {id}.");
+    }
+
+    private CadCommandResultDto ActSplit(CadCommandDto command)
+    {
+        var source = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (source is null)
+            return Fail(CadSessionActionIds.Split, "Need source selection.", "noSelection");
+        var id = CadModelingActions.AddSplit(_bus, source.Value);
+        return Ok(CadSessionActionIds.Split, $"Split {id}.");
+    }
+
+    private CadCommandResultDto ActGroup(CadCommandDto command)
+    {
+        var members = command.MemberIds is { Length: > 0 }
+            ? command.MemberIds
+            : _document.SelectedIds.ToArray();
+        var id = CadModelingActions.AddGroup(_bus, _document, "Group", members.Length > 0 ? members : null);
+        return Ok(CadSessionActionIds.Group, $"Group {id}.");
+    }
+
+    private CadCommandResultDto ActMeshFromSolid(CadCommandDto command)
+    {
+        var source = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (source is null)
+            return Fail(CadSessionActionIds.MeshFromSolid, "Need CAD solid selection.", "noSelection");
+        var id = CadModelingActions.AddMeshFromSolid(_bus, source.Value, command.LinkMode ?? "linked");
+        return Ok(CadSessionActionIds.MeshFromSolid, $"MeshFromSolid {id}.");
+    }
+
+    private CadCommandResultDto ActWeld(CadCommandDto command)
+    {
+        var input = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (input is null)
+            return Fail(CadSessionActionIds.Weld, "Need mesh input.", "noSelection");
+        var id = CadModelingActions.AddWeld(_bus, input.Value, command.Tolerance ?? 1e-4f);
+        return Ok(CadSessionActionIds.Weld, $"Weld {id}.");
+    }
+
+    private CadCommandResultDto ActOptimize(CadCommandDto command)
+    {
+        var input = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (input is null)
+            return Fail(CadSessionActionIds.Optimize, "Need mesh input.", "noSelection");
+        var id = CadModelingActions.AddOptimize(_bus, input.Value);
+        return Ok(CadSessionActionIds.Optimize, $"Optimize {id}.");
+    }
+
+    private CadCommandResultDto ActBridge(CadCommandDto command)
+    {
+        var input = command.SourceId ?? command.EntityId ?? _document.SelectedId;
+        if (input is null)
+            return Fail(CadSessionActionIds.Bridge, "Need mesh input.", "noSelection");
+        var id = CadModelingActions.AddBridge(_bus, input.Value);
+        return Ok(CadSessionActionIds.Bridge, $"Bridge {id}.");
+    }
+
+    private CadCommandResultDto ActMaterial(CadCommandDto command)
+    {
+        var id = CadModelingActions.AddMaterial(_bus, command.EntityId ?? _document.SelectedId);
+        return Ok(CadSessionActionIds.AddMaterial, $"Material {id}.");
+    }
+
+    private CadCommandResultDto ActLight(CadCommandDto command)
+    {
+        var id = CadModelingActions.AddLight(_bus, command.EntityId ?? _document.SelectedId);
+        return Ok(CadSessionActionIds.AddLight, $"Light {id}.");
+    }
+
+    private CadCommandResultDto ActCamera(CadCommandDto command)
+    {
+        var id = CadModelingActions.AddCamera(_bus, command.EntityId ?? _document.SelectedId);
+        return Ok(CadSessionActionIds.AddCamera, $"Camera {id}.");
     }
 
     private CadCommandResultDto SetElevation(CadCommandDto command)
@@ -347,6 +558,8 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.Fit, "Fit", true),
         A(CadSessionActionIds.SetTool, "Set tool", true),
         A(CadSessionActionIds.SetViewMode, "Set view mode", true),
+        A(CadSessionActionIds.SetWorkspace, "Set workspace", true),
+        A(CadSessionActionIds.SetSelectionMode, "Set selection mode", true),
         A(CadSessionActionIds.SetElevation, "Set elevation", true),
         A(CadSessionActionIds.SetSnap, "Set snap", true),
         A(CadSessionActionIds.SetGrid, "Set grid", true),
@@ -356,28 +569,48 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.ExportPreviewPng, "Export preview PNG", ModelHost is not null, "No preview host"),
         A(CadSessionActionIds.ExportViewTour, "Export view tour", AsyncExportHook is not null || ModelHost is not null, "No tour"),
         A(CadSessionActionIds.ExportPhys, "Export phys", true),
+        A(CadSessionActionIds.ImportShip, "Import ship", true),
+        A(CadSessionActionIds.Boolean, "Boolean", true),
+        A(CadSessionActionIds.Symmetry, "Symmetry", true),
+        A(CadSessionActionIds.Clone, "Cloner", true),
+        A(CadSessionActionIds.Connect, "Connect", true),
+        A(CadSessionActionIds.Split, "Split", true),
+        A(CadSessionActionIds.Group, "Group", true),
+        A(CadSessionActionIds.MeshFromSolid, "Mesh From Solid", true),
+        A(CadSessionActionIds.Weld, "Weld", true),
+        A(CadSessionActionIds.Optimize, "Optimize", true),
+        A(CadSessionActionIds.Bridge, "Bridge", true),
+        A(CadSessionActionIds.AddMaterial, "Add material", true),
+        A(CadSessionActionIds.AddLight, "Add light", true),
+        A(CadSessionActionIds.AddCamera, "Add camera", true),
         .._extra.Keys.Select(k => A(k, k, true)),
     ];
 
-    private CadSnapshotDto BuildSnapshot() => new()
+    private CadSnapshotDto BuildSnapshot()
     {
-        DocumentName = _document.Document.Name,
-        DocumentPath = _document.DocumentPath,
-        Dirty = _document.IsDirty,
-        EntityCount = _document.Document.Entities.Count,
-        SelectedId = _document.SelectedId,
-        ActiveTool = _dispatcher.ActiveTool.ToString().ToLowerInvariant(),
-        ViewMode = Editor?.ViewMode == CadViewMode.Model
-            ? "model"
-            : (_settings.Settings.ViewMode ?? "draft"),
-        DrawElevation = _settings.Settings.DrawElevation,
-        DisplayUnit = _settings.Settings.DisplayUnit,
-        SnapToGrid = _settings.Settings.SnapToGrid,
-        GridStep = _settings.Settings.GridStep,
-        LastAction = _lastAction,
-        RecentExportPaths = _recentExports.ToArray(),
-        Actions = BuildActions(),
-    };
+        var workspace = Editor?.Workspace
+                        ?? CadWorkspaceMapping.Parse(_settings.Settings.ViewMode);
+        return new()
+        {
+            DocumentName = _document.Document.Name,
+            DocumentPath = _document.DocumentPath,
+            Dirty = _document.IsDirty,
+            EntityCount = _document.Document.Entities.Count,
+            SelectedId = _document.SelectedId,
+            SelectedIds = _document.SelectedIds.ToArray(),
+            ActiveTool = _dispatcher.ActiveTool.ToString().ToLowerInvariant(),
+            ViewMode = CadWorkspaceMapping.ToStorage(workspace),
+            Workspace = CadWorkspaceMapping.ToStorage(workspace),
+            SelectionMode = (Editor?.SelectionMode ?? CadSelectionMode.Object).ToString().ToLowerInvariant(),
+            DrawElevation = _settings.Settings.DrawElevation,
+            DisplayUnit = _settings.Settings.DisplayUnit,
+            SnapToGrid = _settings.Settings.SnapToGrid,
+            GridStep = _settings.Settings.GridStep,
+            LastAction = _lastAction,
+            RecentExportPaths = _recentExports.ToArray(),
+            Actions = BuildActions(),
+        };
+    }
 
     private void RaiseChanged(string reason)
     {
@@ -414,13 +647,18 @@ public sealed class CadSessionService : ICadSession
 
     private static T InvokeOnUi<T>(Func<T> body)
     {
+        // Headless / unit tests have no Avalonia application — run inline.
+        if (global::Avalonia.Application.Current is null)
+            return body();
         if (global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             return body();
         return global::Avalonia.Threading.Dispatcher.UIThread.Invoke(body);
     }
 
-        private static Task<T> InvokeOnUiAsync<T>(Func<Task<T>> body)
+    private static Task<T> InvokeOnUiAsync<T>(Func<Task<T>> body)
     {
+        if (global::Avalonia.Application.Current is null)
+            return body();
         if (global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             return body();
         var tcs = new TaskCompletionSource<T>();

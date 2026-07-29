@@ -29,6 +29,35 @@
       ],
       "project": "src/Novolis.Avalonia.Cad/Novolis.Avalonia.Cad.csproj"
     },
+    "Novolis.Modeling.Scene": {
+      "paths": [
+        "src/Novolis.Modeling.Scene/**",
+        "tests/Novolis.Avalonia.Unit/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Modeling.Scene/Novolis.Modeling.Scene.csproj"
+    },
+    "Novolis.Agent.Surface": {
+      "paths": [
+        "src/Novolis.Agent.Surface/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Agent.Surface/Novolis.Agent.Surface.csproj"
+    },
+    "Novolis.Avalonia.3D": {
+      "paths": [
+        "src/Novolis.Avalonia.3D/**",
+        "samples/LightLab/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.3D/Novolis.Avalonia.3D.csproj"
+    },
     "Novolis.Avalonia.Studio": {
       "paths": [
         "src/Novolis.Avalonia.Studio/**",

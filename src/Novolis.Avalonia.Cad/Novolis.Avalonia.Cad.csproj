@@ -11,6 +11,7 @@
     <PackageReference Include="Novolis.Commands.Expressions" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Raylib.Abstractions" />
+    <PackageReference Include="Novolis.Raylib.Bindings" />
     <PackageReference Include="Novolis.Raylib.Runtime" />
     <PackageReference Include="Novolis.Rendering.Presentation.Silk" />
   </ItemGroup>

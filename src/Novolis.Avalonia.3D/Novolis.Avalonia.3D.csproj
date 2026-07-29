@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.3D</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>C4D-inspired Avalonia 3D modeling surface: Object Manager, Raylib viewport, light/camera components, and agent session via Novolis.Agent.Surface.</Description>
+    <RootNamespace>Novolis.Avalonia._3D</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Math.Geometry" />
+    <PackageReference Include="Novolis.Raylib.Abstractions" />
+    <PackageReference Include="Novolis.Raylib.Bindings" />
+    <PackageReference Include="Novolis.Raylib.Runtime" />
+    <PackageReference Include="Novolis.Rendering.Presentation.Silk" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Modeling.Scene\Novolis.Modeling.Scene.csproj" />
+    <ProjectReference Include="..\Novolis.Agent.Surface\Novolis.Agent.Surface.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
+  </ItemGroup>
+</Project>

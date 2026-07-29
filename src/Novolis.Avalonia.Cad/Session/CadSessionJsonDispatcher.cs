@@ -44,20 +44,42 @@ public static class CadSessionJsonDispatcher
             cmd.Tool = tool;
         if (TryString(source, "viewMode", out var viewMode))
             cmd.ViewMode = viewMode;
+        if (TryString(source, "workspace", out var workspace))
+            cmd.Workspace = workspace;
+        if (TryString(source, "selectionMode", out var selectionMode))
+            cmd.SelectionMode = selectionMode;
         if (TryString(source, "prompt", out var prompt))
             cmd.Prompt = prompt;
         if (TryString(source, "kind", out var kind))
             cmd.Kind = kind;
         if (TryString(source, "exportRoot", out var exportRoot))
             cmd.ExportRoot = exportRoot;
+        if (TryString(source, "operation", out var operation))
+            cmd.Operation = operation;
+        if (TryString(source, "mode", out var mode))
+            cmd.Mode = mode;
+        if (TryString(source, "linkMode", out var linkMode))
+            cmd.LinkMode = linkMode;
+        if (TryString(source, "realization", out var realization))
+            cmd.Realization = realization;
         if (TryGuid(source, "entityId", out var entityId))
             cmd.EntityId = entityId;
+        if (TryGuid(source, "targetId", out var targetId))
+            cmd.TargetId = targetId;
+        if (TryGuid(source, "cutterId", out var cutterId))
+            cmd.CutterId = cutterId;
+        if (TryGuid(source, "sourceId", out var sourceId))
+            cmd.SourceId = sourceId;
         if (TryFloat(source, "elevation", out var elevation))
             cmd.Elevation = elevation;
         if (TryFloat(source, "gridStep", out var grid))
             cmd.GridStep = grid;
+        if (TryFloat(source, "tolerance", out var tol))
+            cmd.Tolerance = tol;
         if (TryBool(source, "snap", out var snap))
             cmd.Snap = snap;
+        if (TryBool(source, "mergeAtPlane", out var merge))
+            cmd.MergeAtPlane = merge;
         return cmd;
     }
 
