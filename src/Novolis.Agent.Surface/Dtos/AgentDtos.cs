@@ -67,9 +67,19 @@ public sealed class AgentCommandDto
     public string? ModifierKind { get; set; }
     public string? SourceId { get; set; }
     public string? InputId { get; set; }
+    public string? TargetId { get; set; }
+    public string? CutterId { get; set; }
+    public string? BooleanKind { get; set; }
+    public string? Primitive { get; set; }
+    public int? Segments { get; set; }
+    public float? Distance { get; set; }
     public int? Count { get; set; }
     public string? Axis { get; set; }
     public string? MaterialColor { get; set; }
+    public string? EditMode { get; set; }
+    public string? DisplayMode { get; set; }
+    public string? Indices { get; set; }
+    public bool? Additive { get; set; }
     public Dictionary<string, object?>? Extra { get; set; }
 }
 

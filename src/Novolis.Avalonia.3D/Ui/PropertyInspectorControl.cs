@@ -75,16 +75,55 @@ public sealed class PropertyInspectorControl : UserControl
         }
 
         if (node is MeshNode mesh)
+        {
             _body.Children.Add(Label($"Primitive: {mesh.Primitive}  size [{mesh.Size[0]:0.##},{mesh.Size[1]:0.##},{mesh.Size[2]:0.##}]"));
+            _body.Children.Add(NumericRow("Seg", mesh.Segments, v =>
+            {
+                mesh.Segments = (int)v;
+                _session.Evaluator.NotifyNodeChanged(mesh);
+                // force refresh via fake select
+                _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Select, NodeId = mesh.Id.ToString() });
+            }));
+            _body.Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommandDto
+            {
+                ActionId = SceneSessionActionIds.MakeEditable,
+                NodeId = mesh.Id.ToString(),
+            })));
+        }
+
+        _body.Children.Add(NumericRow("X", (decimal)node.Transform.Position[0], v => SetPos(0, (float)v)));
+        _body.Children.Add(NumericRow("Y", (decimal)node.Transform.Position[1], v => SetPos(1, (float)v)));
+        _body.Children.Add(NumericRow("Z", (decimal)node.Transform.Position[2], v => SetPos(2, (float)v)));
+
+        void SetPos(int axis, float value)
+        {
+            var cmd = new AgentCommandDto
+            {
+                ActionId = SceneSessionActionIds.SetTransform,
+                NodeId = node.Id.ToString(),
+            };
+            if (axis == 0) cmd.X = value;
+            if (axis == 1) cmd.Y = value;
+            if (axis == 2) cmd.Z = value;
+            // preserve other axes
+            cmd.X ??= node.Transform.Position[0];
+            cmd.Y ??= node.Transform.Position[1];
+            cmd.Z ??= node.Transform.Position[2];
+            _session.Execute(cmd);
+        }
 
         if (node is MaterialNode mat)
             _body.Children.Add(Label($"Color RGB ({mat.Color[0]:0.##},{mat.Color[1]:0.##},{mat.Color[2]:0.##})  rough {mat.Roughness:0.##}"));
 
         if (node is GeneratorNode gen)
+        {
             _body.Children.Add(Label($"{gen.Generator} count={gen.Count} axis={gen.Axis}"));
+            if (gen.Generator == GeneratorKind.Boole)
+                _body.Children.Add(Label($"Boole {gen.BooleanKind} target={gen.TargetId} cutter={gen.CutterId}"));
+        }
 
         if (node is ModifierNode mod)
-            _body.Children.Add(Label($"{mod.Modifier} tol={mod.Tolerance:0.####} levels={mod.Levels}"));
+            _body.Children.Add(Label($"{mod.Modifier} tol={mod.Tolerance:0.####} levels={mod.Levels} dist={mod.Distance:0.##}"));
     }
 
     private Control IntensitySlider(LightNode light)
@@ -125,4 +164,30 @@ public sealed class PropertyInspectorControl : UserControl
         FontSize = 12,
         TextWrapping = TextWrapping.Wrap,
     };
+
+    private static Control NumericRow(string label, decimal value, Action<decimal> onChanged)
+    {
+        var box = new NumericUpDown
+        {
+            Width = 100,
+            Value = value,
+            Increment = 0.1m,
+            FormatString = "0.###",
+        };
+        box.ValueChanged += (_, _) =>
+        {
+            if (box.Value is { } v)
+                onChanged(v);
+        };
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = label, Width = 40, VerticalAlignment = VerticalAlignment.Center },
+                box,
+            },
+        };
+    }
 }

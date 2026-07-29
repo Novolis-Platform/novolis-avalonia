@@ -22,7 +22,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />
     <Project Path="samples/LiveAvalonia/LiveAvalonia.csproj" />
-    <Project Path="samples/LightLab/LightLab.csproj" />
+    <Project Path="samples/SceneLab/SceneLab.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Novolis.Avalonia.Unit/Novolis.Avalonia.Unit.csproj" />

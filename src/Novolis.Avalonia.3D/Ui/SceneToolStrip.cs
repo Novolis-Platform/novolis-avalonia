@@ -16,39 +16,79 @@ public sealed class SceneToolStrip : StackPanel
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         Orientation = Orientation.Horizontal;
-        Spacing = 6;
+        Spacing = 4;
         Margin = new Thickness(8, 6);
 
         Children.Add(Btn("New", () => Cmd(SceneSessionActionIds.New)));
         Children.Add(Btn("Fit", () => Cmd(SceneSessionActionIds.Fit)));
         Children.Add(Sep());
-        Children.Add(Btn("Omni", () => AddLight(LightKind.Omni)));
-        Children.Add(Btn("Spot", () => AddLight(LightKind.Spot)));
-        Children.Add(Btn("Infinite", () => AddLight(LightKind.Infinite)));
-        Children.Add(Btn("Area", () => AddLight(LightKind.Area)));
+
+        foreach (var kind in new[]
+                 {
+                     MeshPrimitiveKind.Box, MeshPrimitiveKind.Sphere, MeshPrimitiveKind.Cylinder,
+                     MeshPrimitiveKind.Cone, MeshPrimitiveKind.Plane, MeshPrimitiveKind.Capsule,
+                     MeshPrimitiveKind.Torus,
+                 })
+        {
+            var k = kind;
+            Children.Add(Btn(k.ToString(), () => AddMesh(k)));
+        }
+
         Children.Add(Sep());
-        Children.Add(Btn("Camera", () => Cmd(SceneSessionActionIds.AddCamera)));
-        Children.Add(Btn("Mesh", () => Cmd(SceneSessionActionIds.AddMesh)));
-        Children.Add(Btn("Material", () => Cmd(SceneSessionActionIds.AddMaterial)));
-        Children.Add(Sep());
-        Children.Add(Btn("Cloner", () => Cmd(SceneSessionActionIds.AddGenerator, new AgentCommandDto
+        Children.Add(Btn("Array", () => Cmd(SceneSessionActionIds.AddGenerator, new AgentCommandDto
         {
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "cloner",
+            Count = 4,
         })));
         Children.Add(Btn("Symmetry", () => Cmd(SceneSessionActionIds.AddGenerator, new AgentCommandDto
         {
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "symmetry",
         })));
-        Children.Add(Btn("Weld", () => Cmd(SceneSessionActionIds.AddModifier, new AgentCommandDto
+        Children.Add(Btn("Boole", () => Cmd(SceneSessionActionIds.AddBoole, new AgentCommandDto
         {
-            ActionId = SceneSessionActionIds.AddModifier,
-            ModifierKind = "weld",
+            ActionId = SceneSessionActionIds.AddBoole,
+            BooleanKind = "difference",
         })));
+
+        Children.Add(Sep());
+        Children.Add(Btn("Extrude", () => AddMod(ModifierKind.Extrude)));
+        Children.Add(Btn("Bevel", () => AddMod(ModifierKind.Bevel)));
+        Children.Add(Btn("Weld", () => AddMod(ModifierKind.Weld)));
+        Children.Add(Btn("Optimize", () => AddMod(ModifierKind.Optimize)));
+        Children.Add(Btn("Subdiv", () => AddMod(ModifierKind.Subdivision)));
+
+        Children.Add(Sep());
+        Children.Add(Btn("Camera", () => Cmd(SceneSessionActionIds.AddCamera)));
+        Children.Add(Btn("Material", () => Cmd(SceneSessionActionIds.AddMaterial)));
+
+        Children.Add(Sep());
+        Children.Add(Btn("Omni", () => AddLight(LightKind.Omni)));
+        Children.Add(Btn("Spot", () => AddLight(LightKind.Spot)));
+        Children.Add(Btn("Infinite", () => AddLight(LightKind.Infinite)));
+        Children.Add(Btn("Area", () => AddLight(LightKind.Area)));
+
         Children.Add(Sep());
         Children.Add(Btn("Delete", () => Cmd(SceneSessionActionIds.Delete)));
     }
+
+    private void AddMesh(MeshPrimitiveKind kind) =>
+        _session.Execute(new AgentCommandDto
+        {
+            ActionId = SceneSessionActionIds.AddMesh,
+            Primitive = kind.ToString().ToLowerInvariant(),
+            Name = kind.ToString(),
+        });
+
+    private void AddMod(ModifierKind kind) =>
+        _session.Execute(new AgentCommandDto
+        {
+            ActionId = SceneSessionActionIds.AddModifier,
+            ModifierKind = kind.ToString().ToLowerInvariant(),
+            Distance = kind is ModifierKind.Extrude or ModifierKind.Bevel ? 0.2f : null,
+            Count = kind == ModifierKind.Subdivision ? 1 : null,
+        });
 
     private void AddLight(LightKind kind) =>
         _session.Execute(new AgentCommandDto
@@ -65,9 +105,10 @@ public sealed class SceneToolStrip : StackPanel
         var b = new Button
         {
             Content = label,
-            Padding = new Thickness(10, 4),
+            Padding = new Thickness(8, 4),
             Background = new SolidColorBrush(Color.FromRgb(32, 48, 62)),
             Foreground = Brushes.WhiteSmoke,
+            FontSize = 12,
         };
         b.Click += (_, _) => onClick();
         return b;

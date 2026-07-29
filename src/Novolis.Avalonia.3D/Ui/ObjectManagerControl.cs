@@ -63,9 +63,14 @@ public sealed class ObjectManagerControl : UserControl
     {
         LightNode => "☀",
         CameraNode => "◎",
-        MeshNode => "◼",
+        MeshNode m => m.Vertices is { Length: > 0 } ? "◆" : m.Primitive switch
+        {
+            MeshPrimitiveKind.Sphere or MeshPrimitiveKind.Disc => "●",
+            MeshPrimitiveKind.Landscape => "≋",
+            _ => "◼",
+        },
         MaterialNode => "◐",
-        GeneratorNode => "⧉",
+        GeneratorNode g => g.Generator == GeneratorKind.Boole ? "⬡" : "⧉",
         ModifierNode => "✎",
         GroupNode => "▢",
         _ => "○",

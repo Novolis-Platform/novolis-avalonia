@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
+    <PackageReference Include="Novolis.Math.Geometry" />
     <ProjectReference Include="..\..\src\Novolis.Modeling.Scene\Novolis.Modeling.Scene.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Agent.Surface\Novolis.Agent.Surface.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.3D\Novolis.Avalonia.3D.csproj" />

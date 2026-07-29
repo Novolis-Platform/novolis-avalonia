@@ -4,7 +4,7 @@ using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace LightLab;
+namespace SceneLab;
 
 public class App : Application
 {

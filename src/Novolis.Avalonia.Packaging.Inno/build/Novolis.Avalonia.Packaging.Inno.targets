@@ -45,6 +45,7 @@
       <_NovolisInnoScriptLines Include="Compression=lzma2" />
       <_NovolisInnoScriptLines Include="SolidCompression=yes" />
       <_NovolisInnoScriptLines Include="UninstallDisplayIcon={app}\$(NovolisInnoAppExeName)" />
+      <_NovolisInnoScriptLines Include="SetupIconFile=$(ApplicationIcon)" Condition="'$(ApplicationIcon)' != '' And Exists('$(ApplicationIcon)')" />
       <_NovolisInnoScriptLines Include="[Tasks]" />
       <_NovolisInnoScriptLines Include="Name: &quot;desktopicon&quot;%3B Description: &quot;Create a &amp;desktop icon&quot;%3B GroupDescription: &quot;Additional icons:&quot;%3B Flags: unchecked" />
       <_NovolisInnoScriptLines Include="[Files]" />

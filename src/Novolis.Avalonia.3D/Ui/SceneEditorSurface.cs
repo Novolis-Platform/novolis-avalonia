@@ -7,75 +7,175 @@ using Novolis.Avalonia._3D.Session;
 
 namespace Novolis.Avalonia._3D.Ui;
 
-/// <summary>Object Manager | Viewport | Properties shell.</summary>
+/// <summary>Object Manager | Viewport | Properties shell. Chrome is created for hosts to dock.</summary>
 public sealed class SceneEditorSurface : UserControl
 {
     private readonly SceneSessionService _session;
-    private readonly ObjectManagerControl _objectManager;
-    private readonly SceneViewportControl _viewport;
-    private readonly PropertyInspectorControl _properties;
     private readonly DispatcherTimer _presentTimer;
 
-    public SceneEditorSurface(SceneSessionService? session = null)
+    public SceneEditorSurface(SceneSessionService? session = null, bool composeDefaultLayout = true)
     {
         _session = session ?? new SceneSessionService();
-        _objectManager = new ObjectManagerControl(_session) { Width = 260 };
-        _viewport = new SceneViewportControl(_session);
-        _properties = new PropertyInspectorControl(_session) { Width = 280 };
-        var tools = new SceneToolStrip(_session);
+        ObjectManager = new ObjectManagerControl(_session) { Width = 260 };
+        Viewport = new SceneViewportControl(_session);
+        Properties = new PropertyInspectorControl(_session) { Width = 280 };
+        EditModeBar = new SceneEditModeBar(_session);
+        DisplayModeBar = new SceneDisplayModeBar(_session);
+        PrimitivePalette = new PrimitivePalette(_session);
+        GeneratorTools = new GeneratorToolStrip(_session);
+        MeshEditTools = new MeshEditToolStrip(_session);
+        LookTools = new LookToolStrip(_session);
+        MeshAttributes = new MeshAttributePanel(_session) { Width = 280 };
+        TransformHud = new TransformHud(_session);
+        ModifierStack = new ModifierStackPanel(_session) { Width = 280 };
+        StatusBar = new ViewportStatusBar(_session);
+        ToolStrip = new SceneToolStrip(_session);
+
+        _session.DocumentChanged += () =>
+        {
+            ObjectManager.Refresh();
+            Properties.Refresh();
+            MeshAttributes.Refresh();
+            ModifierStack.Refresh();
+            StatusBar.Refresh(_session);
+        };
+
+        _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
+        {
+            Viewport.Host.RequestFrame();
+            Viewport.InvalidateVisual();
+        });
+
+        AttachedToVisualTree += (_, _) =>
+        {
+            Viewport.Start();
+            _presentTimer.Start();
+        };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            _presentTimer.Stop();
+            Viewport.Stop();
+        };
+
+        if (composeDefaultLayout)
+            Content = BuildDefaultLayout();
+    }
+
+    public SceneSessionService Session => _session;
+    public ObjectManagerControl ObjectManager { get; }
+    public SceneViewportControl Viewport { get; }
+    public PropertyInspectorControl Properties { get; }
+    public SceneEditModeBar EditModeBar { get; }
+    public SceneDisplayModeBar DisplayModeBar { get; }
+    public PrimitivePalette PrimitivePalette { get; }
+    public GeneratorToolStrip GeneratorTools { get; }
+    public MeshEditToolStrip MeshEditTools { get; }
+    public LookToolStrip LookTools { get; }
+    public MeshAttributePanel MeshAttributes { get; }
+    public TransformHud TransformHud { get; }
+    public ModifierStackPanel ModifierStack { get; }
+    public ViewportStatusBar StatusBar { get; }
+    public SceneToolStrip ToolStrip { get; }
+
+    public void Fit() => Viewport.Fit();
+
+    /// <summary>Hosts that dock chrome themselves must call this (AttachedToVisualTree will not fire on an unused surface).</summary>
+    public void StartPresenting()
+    {
+        Viewport.Start();
+        if (!_presentTimer.IsEnabled)
+            _presentTimer.Start();
+    }
+
+    public void StopPresenting()
+    {
+        _presentTimer.Stop();
+        Viewport.Stop();
+    }
+
+    public Control BuildDefaultLayout()
+    {
+        var top = new StackPanel
+        {
+            Spacing = 0,
+            Children =
+            {
+                WrapChrome(EditModeBar, DisplayModeBar, TransformHud),
+                WrapChrome(PrimitivePalette),
+                WrapChrome(GeneratorTools, MeshEditTools),
+                WrapChrome(LookTools),
+            },
+        };
+
+        var right = new DockPanel
+        {
+            Width = 300,
+            Children =
+            {
+                MeshAttributes,
+                ModifierStack,
+                Properties,
+            },
+        };
+        // stack right panels vertically
+        right = new DockPanel
+        {
+            Width = 300,
+            Children =
+            {
+                new ScrollViewer
+                {
+                    Content = new StackPanel
+                    {
+                        Children = { MeshAttributes, ModifierStack, Properties },
+                    },
+                },
+            },
+        };
+
+        var split = new Grid { ColumnDefinitions = new ColumnDefinitions("260,*,300") };
+        Grid.SetColumn(ObjectManager, 0);
+        Grid.SetColumn(Viewport, 1);
+        Grid.SetColumn(right, 2);
+        split.Children.Add(ObjectManager);
+        split.Children.Add(Viewport);
+        split.Children.Add(right);
 
         var chrome = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(22, 32, 42)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(40, 60, 75)),
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Child = tools,
+            Child = top,
             [DockPanel.DockProperty] = Dock.Top,
         };
 
-        var split = new Grid
+        var status = new Border
         {
-            ColumnDefinitions = new ColumnDefinitions("260,* ,280"),
+            Background = new SolidColorBrush(Color.FromRgb(22, 32, 42)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(40, 60, 75)),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Child = StatusBar,
+            [DockPanel.DockProperty] = Dock.Bottom,
         };
-        split.Children.Add(_objectManager);
-        Grid.SetColumn(_objectManager, 0);
-        split.Children.Add(_viewport);
-        Grid.SetColumn(_viewport, 1);
-        split.Children.Add(_properties);
-        Grid.SetColumn(_properties, 2);
 
-        Content = new DockPanel
+        return new DockPanel
         {
             Background = new SolidColorBrush(Color.FromRgb(14, 20, 28)),
-            Children = { chrome, split },
-        };
-
-        _session.DocumentChanged += () =>
-        {
-            _objectManager.Refresh();
-            _properties.Refresh();
-        };
-
-        _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
-        {
-            _viewport.Host.RequestFrame();
-            _viewport.InvalidateVisual();
-        });
-
-        AttachedToVisualTree += (_, _) =>
-        {
-            _viewport.Start();
-            _presentTimer.Start();
-        };
-        DetachedFromVisualTree += (_, _) =>
-        {
-            _presentTimer.Stop();
-            _viewport.Stop();
+            Children = { chrome, status, split },
         };
     }
 
-    public SceneSessionService Session => _session;
-    public SceneViewportControl Viewport => _viewport;
-
-    public void Fit() => _viewport.Fit();
+    private static Border WrapChrome(params Control[] children)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        foreach (var child in children)
+            row.Children.Add(child);
+        return new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.FromRgb(40, 60, 75)),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Child = row,
+        };
+    }
 }

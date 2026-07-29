@@ -2,9 +2,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>LightLab</RootNamespace>
+    <RootNamespace>SceneLab</RootNamespace>
     <IsPackable>false</IsPackable>
-    <Description>Same-repo sample host for Novolis.Avalonia.3D (ProjectReference).</Description>
+    <Description>Same-repo sample host for Novolis.Avalonia.3D SceneLab (ProjectReference).</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />

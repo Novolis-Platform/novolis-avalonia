@@ -1,4 +1,5 @@
 using Novolis.Agent.Surface;
+using Novolis.Math.Geometry;
 using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Session;
@@ -76,10 +77,18 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.AddMesh => DoAddMesh(command),
                 SceneSessionActionIds.AddMaterial => DoAddMaterial(command),
                 SceneSessionActionIds.AddGenerator => DoAddGenerator(command),
+                SceneSessionActionIds.AddBoole => DoAddBoole(command),
+                SceneSessionActionIds.SetBoole => DoSetBoole(command),
                 SceneSessionActionIds.AddModifier => DoAddModifier(command),
                 SceneSessionActionIds.SetLight => DoSetLight(command),
                 SceneSessionActionIds.SetTransform => DoSetTransform(command),
                 SceneSessionActionIds.SetActiveCamera => DoSetActiveCamera(command),
+                SceneSessionActionIds.SetEditMode => DoSetEditMode(command),
+                SceneSessionActionIds.SetDisplayMode => DoSetDisplayMode(command),
+                SceneSessionActionIds.MakeEditable => DoMakeEditable(command),
+                SceneSessionActionIds.SelectComponents => DoSelectComponents(command),
+                SceneSessionActionIds.MoveSelection => DoMoveSelection(command),
+                SceneSessionActionIds.MeshEdit => DoMeshEdit(command),
                 _ => Fail(id, $"Unknown action '{command.ActionId}'.", "unknownAction"),
             };
         }
@@ -209,10 +218,15 @@ public sealed class SceneSessionService : ISceneSession
 
     private AgentCommandResultDto DoAddMesh(AgentCommandDto command)
     {
+        var primitive = Enum.TryParse<MeshPrimitiveKind>(command.Primitive, ignoreCase: true, out var p)
+            ? p
+            : MeshPrimitiveKind.Box;
         var mesh = new MeshNode
         {
-            Name = string.IsNullOrWhiteSpace(command.Name) ? "Mesh" : command.Name!,
+            Name = string.IsNullOrWhiteSpace(command.Name) ? primitive.ToString() : command.Name!,
             ParentId = ResolveParent(command.ParentId),
+            Primitive = primitive,
+            Segments = command.Segments ?? 16,
             Transform = new SceneTransform
             {
                 Position = [command.X ?? 0f, command.Y ?? 0.5f, command.Z ?? 0f],
@@ -222,7 +236,7 @@ public sealed class SceneSessionService : ISceneSession
         _document.SelectionId = mesh.Id;
         _evaluator.NotifyNodeChanged(mesh);
         RaiseChanged("addmesh");
-        return Ok(SceneSessionActionIds.AddMesh, "Added mesh.", mesh.Id.ToString());
+        return Ok(SceneSessionActionIds.AddMesh, $"Added {primitive}.", mesh.Id.ToString());
     }
 
     private AgentCommandResultDto DoAddMaterial(AgentCommandDto command)
@@ -256,6 +270,9 @@ public sealed class SceneSessionService : ISceneSession
         var kind = Enum.TryParse<GeneratorKind>(command.GeneratorKind, ignoreCase: true, out var g)
             ? g
             : GeneratorKind.Cloner;
+        if (kind == GeneratorKind.Boole)
+            return DoAddBoole(command);
+
         Guid? sourceId = null;
         if (!string.IsNullOrWhiteSpace(command.SourceId) && Guid.TryParse(command.SourceId, out var sid))
             sourceId = sid;
@@ -264,7 +281,7 @@ public sealed class SceneSessionService : ISceneSession
 
         var gen = new GeneratorNode
         {
-            Name = kind.ToString(),
+            Name = kind == GeneratorKind.Cloner ? "Array" : kind.ToString(),
             ParentId = ResolveParent(command.ParentId),
             Generator = kind,
             SourceId = sourceId,
@@ -278,15 +295,65 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddGenerator, $"Added {kind}.", gen.Id.ToString());
     }
 
+    private AgentCommandResultDto DoAddBoole(AgentCommandDto command)
+    {
+        Guid? targetId = ParseGuid(command.TargetId) ?? ParseGuid(command.SourceId);
+        Guid? cutterId = ParseGuid(command.CutterId);
+        if (targetId is null && _document.SelectionId is { } sel && _document.Find(sel) is MeshNode)
+            targetId = sel;
+        if (cutterId is null)
+        {
+            cutterId = _document.Nodes.OfType<MeshNode>()
+                .Select(m => m.Id)
+                .FirstOrDefault(id => id != targetId);
+            if (cutterId == Guid.Empty)
+                cutterId = null;
+        }
+
+        var booleanKind = Enum.TryParse<BooleanKind>(command.BooleanKind, ignoreCase: true, out var bk)
+            ? bk
+            : BooleanKind.Difference;
+
+        var gen = new GeneratorNode
+        {
+            Name = $"Boole {booleanKind}",
+            ParentId = ResolveParent(command.ParentId),
+            Generator = GeneratorKind.Boole,
+            TargetId = targetId,
+            CutterId = cutterId,
+            SourceId = targetId,
+            BooleanKind = booleanKind,
+        };
+        _document.Nodes.Add(gen);
+        _document.SelectionId = gen.Id;
+        _evaluator.InvalidateMesh();
+        RaiseChanged("addboole");
+        return Ok(SceneSessionActionIds.AddBoole, $"Added Boole {booleanKind}.", gen.Id.ToString());
+    }
+
+    private AgentCommandResultDto DoSetBoole(AgentCommandDto command)
+    {
+        if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is not GeneratorNode { Generator: GeneratorKind.Boole } gen)
+            return Fail(SceneSessionActionIds.SetBoole, "Select a Boole generator.", "badNode");
+        if (!string.IsNullOrWhiteSpace(command.BooleanKind)
+            && Enum.TryParse<BooleanKind>(command.BooleanKind, ignoreCase: true, out var bk))
+            gen.BooleanKind = bk;
+        if (ParseGuid(command.TargetId) is { } tid)
+            gen.TargetId = tid;
+        if (ParseGuid(command.CutterId) is { } cid)
+            gen.CutterId = cid;
+        _evaluator.InvalidateMesh();
+        RaiseChanged("setboole");
+        return Ok(SceneSessionActionIds.SetBoole, "Boole updated.", gen.Id.ToString());
+    }
+
     private AgentCommandResultDto DoAddModifier(AgentCommandDto command)
     {
         var kind = Enum.TryParse<ModifierKind>(command.ModifierKind, ignoreCase: true, out var m)
             ? m
             : ModifierKind.Weld;
-        Guid? inputId = null;
-        if (!string.IsNullOrWhiteSpace(command.InputId) && Guid.TryParse(command.InputId, out var iid))
-            inputId = iid;
-        else if (_document.SelectionId is { } sel)
+        Guid? inputId = ParseGuid(command.InputId);
+        if (inputId is null && _document.SelectionId is { } sel)
             inputId = sel;
 
         var mod = new ModifierNode
@@ -295,6 +362,8 @@ public sealed class SceneSessionService : ISceneSession
             ParentId = ResolveParent(command.ParentId),
             Modifier = kind,
             InputId = inputId,
+            Distance = command.Distance ?? (kind is ModifierKind.Extrude or ModifierKind.Bevel ? 0.2f : 0.001f),
+            Levels = command.Count ?? 1,
         };
         _document.Nodes.Add(mod);
         _document.SelectionId = mod.Id;
@@ -302,6 +371,9 @@ public sealed class SceneSessionService : ISceneSession
         RaiseChanged("addmodifier");
         return Ok(SceneSessionActionIds.AddModifier, $"Added {kind}.", mod.Id.ToString());
     }
+
+    private static Guid? ParseGuid(string? raw) =>
+        !string.IsNullOrWhiteSpace(raw) && Guid.TryParse(raw, out var id) ? id : null;
 
     private AgentCommandResultDto DoSetLight(AgentCommandDto command)
     {
@@ -342,6 +414,206 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetActiveCamera, "Active camera set.", id.ToString());
     }
 
+    private AgentCommandResultDto DoSetEditMode(AgentCommandDto command)
+    {
+        if (!Enum.TryParse<SceneEditMode>(command.EditMode, ignoreCase: true, out var mode))
+            return Fail(SceneSessionActionIds.SetEditMode, "editMode required.", "badMode");
+
+        if (mode is SceneEditMode.Point or SceneEditMode.Edge or SceneEditMode.Polygon)
+        {
+            var target = ResolveEditTarget(command.NodeId);
+            if (target is null)
+                return Fail(SceneSessionActionIds.SetEditMode, "Select a mesh first.", "noSelection");
+            if (!MeshEditBake.MakeEditable(_document, _evaluator, target.Value))
+                return Fail(SceneSessionActionIds.SetEditMode, "Could not make editable.", "badNode");
+            _document.Edit.EditMeshId = target;
+            _document.SelectionId = target;
+        }
+
+        _document.Edit.Mode = mode;
+        if (mode == SceneEditMode.Object)
+            _document.Edit.ClearComponents();
+        RaiseChanged("seteditmode");
+        return Ok(SceneSessionActionIds.SetEditMode, $"Edit mode {mode}.");
+    }
+
+    private AgentCommandResultDto DoSetDisplayMode(AgentCommandDto command)
+    {
+        if (!Enum.TryParse<SceneDisplayMode>(command.DisplayMode, ignoreCase: true, out var mode))
+            return Fail(SceneSessionActionIds.SetDisplayMode, "displayMode required.", "badMode");
+        _document.Edit.DisplayMode = mode;
+        RaiseChanged("setdisplaymode");
+        return Ok(SceneSessionActionIds.SetDisplayMode, $"Display {mode}.");
+    }
+
+    private AgentCommandResultDto DoMakeEditable(AgentCommandDto command)
+    {
+        var id = ResolveEditTarget(command.NodeId);
+        if (id is null)
+            return Fail(SceneSessionActionIds.MakeEditable, "Select a mesh or generator.", "noSelection");
+        if (!MeshEditBake.MakeEditable(_document, _evaluator, id.Value))
+            return Fail(SceneSessionActionIds.MakeEditable, "Could not bake.", "badNode");
+        RaiseChanged("makeeditable");
+        return Ok(SceneSessionActionIds.MakeEditable, "Made editable.", _document.SelectionId?.ToString());
+    }
+
+    private AgentCommandResultDto DoSelectComponents(AgentCommandDto command)
+    {
+        var edit = _document.Edit;
+        if (edit.Mode == SceneEditMode.Object)
+            return Fail(SceneSessionActionIds.SelectComponents, "Not in component mode.", "badMode");
+
+        var additive = command.Additive == true;
+        if (!additive)
+            edit.ClearComponents();
+
+        if (string.IsNullOrWhiteSpace(command.Indices))
+        {
+            RaiseChanged("selectcomponents");
+            return Ok(SceneSessionActionIds.SelectComponents, "Cleared components.");
+        }
+
+        if (edit.EditMeshId is null && _document.SelectionId is { } sel)
+            edit.EditMeshId = sel;
+
+        foreach (var token in command.Indices.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (edit.Mode == SceneEditMode.Edge && token.Contains('-', StringComparison.Ordinal))
+            {
+                var parts = token.Split('-', 2);
+                if (int.TryParse(parts[0], out var a) && int.TryParse(parts[1], out var b))
+                {
+                    var key = a < b ? (a, b) : (b, a);
+                    edit.SelectedEdges.Add(key);
+                }
+            }
+            else if (int.TryParse(token, out var idx))
+            {
+                if (edit.Mode == SceneEditMode.Point)
+                    edit.SelectedVertices.Add(idx);
+                else if (edit.Mode == SceneEditMode.Polygon)
+                    edit.SelectedFaces.Add(idx);
+            }
+        }
+
+        RaiseChanged("selectcomponents");
+        return Ok(SceneSessionActionIds.SelectComponents, $"Selected {edit.SelectionCount} components.");
+    }
+
+    private AgentCommandResultDto DoMoveSelection(AgentCommandDto command)
+    {
+        var delta = new System.Numerics.Vector3(command.X ?? 0, command.Y ?? 0, command.Z ?? 0);
+        if (delta == System.Numerics.Vector3.Zero)
+            return Ok(SceneSessionActionIds.MoveSelection, "No delta.");
+
+        var edit = _document.Edit;
+        if (edit.Mode == SceneEditMode.Object)
+        {
+            if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is null)
+                return Fail(SceneSessionActionIds.MoveSelection, "Select a node.", "noSelection");
+            node.Transform.Position[0] += delta.X;
+            node.Transform.Position[1] += delta.Y;
+            node.Transform.Position[2] += delta.Z;
+            _evaluator.NotifyNodeChanged(node);
+            RaiseChanged("moveselection");
+            return Ok(SceneSessionActionIds.MoveSelection, "Moved object.", node.Id.ToString());
+        }
+
+        if (!TryGetEditableMesh(out var meshNode, out var mesh))
+            return Fail(SceneSessionActionIds.MoveSelection, "No editable mesh.", "noMesh");
+
+        var updated = edit.Mode switch
+        {
+            SceneEditMode.Point => MeshComponentOps.MoveVertices(mesh, edit.SelectedVertices, delta),
+            SceneEditMode.Edge => MeshComponentOps.MoveEdges(mesh, edit.SelectedEdges, delta),
+            SceneEditMode.Polygon => MeshComponentOps.MoveFaces(mesh, edit.SelectedFaces, delta),
+            _ => mesh,
+        };
+        MeshEditBake.WriteBaked(meshNode, updated);
+        _evaluator.NotifyNodeChanged(meshNode);
+        RaiseChanged("moveselection");
+        return Ok(SceneSessionActionIds.MoveSelection, "Moved selection.", meshNode.Id.ToString());
+    }
+
+    private AgentCommandResultDto DoMeshEdit(AgentCommandDto command)
+    {
+        if (!Enum.TryParse<ModifierKind>(command.ModifierKind, ignoreCase: true, out var kind))
+            return Fail(SceneSessionActionIds.MeshEdit, "modifierKind required.", "badKind");
+
+        var edit = _document.Edit;
+        if (edit.Mode == SceneEditMode.Object)
+        {
+            return DoAddModifier(command);
+        }
+
+        if (!TryGetEditableMesh(out var meshNode, out var mesh))
+            return Fail(SceneSessionActionIds.MeshEdit, "Make editable first.", "noMesh");
+
+        var distance = command.Distance ?? 0.2f;
+        EditableMesh updated = kind switch
+        {
+            ModifierKind.Extrude when edit.Mode == SceneEditMode.Polygon && edit.SelectedFaces.Count > 0 =>
+                MeshComponentOps.ExtrudeFaces(mesh, edit.SelectedFaces, distance),
+            ModifierKind.Inset when edit.Mode == SceneEditMode.Polygon && edit.SelectedFaces.Count > 0 =>
+                MeshComponentOps.InsetFaces(mesh, edit.SelectedFaces, distance),
+            ModifierKind.Bevel when edit.Mode == SceneEditMode.Edge && edit.SelectedEdges.Count > 0 =>
+                MeshComponentOps.BevelEdges(mesh, edit.SelectedEdges, distance),
+            ModifierKind.Dissolve when edit.Mode == SceneEditMode.Polygon =>
+                MeshComponentOps.DissolveFaces(mesh, edit.SelectedFaces),
+            ModifierKind.Dissolve when edit.Mode == SceneEditMode.Edge =>
+                MeshComponentOps.DissolveEdges(mesh, edit.SelectedEdges),
+            ModifierKind.Knife =>
+                MeshComponentOps.Knife(mesh, new System.Numerics.Plane(System.Numerics.Vector3.UnitY, 0)),
+            ModifierKind.Bridge =>
+                MeshComponentOps.BridgeSelectedEdges(mesh, edit.SelectedEdges.ToList()),
+            ModifierKind.Weld =>
+                MeshWeld.Apply(mesh, new WeldOptions(
+                    command.Distance ?? 0.001f,
+                    Scope: edit.SelectedVertices.Count > 0
+                        ? WeldScope.SelectedVertices
+                        : WeldScope.EntireMesh),
+                    edit.SelectedVertices.Count > 0 ? edit.SelectedVertices : null),
+            ModifierKind.Optimize => MeshOptimize.Apply(mesh).Mesh,
+            ModifierKind.Subdivision => MeshShaping.Subdivide(mesh, command.Count ?? 1),
+            ModifierKind.Extrude => MeshShaping.Extrude(mesh, distance),
+            ModifierKind.Bevel => MeshShaping.BevelLite(mesh, distance),
+            _ => mesh.Clone(),
+        };
+
+        MeshEditBake.WriteBaked(meshNode, updated);
+        edit.ClearComponents();
+        _evaluator.NotifyNodeChanged(meshNode);
+        RaiseChanged("meshedit");
+        return Ok(SceneSessionActionIds.MeshEdit, $"Applied {kind}.", meshNode.Id.ToString());
+    }
+
+    private Guid? ResolveEditTarget(string? nodeId)
+    {
+        if (!string.IsNullOrWhiteSpace(nodeId) && Guid.TryParse(nodeId, out var id))
+            return id;
+        if (_document.Edit.EditMeshId is { } eid)
+            return eid;
+        return _document.SelectionId;
+    }
+
+    private bool TryGetEditableMesh(out MeshNode meshNode, out EditableMesh mesh)
+    {
+        meshNode = null!;
+        mesh = null!;
+        var id = _document.Edit.EditMeshId ?? _document.SelectionId;
+        if (id is null || _document.Find(id.Value) is not MeshNode node)
+            return false;
+        if (node.Vertices is null || node.Indices is null)
+        {
+            if (!MeshEditBake.MakeEditable(_document, _evaluator, node.Id))
+                return false;
+        }
+
+        meshNode = node;
+        mesh = MeshEditBake.ReadBakedOrTessellate(node);
+        return true;
+    }
+
     private Guid? ResolveParent(string? parentId)
     {
         if (!string.IsNullOrWhiteSpace(parentId) && Guid.TryParse(parentId, out var pid))
@@ -372,16 +644,24 @@ public sealed class SceneSessionService : ISceneSession
 
     private void RaiseChanged(string reason)
     {
-        DocumentChanged?.Invoke();
-        if (_subscribed)
+        void Raise()
         {
-            Changed?.Invoke(new AgentChangedEventDto
+            DocumentChanged?.Invoke();
+            if (_subscribed)
             {
-                Reason = reason,
-                DocumentName = _document.Name,
-                NodeCount = _document.Nodes.Count,
-            });
+                Changed?.Invoke(new AgentChangedEventDto
+                {
+                    Reason = reason,
+                    DocumentName = _document.Name,
+                    NodeCount = _document.Nodes.Count,
+                });
+            }
         }
+
+        if (global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            Raise();
+        else
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(Raise);
     }
 
     private static AgentCommandResultDto Ok(string actionId, string message, string? nodeId = null) => new()

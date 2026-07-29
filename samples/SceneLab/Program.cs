@@ -9,7 +9,7 @@ using Novolis.Avalonia._3D.Session;
 using Novolis.Avalonia._3D.Ui;
 using Novolis.Modeling.Scene;
 
-namespace LightLab;
+namespace SceneLab;
 
 internal static class Program
 {
@@ -24,12 +24,18 @@ internal static class Program
             {
                 services.AddSingleton(_ =>
                 {
-                    var sample = args.Any(a => a.Equals("--spot", StringComparison.OrdinalIgnoreCase))
-                        ? SceneDocument.CreateSpotRimSample()
-                        : args.Any(a => a.Equals("--studio", StringComparison.OrdinalIgnoreCase))
-                            ? SceneDocument.CreateMultiLightStudio()
-                            : SceneDocument.CreateEmpty("LightLab");
-                    return new SceneSessionService(sample) { AppId = "lightlab" };
+                    var sample = args.Any(a => a.Equals("--cloner", StringComparison.OrdinalIgnoreCase))
+                        ? SceneDocument.CreateClonerRow()
+                        : args.Any(a => a.Equals("--boole", StringComparison.OrdinalIgnoreCase))
+                            ? SceneDocument.CreateBooleCut()
+                            : args.Any(a => a.Equals("--look", StringComparison.OrdinalIgnoreCase))
+                                ? SceneDocument.CreateLookSetup()
+                                : args.Any(a => a.Equals("--edit", StringComparison.OrdinalIgnoreCase))
+                                    ? SceneDocument.CreateEditBox()
+                                    : args.Any(a => a.Equals("--gallery", StringComparison.OrdinalIgnoreCase))
+                                        ? SceneDocument.CreatePrimitiveGallery()
+                                        : SceneDocument.CreatePrimitiveStage("SceneLab");
+                    return new SceneSessionService(sample) { AppId = "scenelab" };
                 });
                 services.AddTransient<MainWindow>();
             })
@@ -61,10 +67,10 @@ internal sealed class MainWindow : Window
 {
     public MainWindow(SceneSessionService session)
     {
-        Title = "Novolis LightLab";
-        Width = 1400;
-        Height = 860;
-        MinWidth = 900;
+        Title = "Novolis SceneLab — mesh modeller";
+        Width = 1600;
+        Height = 920;
+        MinWidth = 960;
         MinHeight = 560;
         Background = new SolidColorBrush(Color.FromRgb(14, 20, 28));
 

@@ -32,9 +32,10 @@ public sealed class MeshNode : SceneNode
 
     public MeshPrimitiveKind Primitive { get; set; } = MeshPrimitiveKind.Box;
     public float[] Size { get; set; } = [1, 1, 1];
+    public int Segments { get; set; } = 16;
     public Guid? MaterialId { get; set; }
 
-    /// <summary>Optional raw triangle soup (xyz per vertex, 3 indices per tri) for baked meshes.</summary>
+    /// <summary>Optional raw triangle soup (xyz per vertex) for baked meshes.</summary>
     public float[]? Vertices { get; set; }
     public int[]? Indices { get; set; }
 }
@@ -45,8 +46,11 @@ public sealed class GeneratorNode : SceneNode
 
     public GeneratorKind Generator { get; set; } = GeneratorKind.Cloner;
     public Guid? SourceId { get; set; }
+    public Guid? TargetId { get; set; }
+    public Guid? CutterId { get; set; }
+    public BooleanKind BooleanKind { get; set; } = BooleanKind.Difference;
     public int Count { get; set; } = 3;
-    public float[] Offset { get; set; } = [1, 0, 0];
+    public float[] Offset { get; set; } = [1.5f, 0, 0];
     public string Axis { get; set; } = "x";
 }
 
@@ -58,6 +62,7 @@ public sealed class ModifierNode : SceneNode
     public Guid? InputId { get; set; }
     public float Tolerance { get; set; } = 0.001f;
     public int Levels { get; set; } = 1;
+    public float Distance { get; set; } = 0.2f;
 }
 
 public sealed class MaterialNode : SceneNode

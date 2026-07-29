@@ -45,7 +45,7 @@ public static class SceneSerializer
     }
 }
 
-/// <summary>World-space evaluated node for the viewport / export.</summary>
+/// <summary>World-space evaluated node for lights/cameras/materials.</summary>
 public sealed class EvaluatedNode
 {
     public required SceneNode Source { get; init; }
@@ -53,12 +53,13 @@ public sealed class EvaluatedNode
     public required Vector3 WorldPosition { get; init; }
 }
 
-/// <summary>Look-stage cache: materials, lights, cameras after world transforms.</summary>
+/// <summary>Staged evaluation cache.</summary>
 public sealed class LookCache
 {
     public IReadOnlyList<EvaluatedNode> Lights { get; init; } = [];
     public IReadOnlyList<EvaluatedNode> Cameras { get; init; } = [];
     public IReadOnlyList<EvaluatedNode> Meshes { get; init; } = [];
+    public IReadOnlyList<EvaluatedMesh> EvaluatedMeshes { get; init; } = [];
     public IReadOnlyList<EvaluatedNode> Materials { get; init; } = [];
     public int MeshGeneration { get; init; }
     public int LookGeneration { get; init; }
@@ -92,7 +93,6 @@ public sealed class SceneEvaluator
         _lookGeneration++;
     }
 
-    /// <summary>Light/camera/material edits only bump Look.</summary>
     public void NotifyNodeChanged(SceneNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
@@ -111,7 +111,7 @@ public sealed class SceneEvaluator
             return _cache;
 
         var worlds = BuildWorldMatrices(_document);
-        var meshes = new List<EvaluatedNode>();
+        var meshNodes = new List<EvaluatedNode>();
         var lights = new List<EvaluatedNode>();
         var cameras = new List<EvaluatedNode>();
         var materials = new List<EvaluatedNode>();
@@ -131,7 +131,7 @@ public sealed class SceneEvaluator
             switch (node)
             {
                 case MeshNode:
-                    meshes.Add(ApplyGeneratorsAndModifiers(_document, evaluated, worlds));
+                    meshNodes.Add(evaluated);
                     break;
                 case LightNode:
                     lights.Add(evaluated);
@@ -145,9 +145,12 @@ public sealed class SceneEvaluator
             }
         }
 
+        var evaluatedMeshes = MeshStackEvaluator.EvaluateDocument(_document, worlds);
+
         _cache = new LookCache
         {
-            Meshes = meshes,
+            Meshes = meshNodes,
+            EvaluatedMeshes = evaluatedMeshes,
             Lights = lights,
             Cameras = cameras,
             Materials = materials,
@@ -159,19 +162,7 @@ public sealed class SceneEvaluator
         return _cache;
     }
 
-    private static EvaluatedNode ApplyGeneratorsAndModifiers(
-        SceneDocument doc,
-        EvaluatedNode mesh,
-        Dictionary<Guid, Matrix4x4> worlds)
-    {
-        // Phase 2 hooks: generators/modifiers that target this mesh leave the source intact
-        // and attach derived evaluated meshes. v1 returns the mesh as-is.
-        _ = doc;
-        _ = worlds;
-        return mesh;
-    }
-
-    private static Dictionary<Guid, Matrix4x4> BuildWorldMatrices(SceneDocument doc)
+    internal static Dictionary<Guid, Matrix4x4> BuildWorldMatrices(SceneDocument doc)
     {
         var local = doc.Nodes.ToDictionary(n => n.Id, n => n.Transform.ToMatrix());
         var world = new Dictionary<Guid, Matrix4x4>();

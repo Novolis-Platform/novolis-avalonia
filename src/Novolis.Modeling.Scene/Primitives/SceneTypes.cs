@@ -1,9 +1,9 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
+using Novolis.Math.Geometry;
 
 namespace Novolis.Modeling.Scene;
 
-/// <summary>Light classification for Look-stage nodes.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum LightKind
 {
@@ -13,7 +13,6 @@ public enum LightKind
     Area,
 }
 
-/// <summary>Mesh primitive kinds for v1 scaffolding.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum MeshPrimitiveKind
 {
@@ -21,24 +20,47 @@ public enum MeshPrimitiveKind
     Sphere,
     Plane,
     Cylinder,
+    Cone,
+    Capsule,
+    Torus,
+    Pyramid,
+    Disc,
+    Tube,
+    PlatonicTetra,
+    PlatonicOcta,
+    PlatonicIcosa,
+    PlatonicDodeca,
+    Landscape,
 }
 
-/// <summary>Generator kinds (phase 2).</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum GeneratorKind
 {
     Cloner,
     Symmetry,
-    Extrude,
+    Boole,
 }
 
-/// <summary>Modifier kinds (phase 2).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum BooleanKind
+{
+    Union,
+    Difference,
+    Intersection,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ModifierKind
 {
     Weld,
     Subdivision,
     Optimize,
+    Bridge,
+    Extrude,
+    Bevel,
+    Inset,
+    Dissolve,
+    Knife,
 }
 
 /// <summary>Local transform (translation, euler degrees, scale).</summary>
@@ -68,4 +90,23 @@ public sealed class SceneTransform
         var s = Matrix4x4.CreateScale(ScaleV);
         return s * rx * ry * rz * t;
     }
+}
+
+/// <summary>Evaluated triangle mesh ready for viewport / further ops.</summary>
+public sealed class EvaluatedMesh
+{
+    public required Guid SourceId { get; init; }
+    public required Vector3[] Vertices { get; init; }
+    public required int[] Indices { get; init; }
+    public required Matrix4x4 World { get; init; }
+
+    public EditableMesh ToEditableMesh() => new(Vertices, Indices);
+
+    public static EvaluatedMesh FromEditable(Guid sourceId, EditableMesh mesh, Matrix4x4 world) => new()
+    {
+        SourceId = sourceId,
+        Vertices = mesh.Vertices.ToArray(),
+        Indices = mesh.Indices.ToArray(),
+        World = world,
+    };
 }
