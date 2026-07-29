@@ -8,6 +8,19 @@ Code-only Avalonia controls for post-run briefing UIs: radio-style feeds, scorec
 dotnet add package Novolis.Avalonia.Briefing
 ```
 
+## Quick start
+
+```csharp
+using Novolis.Avalonia.Briefing;
+
+var feed = new FeedPanel();
+feed.Append(new FeedLine("vox", "berth clear"));
+
+var scorecard = new ScorecardView();
+var strip = new DualMetricStrip { LeftLabel = "Ops", RightLabel = "Core" };
+var table = new MetricTableView();
+```
+
 ## Controls
 
 | Type | Use |
