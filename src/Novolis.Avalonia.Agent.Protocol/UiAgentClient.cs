@@ -104,6 +104,28 @@ public sealed class UiAgentClient : IAsyncDisposable
         return await ReadResponseAsync<UiWaitResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
     }
 
+    public async ValueTask<UiGetResponseDto> GetAsync(
+        IEnumerable<string> controlIds,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = EnsureConnection();
+        var request = new UiGetRequestDto(++_sequence, controlIds.ToArray());
+        await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Get, request, cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadResponseAsync<UiGetResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<UiItemsResponseDto> ItemsAsync(
+        string controlId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = EnsureConnection();
+        var request = new UiItemsRequestDto(++_sequence, controlId);
+        await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Items, request, cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadResponseAsync<UiItemsResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
+    }
+
     private ILocalIpcConnection EnsureConnection() =>
         _connection ?? throw new InvalidOperationException("ConnectAsync must be called before using the UI agent client.");
 

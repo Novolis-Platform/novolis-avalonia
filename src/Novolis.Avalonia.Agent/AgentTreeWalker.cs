@@ -46,6 +46,59 @@ internal static class AgentTreeWalker
         return best;
     }
 
+    /// <summary>Human-readable text for agents (includes list/combo item summaries).</summary>
+    public static string? DescribeText(Control control)
+    {
+        var baseText = GetText(control);
+        if (control is ListBox or ComboBox or TabControl)
+        {
+            var summary = SummarizeItems(control);
+            if (summary is null)
+                return baseText;
+            return string.IsNullOrWhiteSpace(baseText) ? summary : $"{baseText} · {summary}";
+        }
+
+        return baseText;
+    }
+
+    private static string? SummarizeItems(Control control)
+    {
+        try
+        {
+            return control switch
+            {
+                ListBox list => FormatItems("list", list.ItemCount, list.SelectedIndex, i => AgentInput.ItemTextAt(list, i)),
+                ComboBox combo => FormatItems("combo", combo.ItemCount, combo.SelectedIndex, i => AgentInput.ItemTextAt(combo, i)),
+                TabControl tabs => FormatItems("tabs", tabs.ItemCount, tabs.SelectedIndex, i => AgentInput.TabHeaderAt(tabs, i)),
+                _ => null
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string FormatItems(string kind, int count, int selected, Func<int, string?> textAt)
+    {
+        if (count <= 0)
+            return $"{kind}:0";
+
+        var take = Math.Min(count, 12);
+        var parts = new List<string>(take);
+        for (var i = 0; i < take; i++)
+        {
+            var t = textAt(i) ?? "";
+            if (t.Length > 80)
+                t = t[..77] + "...";
+            var mark = i == selected ? "*" : "";
+            parts.Add($"[{i}{mark}]{t}");
+        }
+
+        var more = count > take ? $"; +{count - take} more" : "";
+        return $"{kind}:{count} {string.Join(" | ", parts)}{more}";
+    }
+
     private static void Walk(Window window, Control control, string path, bool interactiveOnly, List<UiTreeNodeDto> nodes)
     {
         if (AgentProperties.GetIgnore(control))
@@ -66,8 +119,12 @@ internal static class AgentTreeWalker
                 control.IsEnabled,
                 control.IsVisible,
                 focused,
-                GetText(control),
+                DescribeText(control),
                 path));
+
+            // Emit compact list-item rows under agent-tagged lists so agents can read options without Select.
+            if (AgentProperties.GetId(control) is not null)
+                AppendItemNodes(window, control, id, path, nodes);
         }
 
         var siblingCounts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -77,6 +134,73 @@ internal static class AgentTreeWalker
             siblingCounts.TryGetValue(typeName, out var index);
             siblingCounts[typeName] = index + 1;
             Walk(window, child, $"{path}/{typeName}[{index}]", interactiveOnly, nodes);
+        }
+    }
+
+    private static void AppendItemNodes(
+        Window window,
+        Control control,
+        string parentId,
+        string path,
+        List<UiTreeNodeDto> nodes)
+    {
+        try
+        {
+            if (control is ListBox list)
+            {
+                for (var i = 0; i < list.ItemCount && i < 64; i++)
+                {
+                    var text = AgentInput.ItemTextAt(list, i) ?? "";
+                    nodes.Add(new UiTreeNodeDto(
+                        $"{parentId}[{i}]",
+                        AgentRoleNames.ListItem,
+                        "ListItem",
+                        GetWindowBounds(window, list),
+                        list.IsEnabled,
+                        list.IsVisible,
+                        list.SelectedIndex == i,
+                        text,
+                        $"{path}/Item[{i}]"));
+                }
+            }
+            else if (control is ComboBox combo)
+            {
+                for (var i = 0; i < combo.ItemCount && i < 64; i++)
+                {
+                    var text = AgentInput.ItemTextAt(combo, i) ?? "";
+                    nodes.Add(new UiTreeNodeDto(
+                        $"{parentId}[{i}]",
+                        AgentRoleNames.ListItem,
+                        "ComboItem",
+                        GetWindowBounds(window, combo),
+                        combo.IsEnabled,
+                        combo.IsVisible,
+                        combo.SelectedIndex == i,
+                        text,
+                        $"{path}/Item[{i}]"));
+                }
+            }
+            else if (control is TabControl tabs)
+            {
+                for (var i = 0; i < tabs.ItemCount && i < 32; i++)
+                {
+                    var text = AgentInput.TabHeaderAt(tabs, i) ?? "";
+                    nodes.Add(new UiTreeNodeDto(
+                        $"{parentId}[{i}]",
+                        "tab",
+                        "TabItem",
+                        GetWindowBounds(window, tabs),
+                        tabs.IsEnabled,
+                        tabs.IsVisible,
+                        tabs.SelectedIndex == i,
+                        text,
+                        $"{path}/Tab[{i}]"));
+                }
+            }
+        }
+        catch
+        {
+            // ignore item enumeration faults
         }
     }
 

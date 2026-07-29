@@ -9,4 +9,6 @@ public static class UiRpcMethodNames
     public const string Type = "ui.type";
     public const string Select = "ui.select";
     public const string Wait = "ui.wait";
+    public const string Get = "ui.get";
+    public const string Items = "ui.items";
 }

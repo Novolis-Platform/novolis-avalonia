@@ -24,16 +24,33 @@ AgentProperties.SetId(button, "lab.recovery");
 AgentProperties.SetRole(button, AgentRoleNames.Button);
 ```
 
-Enable with env `NOVOLIS_AVALONIA_AGENT=1`. Optional endpoint override: `NOVOLIS_AVALONIA_AGENT_ENDPOINT`.
-
 ## Methods
 
 | Method | Purpose |
 |--------|---------|
 | `ui.hello` | Handshake |
-| `ui.tree` | Interactive control dump |
+| `ui.get` | Compact multi-id read (text/enabled/visible) |
+| `ui.items` | ListBox / ComboBox / TabControl item dump |
+| `ui.tree` | Interactive control dump (agent lists emit item rows) |
 | `ui.screenshot` | Window/control PNG |
 | `ui.click` | Click by id or coordinates |
 | `ui.type` | Type/replace text + special keys (`Clear` replaces TextBox contents) |
 | `ui.select` | Select ListBox / ComboBox / TabControl by index or item text |
-| `ui.wait` | Wait for control conditions |
+| `ui.wait` | Host-side wait (blocks UI thread — prefer MCP `ui_poll` while simulating) |
+
+Protocol version: `1.1`.
+
+## Crash guard
+
+```csharp
+CrashGuard.Install("MyApp");
+// After Avalonia setup:
+CrashGuard.InstallAvalonia(Dispatcher.UIThread);
+```
+
+Unhandled UI / task faults write `%LocalAppData%/Novolis/<app>/crashes/crash-*.log` (+ `.dmp` on fatal
+Windows process faults), open **Notepad** once, and mark dispatcher exceptions handled so the window
+stays up. Agent IPC faults are logged silently (`ReportSilent`) without killing the host.
+
+Enable with env `NOVOLIS_AVALONIA_AGENT=1`. Optional endpoint override: `NOVOLIS_AVALONIA_AGENT_ENDPOINT`.
+Sins defaults to pipe `novolis-avalonia-agent-sins` when agent is on.

@@ -204,7 +204,7 @@ internal static class AgentInput
         return null;
     }
 
-    private static string? ItemTextAt(ItemsControl control, int index)
+    internal static string? ItemTextAt(ItemsControl control, int index)
     {
         var item = control.Items[index];
         return item switch
@@ -217,7 +217,7 @@ internal static class AgentInput
         };
     }
 
-    private static string? TabHeaderAt(TabControl tabs, int index)
+    internal static string? TabHeaderAt(TabControl tabs, int index)
     {
         var item = tabs.Items[index];
         return item switch

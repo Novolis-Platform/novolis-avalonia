@@ -73,6 +73,7 @@ public sealed class AgentHost : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            CrashGuard.ReportSilent(ex, "AgentHost.listen");
             try
             {
                 await File.WriteAllTextAsync(
@@ -98,44 +99,25 @@ public sealed class AgentHost : IAsyncDisposable
                     if (frame.Kind != UiRpcMessageKinds.Request)
                         continue;
 
-                    switch (frame.Name)
+                    try
                     {
-                        case UiRpcMethodNames.Hello:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleHello(UiProtocolCodec.Deserialize<UiHelloRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Tree:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleTree(UiProtocolCodec.Deserialize<UiTreeRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Screenshot:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleScreenshot(UiProtocolCodec.Deserialize<UiScreenshotRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Click:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleClick(UiProtocolCodec.Deserialize<UiClickRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Type:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleType(UiProtocolCodec.Deserialize<UiTypeRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Select:
-                            await ReplyAsync(connection, frame, await OnUiAsync(() =>
-                                    HandleSelect(UiProtocolCodec.Deserialize<UiSelectRequestDto>(frame.Payload)))
-                                .ConfigureAwait(false)).ConfigureAwait(false);
-                            break;
-                        case UiRpcMethodNames.Wait:
-                            await ReplyAsync(connection, frame,
-                                    await HandleWaitAsync(UiProtocolCodec.Deserialize<UiWaitRequestDto>(frame.Payload), cancellationToken)
-                                        .ConfigureAwait(false))
-                                .ConfigureAwait(false);
-                            break;
+                        await DispatchAsync(connection, frame, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        CrashGuard.ReportSilent(ex, $"AgentHost.{frame.Name}");
+                        try
+                        {
+                            await ReplyFaultAsync(connection, frame, ex.Message).ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                            // connection may already be dead
+                        }
                     }
                 }
             }
@@ -145,6 +127,7 @@ public sealed class AgentHost : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                CrashGuard.ReportSilent(ex, "AgentHost.connection");
                 try
                 {
                     await File.AppendAllTextAsync(
@@ -158,6 +141,78 @@ public sealed class AgentHost : IAsyncDisposable
                 }
             }
         }
+    }
+
+    private async Task DispatchAsync(ILocalIpcConnection connection, LocalIpcFrame frame, CancellationToken cancellationToken)
+    {
+        switch (frame.Name)
+        {
+            case UiRpcMethodNames.Hello:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleHello(UiProtocolCodec.Deserialize<UiHelloRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Tree:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleTree(UiProtocolCodec.Deserialize<UiTreeRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Screenshot:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleScreenshot(UiProtocolCodec.Deserialize<UiScreenshotRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Click:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleClick(UiProtocolCodec.Deserialize<UiClickRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Type:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleType(UiProtocolCodec.Deserialize<UiTypeRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Select:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        HandleSelect(UiProtocolCodec.Deserialize<UiSelectRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Wait:
+                await ReplyAsync(connection, frame,
+                        await HandleWaitAsync(UiProtocolCodec.Deserialize<UiWaitRequestDto>(frame.Payload), cancellationToken)
+                            .ConfigureAwait(false))
+                    .ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Get:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        AgentQuery.Get(_window, UiProtocolCodec.Deserialize<UiGetRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Items:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        AgentQuery.Items(_window, UiProtocolCodec.Deserialize<UiItemsRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+        }
+    }
+
+    private static async Task ReplyFaultAsync(ILocalIpcConnection connection, LocalIpcFrame frame, string error)
+    {
+        // Best-effort typed fault so clients do not hang waiting for a response body.
+        object payload = frame.Name switch
+        {
+            UiRpcMethodNames.Hello => new UiHelloResponseDto(0, false, error, UiProtocolVersion.Current, null, 0),
+            UiRpcMethodNames.Tree => new UiTreeResponseDto(0, false, error, Array.Empty<UiTreeNodeDto>()),
+            UiRpcMethodNames.Screenshot => new UiScreenshotResponseDto(0, false, error, null, 0, 0),
+            UiRpcMethodNames.Click => new UiClickResponseDto(0, false, error, null),
+            UiRpcMethodNames.Type => new UiTypeResponseDto(0, false, error),
+            UiRpcMethodNames.Select => new UiSelectResponseDto(0, false, error, null, null),
+            UiRpcMethodNames.Wait => new UiWaitResponseDto(0, false, error, true),
+            UiRpcMethodNames.Get => new UiGetResponseDto(0, false, error, Array.Empty<UiControlStateDto>(), null, 0),
+            UiRpcMethodNames.Items => new UiItemsResponseDto(0, false, error, "", null, null, Array.Empty<UiItemDto>()),
+            _ => new UiHelloResponseDto(0, false, error, UiProtocolVersion.Current, null, 0),
+        };
+        await ReplyAsync(connection, frame, payload).ConfigureAwait(false);
     }
 
     private UiHelloResponseDto HandleHello(UiHelloRequestDto request) =>

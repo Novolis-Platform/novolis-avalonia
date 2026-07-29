@@ -104,6 +104,28 @@ public class RaylibHostControl : Panel
     }
 
     /// <summary>
+    /// Saves the last presented Raylib frame (RGBA stream from the embedded host) as PNG.
+    /// Call after <see cref="RequestFrame"/> once a frame has been presented.
+    /// </summary>
+    public bool TrySaveLastPresentedFramePng(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        if (_bitmap is null)
+            return false;
+
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dir))
+            Directory.CreateDirectory(dir);
+
+        using var stream = File.Create(path);
+        _bitmap.Save(stream);
+        return stream.Length > 0;
+    }
+
+    /// <summary>True when at least one Raylib frame has been presented into the Avalonia bitmap.</summary>
+    public bool HasPresentedFrame => _bitmap is not null;
+
+    /// <summary>
     /// Raised on the Raylib render thread between <c>BeginDrawing</c> and <c>EndDrawing</c>.
     /// Only invoke Raylib draw APIs from this handler.
     /// </summary>

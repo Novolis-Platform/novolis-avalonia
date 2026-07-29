@@ -19,4 +19,26 @@ public class HexDumpFormatterTests
         await Assert.That(dump).Contains("48 65 6C 6C 6F");
         await Assert.That(dump).Contains("|Hello|");
     }
+
+    [Test]
+    public async Task Format_multiline_uses_next_offset()
+    {
+        var bytes = new byte[20];
+        for (var i = 0; i < bytes.Length; i++)
+            bytes[i] = (byte)i;
+
+        var dump = HexDumpFormatter.Format(bytes, bytesPerLine: 8);
+        await Assert.That(dump).Contains("00000000");
+        await Assert.That(dump).Contains("00000008");
+        await Assert.That(dump).Contains("|........|");
+    }
+
+    [Test]
+    public async Task Format_non_printable_bytes_render_as_dots()
+    {
+        var bytes = new byte[] { 0x01, 0x02, 0x7F, 0x20 };
+        var dump = HexDumpFormatter.Format(bytes);
+
+        await Assert.That(dump).Contains("|... |");
+    }
 }
