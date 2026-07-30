@@ -41,11 +41,16 @@ public sealed class SceneEditorSurface : UserControl
             MeshAttributes.Refresh();
             ModifierStack.Refresh();
             StatusBar.Refresh(_session);
+            Viewport.RequestPresent();
         };
 
-        _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
+        Viewport.Camera.Changed += () => Viewport.RequestPresent();
+
+        _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Background, (_, _) =>
         {
-            Viewport.RequestPresent();
+            // Only keep presenting while orbiting — free-run 60 Hz clears flicker on large meshes.
+            if (Viewport.Camera.CameraInteracting)
+                Viewport.RequestPresent();
         });
 
         AttachedToVisualTree += (_, _) =>

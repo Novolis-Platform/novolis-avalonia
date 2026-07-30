@@ -43,6 +43,7 @@ file sealed class SceneWireGlGpu : ISceneWireGlGpu
     private readonly int _uMvp;
     private readonly List<WireSegment> _segments = new(4096);
     private readonly List<float> _floats = new(4096 * 12);
+    private int _vertexCount;
     private bool _disposed;
 
     public SceneWireGlGpu(GlInterface glInterface)
@@ -66,19 +67,58 @@ file sealed class SceneWireGlGpu : ISceneWireGlGpu
         _gl.BindVertexArray(0);
     }
 
-    public void Render(SceneSessionService session, SceneViewportCamera camera, int framebuffer, int w, int h)
+    public void Render(SceneSessionService session, SceneViewportCamera camera, int framebuffer, int w, int h, bool rebuildLines)
     {
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)framebuffer);
         _gl.Viewport(0, 0, (uint)w, (uint)h);
-        _gl.Disable(EnableCap.DepthTest);
+        _gl.Enable(EnableCap.DepthTest);
+        _gl.DepthFunc(DepthFunction.Lequal);
         _gl.Disable(EnableCap.CullFace);
         _gl.ClearColor(0.07f, 0.09f, 0.13f, 1f);
-        _gl.Clear(ClearBufferMask.ColorBufferBit);
+        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         camera.SyncActiveCamera();
         var mvp = camera.BuildViewProjection(w / (float)h);
-        WireSceneLineBuilder.Build(session, _segments);
 
+        if (rebuildLines || _vertexCount == 0)
+            RebuildLines(session);
+
+        if (_vertexCount < 2)
+            return;
+
+        _gl.UseProgram(_program);
+        unsafe
+        {
+            _gl.UniformMatrix4(_uMvp, 1, false, (float*)&mvp);
+        }
+
+        _gl.BindVertexArray(_vao);
+        _gl.DrawArrays(PrimitiveType.Lines, 0, (uint)_vertexCount);
+    }
+
+    public void ReadRgba(Span<byte> rgba, int w, int h)
+    {
+        if (rgba.Length < w * h * 4)
+            throw new ArgumentException("RGBA buffer too small.", nameof(rgba));
+        unsafe
+        {
+            fixed (byte* p = rgba)
+                _gl.ReadPixels(0, 0, (uint)w, (uint)h, PixelFormat.Rgba, PixelType.UnsignedByte, p);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _gl.DeleteBuffer(_vbo);
+        _gl.DeleteVertexArray(_vao);
+        _gl.DeleteProgram(_program);
+    }
+
+    private void RebuildLines(SceneSessionService session)
+    {
+        WireSceneLineBuilder.Build(session, _segments);
         _floats.Clear();
         foreach (var seg in _segments)
         {
@@ -89,27 +129,10 @@ file sealed class SceneWireGlGpu : ISceneWireGlGpu
             _floats.Add(seg.B.X); _floats.Add(seg.B.Y); _floats.Add(seg.B.Z); _floats.Add(r); _floats.Add(g); _floats.Add(b);
         }
 
-        if (_floats.Count < 12)
+        _vertexCount = _floats.Count / 6;
+        if (_vertexCount < 2)
             return;
-
         Upload(CollectionsMarshal.AsSpan(_floats));
-        _gl.UseProgram(_program);
-        unsafe
-        {
-            _gl.UniformMatrix4(_uMvp, 1, false, (float*)&mvp);
-        }
-
-        _gl.BindVertexArray(_vao);
-        _gl.DrawArrays(PrimitiveType.Lines, 0, (uint)(_floats.Count / 6));
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _gl.DeleteBuffer(_vbo);
-        _gl.DeleteVertexArray(_vao);
-        _gl.DeleteProgram(_program);
     }
 
     private unsafe void Upload(ReadOnlySpan<float> floats)

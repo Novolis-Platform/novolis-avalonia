@@ -70,6 +70,17 @@
       ],
       "project": "src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj"
     },
+    "Novolis.Avalonia.Mermaid": {
+      "paths": [
+        "src/Novolis.Avalonia.Mermaid/**",
+        "tests/Novolis.Avalonia.Unit/Mermaid/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Mermaid/Novolis.Avalonia.Mermaid.csproj"
+    },
     "Novolis.Avalonia.Briefing": {
       "paths": [
         "src/Novolis.Avalonia.Briefing/**",

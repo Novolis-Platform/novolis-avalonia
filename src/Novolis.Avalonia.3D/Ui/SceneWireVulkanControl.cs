@@ -40,6 +40,8 @@ public sealed class SceneWireVulkanControl : Panel
     private int _h;
     private string? _error;
     private bool _initAttempted;
+    private bool _presenting;
+    private bool _dirty = true;
 
     public SceneWireVulkanControl(
         SceneSessionService session,
@@ -52,7 +54,8 @@ public sealed class SceneWireVulkanControl : Panel
         Background = new SolidColorBrush(Color.FromRgb(18, 24, 32));
         Children.Add(_frame);
         Children.Add(_errorText);
-        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => SafePresent());
+        // ~20 Hz cap — full GPU render + CPU readback is too heavy for 60 Hz on the UI thread.
+        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background, (_, _) => SafePresent());
     }
 
     public SceneViewportCamera Camera => _camera;
@@ -64,8 +67,8 @@ public sealed class SceneWireVulkanControl : Panel
     public void Start() => _timer.Start();
     public void Stop() => _timer.Stop();
 
-    /// <summary>Forces an immediate present (shared-camera change path).</summary>
-    public void RequestPresent() => SafePresent();
+    /// <summary>Marks the surface dirty; present runs on the timer (never sync on the UI orbit path).</summary>
+    public void RequestPresent() => _dirty = true;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -84,15 +87,26 @@ public sealed class SceneWireVulkanControl : Panel
 
     private void SafePresent()
     {
+        if (_presenting)
+            return;
+        if (!_dirty && _renderer is not null)
+            return;
+
+        _presenting = true;
         try
         {
             Present();
+            _dirty = false;
         }
         catch (Exception ex)
         {
             ShowError(ex.ToString());
             _meter.Record(0, _camera.CameraInteracting);
             Debug.WriteLine($"Vulkan SafePresent failed: {ex}");
+        }
+        finally
+        {
+            _presenting = false;
         }
     }
 
@@ -109,8 +123,10 @@ public sealed class SceneWireVulkanControl : Panel
         }
 
         var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-        var w = System.Math.Clamp((int)System.Math.Round(Bounds.Width * scale), 64, 2048);
-        var h = System.Math.Clamp((int)System.Math.Round(Bounds.Height * scale), 64, 2048);
+        // Cap resolution — readback cost scales with pixels and runs on the UI thread.
+        var maxEdge = _camera.CameraInteracting ? 960 : 1280;
+        var w = System.Math.Clamp((int)System.Math.Round(Bounds.Width * scale), 64, maxEdge);
+        var h = System.Math.Clamp((int)System.Math.Round(Bounds.Height * scale), 64, maxEdge);
         if (w != _w || h != _h || _pixels.Length != w * h)
         {
             _w = w;
@@ -148,6 +164,9 @@ public sealed class SceneWireVulkanControl : Panel
 
         _sw.Stop();
         _meter.Record(_sw.Elapsed.TotalMilliseconds, _camera.CameraInteracting);
+        // If orbit is still moving, schedule another pass without stacking sync work.
+        if (_camera.CameraInteracting)
+            _dirty = true;
     }
 
     private void ShowError(string? message)

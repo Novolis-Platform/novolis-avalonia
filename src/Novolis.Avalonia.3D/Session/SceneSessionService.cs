@@ -25,10 +25,13 @@ public sealed class SceneSessionService : ISceneSession
     public SceneDocument Document => _document;
     public SceneEvaluator Evaluator => _evaluator;
     public string? DocumentPath => _path;
+    public int Revision { get; private set; }
 
     public event Action? DocumentChanged;
     public event Action<AgentChangedEventDto>? Changed;
     public event Action<AgentActionResultEventDto>? ActionResult;
+    /// <summary>Raised when dump/dumpall/dumpviewport/… is requested. Host should capture UI artifacts.</summary>
+    public event Action<string>? DumpArtifactsRequested;
 
     public AgentHelloDto Hello() => Definition.BuildHello(AppId);
 
@@ -89,6 +92,11 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.SelectComponents => DoSelectComponents(command),
                 SceneSessionActionIds.MoveSelection => DoMoveSelection(command),
                 SceneSessionActionIds.MeshEdit => DoMeshEdit(command),
+                SceneSessionActionIds.Dump or SceneSessionActionIds.DumpAll => DoDump("all", command),
+                SceneSessionActionIds.DumpViewport => DoDump("viewport", command),
+                SceneSessionActionIds.DumpScene => DoDump("scene", command),
+                SceneSessionActionIds.DumpMesh => DoDump("mesh", command),
+                SceneSessionActionIds.DumpWindow => DoDump("window", command),
                 _ => Fail(id, $"Unknown action '{command.ActionId}'.", "unknownAction"),
             };
         }
@@ -116,6 +124,13 @@ public sealed class SceneSessionService : ISceneSession
         _path = path;
         _evaluator.Bind(_document);
         RaiseChanged("replace");
+    }
+
+    private AgentCommandResultDto DoDump(string kind, AgentCommandDto command)
+    {
+        // Optional Path overrides host dump root when the UI handler reads command.Path.
+        DumpArtifactsRequested?.Invoke(string.IsNullOrWhiteSpace(command.Path) ? kind : $"{kind}|{command.Path}");
+        return Ok(command.ActionId ?? kind, $"Dump '{kind}' requested.");
     }
 
     private AgentCommandResultDto DoNew()
@@ -646,6 +661,7 @@ public sealed class SceneSessionService : ISceneSession
     {
         void Raise()
         {
+            Revision++;
             DocumentChanged?.Invoke();
             if (_subscribed)
             {

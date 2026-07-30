@@ -11,7 +11,9 @@
     <PackageReference Include="Avalonia.AvaloniaEdit" />
     <PackageReference Include="Avalonia.HtmlRenderer" />
     <PackageReference Include="Markdig" />
-    <PackageReference Include="Mermaider" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Mermaid\Novolis.Avalonia.Mermaid.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Highlighting\*.xshd" />

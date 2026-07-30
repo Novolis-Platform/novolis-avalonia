@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Mermaid</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Mermaid</RootNamespace>
+    <Description>Avalonia Mermaid diagram control: render Mermaid source (or Novolis.Markup.Mermaid builders) to SVG via Mermaider.</Description>
+    <PackageTags>avalonia;mermaid;diagram;svg;control;novolis</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.HtmlRenderer" />
+    <PackageReference Include="Mermaider" />
+    <PackageReference Include="Novolis.Markup.Mermaid" />
+  </ItemGroup>
+</Project>

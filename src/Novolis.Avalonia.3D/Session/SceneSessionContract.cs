@@ -32,6 +32,12 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("selectcomponents", Summary = "Select verts/edges/faces", Params = "indices; additive?; nodeId?")]
 [AgentAction("moveselection", Summary = "Translate component selection", Params = "x?; y?; z?")]
 [AgentAction("meshedit", Summary = "Selection-aware mesh op", Params = "modifierKind|extrude,bevel,inset,dissolve,knife,bridge,weld,optimize,subdivision; distance?")]
+[AgentAction("dump", Summary = "Dump all artifacts (viewport PNG, window PNG, scene, mesh OBJ)", Params = "path?")]
+[AgentAction("dumpall", Summary = "Alias of dump")]
+[AgentAction("dumpviewport", Summary = "Dump viewport PNG only", Params = "path?")]
+[AgentAction("dumpscene", Summary = "Dump scene .nov3djson copy", Params = "path?")]
+[AgentAction("dumpmesh", Summary = "Dump mesh OBJ + stats", Params = "path?")]
+[AgentAction("dumpwindow", Summary = "Dump window UI PNG", Params = "path?")]
 public interface ISceneSession : IAgentSession;
 
 public static class SceneSessionContract
@@ -64,4 +70,10 @@ public static class SceneSessionActionIds
     public const string SelectComponents = "selectcomponents";
     public const string MoveSelection = "moveselection";
     public const string MeshEdit = "meshedit";
+    public const string Dump = "dump";
+    public const string DumpAll = "dumpall";
+    public const string DumpViewport = "dumpviewport";
+    public const string DumpScene = "dumpscene";
+    public const string DumpMesh = "dumpmesh";
+    public const string DumpWindow = "dumpwindow";
 }

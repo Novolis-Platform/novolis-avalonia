@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.3D</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Avalonia CAD 3D editor surface: scene hierarchy, Raylib viewport, mesh tools, lights/cameras, and agent session via Novolis.Agent.Surface.</Description>
+    <Description>Avalonia CAD 3D editor surface: scene hierarchy, OpenGL wireframe viewport (default), mesh tools, lights/cameras, and agent session via Novolis.Agent.Surface. CPU/Vulkan/Raylib presenters remain for ViewportBench compare only.</Description>
     <RootNamespace>Novolis.Avalonia._3D</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>

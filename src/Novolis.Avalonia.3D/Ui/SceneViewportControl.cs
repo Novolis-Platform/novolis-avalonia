@@ -12,7 +12,7 @@ using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Ui;
 
-/// <summary>CAD viewport host. Backends: OpenGL (default), CPU, Vulkan, Raylib.</summary>
+/// <summary>CAD viewport host. Default presenter: <see cref="SceneViewportBackendKind.OpenGl"/>.</summary>
 public sealed class SceneViewportControl : Panel
 {
     private readonly SceneSessionService _session;
@@ -119,6 +119,14 @@ public sealed class SceneViewportControl : Panel
         _cpu?.InvalidateVisual();
         _vulkan?.RequestPresent();
         InvalidateVisual();
+    }
+
+    /// <summary>Captures viewport PNG (OpenGL readback when available; otherwise Avalonia render).</summary>
+    public Task<bool> CapturePngAsync(string path)
+    {
+        if (_gl is not null)
+            return _gl.CapturePngAsync(path);
+        return Task.FromResult(SceneViewportExporter.TryExportControlPng(this, path));
     }
 
     private void SyncRaylibResolution()

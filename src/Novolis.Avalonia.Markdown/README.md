@@ -44,7 +44,7 @@ var preview = new MarkdownPreviewPane();
 
 **Editor features:** AvaloniaEdit source surface, Markdown syntax highlighting (including dialogue, `[!metadata]`, TK/TODO/FIXME in BookAuthoring profile), line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
 Use `MarkdownSpanAnalyzer` for portable span analysis without AvaloniaEdit.  
-**Preview features:** Markdig GFM HTML with Mermaid diagram rendering (via Mermaider), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
+**Preview features:** Markdig GFM HTML with Mermaid diagram rendering (via `Novolis.Avalonia.Mermaid` / Mermaider), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
 
 ## Related packages
 
