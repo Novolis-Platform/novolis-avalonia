@@ -76,6 +76,35 @@ public sealed class SketchDocumentTests
     }
 
     [Test]
+    public async Task Json_RoundTrips_Fill_Style_And_Closed()
+    {
+        var doc = new SketchDocument();
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "poly",
+            StrokeColor = "#123456",
+            StrokeWidth = 0.5,
+            FillColor = "#abcdef",
+            StrokeStyle = SketchStrokeStyle.Stipple,
+            Closed = true,
+            Points =
+            [
+                new SketchPoint(0, 0),
+                new SketchPoint(10, 0),
+                new SketchPoint(10, 10),
+                new SketchPoint(0, 0)
+            ]
+        });
+
+        var loaded = SketchJson.Deserialize(SketchJson.Serialize(doc));
+        var s = loaded.Elements[0];
+        await Assert.That(s.StrokeWidth).IsEqualTo(0.5);
+        await Assert.That(s.FillColor).IsEqualTo("#abcdef");
+        await Assert.That(s.StrokeStyle).IsEqualTo(SketchStrokeStyle.Stipple);
+        await Assert.That(s.Closed).IsTrue();
+    }
+
+    [Test]
     public async Task Clear_Is_Undoable()
     {
         var doc = new SketchDocument();

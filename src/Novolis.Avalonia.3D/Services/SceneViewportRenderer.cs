@@ -1,10 +1,11 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
 using Novolis.Avalonia.Raylib;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
 using Novolis.Raylib.Rendering;
-using Novolis.Rendering.Presentation.Silk;
+using Novolis.Simulation.View;
 
 namespace Novolis.Avalonia._3D.Services;
 
@@ -12,97 +13,79 @@ namespace Novolis.Avalonia._3D.Services;
 public sealed class SceneViewportRenderer
 {
     private static readonly Color Background = Color.FromArgb(255, 18, 24, 32);
-    private static readonly Color Grid = Color.FromArgb(255, 40, 55, 70);
     private static readonly Color Hud = Color.FromArgb(255, 200, 210, 220);
-    private static readonly Color MeshColor = Color.FromArgb(255, 120, 145, 160);
-    private static readonly Color MeshSelected = Color.FromArgb(255, 80, 200, 210);
+    private static readonly Color MeshColor = Color.FromArgb(255, 140, 165, 185);
+    private static readonly Color MeshSelected = Color.FromArgb(255, 90, 210, 220);
     private static readonly Color CompSelected = Color.FromArgb(255, 255, 180, 60);
-    private static readonly Color PointColor = Color.FromArgb(255, 90, 160, 190);
-    private static readonly Color FaceTint = Color.FromArgb(120, 60, 180, 200);
+    private static readonly Color PointColor = Color.FromArgb(255, 110, 180, 210);
+    private static readonly Color FaceTint = Color.FromArgb(200, 70, 190, 210);
     private static readonly Color GizmoX = Color.FromArgb(255, 220, 70, 70);
     private static readonly Color GizmoY = Color.FromArgb(255, 70, 200, 90);
     private static readonly Color GizmoZ = Color.FromArgb(255, 70, 120, 220);
 
     private readonly SceneSessionService _session;
-    private readonly SilkOrbitCamera _orbit = new()
-    {
-        Target = new Vector3(0f, 1f, 0f),
-        Distance = 12f,
-        MinDistance = 1f,
-        MaxDistance = 200f,
-        Yaw = 0.6f,
-        Pitch = 0.4f,
-        FieldOfViewDegrees = 45f,
-    };
+    private readonly Dictionary<Guid, WireMeshCache> _wireCaches = new();
+    private readonly SceneViewportCamera _camera;
+    private readonly Stopwatch _sw = new();
 
     private int _screenWidth = 1;
     private int _screenHeight = 1;
-    private Vector3? _gizmoOrigin;
 
-    public SceneViewportRenderer(SceneSessionService session)
+    public SceneViewportRenderer(SceneSessionService session, SceneViewportCamera camera)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _camera = camera ?? throw new ArgumentNullException(nameof(camera));
     }
 
-    public SilkOrbitCamera Orbit => _orbit;
-    public Vector3? GizmoOrigin => _gizmoOrigin;
+    /// <summary>Optional present-time meter (ViewportBench / diagnostics).</summary>
+    public ViewportFrameMeter? FrameMeter { get; set; }
+
+    public OrbitCameraRig Orbit => _camera.Orbit;
+    public Vector3? GizmoOrigin
+    {
+        get => _camera.GizmoOrigin;
+        set => _camera.GizmoOrigin = value;
+    }
 
     public void Bind(RaylibHostControl host) =>
         host.FrameRendering += (_, e) => OnFrame(e.DeltaSeconds, e.ScreenWidth, e.ScreenHeight);
 
-    public void OrbitDrag(float dx, float dy) =>
-        _orbit.AddLookDelta(dx * 0.01f, dy * 0.01f);
+    public void OrbitDrag(float dx, float dy) => _camera.OrbitDrag(dx, dy);
 
-    public void Zoom(float delta) =>
-        _orbit.AdjustDistance(delta > 0 ? -1.2f : 1.2f);
+    public void Zoom(float delta) => _camera.Zoom(delta);
 
-    public void Fit()
-    {
-        _orbit.Target = new Vector3(0f, 1f, 0f);
-        _orbit.Distance = 12f;
-        _orbit.Yaw = 0.6f;
-        _orbit.Pitch = 0.4f;
-    }
+    public void Fit() => _camera.Fit();
 
-    public Ray BuildScreenRay(float localX, float localY, float controlWidth, float controlHeight)
-    {
-        var aspect = controlWidth <= 0 ? 1f : (float)(controlWidth / System.Math.Max(1.0, controlHeight));
-        var ndcX = (float)(2.0 * (localX / System.Math.Max(1.0, controlWidth)) - 1.0);
-        var ndcY = (float)(1.0 - 2.0 * (localY / System.Math.Max(1.0, controlHeight)));
-        var eye = _orbit.BuildEyePosition();
-        return MeshPicker.ScreenRay(eye, _orbit.Target, Vector3.UnitY, _orbit.FieldOfViewDegrees, aspect, ndcX, ndcY);
-    }
+    public Ray BuildScreenRay(float localX, float localY, float controlWidth, float controlHeight) =>
+        _camera.BuildScreenRay(localX, localY, controlWidth, controlHeight);
 
-    public MeshPickHit? PickAt(float localX, float localY, float controlWidth, float controlHeight)
-    {
-        var ray = BuildScreenRay(localX, localY, controlWidth, controlHeight);
-        var mode = _session.Document.Edit.Mode;
-        var tol = MathF.Max(0.08f, _orbit.Distance * 0.012f);
-        return MeshPicker.Pick(_session.Evaluator.Cache.EvaluatedMeshes, ray, mode, pointPixelTolerance: tol, edgePixelTolerance: tol);
-    }
+    public MeshPickHit? PickAt(float localX, float localY, float controlWidth, float controlHeight) =>
+        _camera.PickAt(localX, localY, controlWidth, controlHeight);
 
     private void OnFrame(float deltaSeconds, int screenWidth, int screenHeight)
     {
         _ = deltaSeconds;
+        _sw.Restart();
         _screenWidth = System.Math.Max(1, screenWidth);
         _screenHeight = System.Math.Max(1, screenHeight);
         Graphics.ClearBackground(Background);
         var cache = _session.Evaluator.Cache;
-        ApplyActiveCamera(cache);
+        _camera.SyncActiveCamera();
 
-        var eye = _orbit.BuildEyePosition();
-        var camera = Camera.Perspective(eye, _orbit.Target, Vector3.UnitY, _orbit.FieldOfViewDegrees);
+        var eye = _camera.Orbit.BuildEyePosition();
+        var camera = Novolis.Raylib.Rendering.Camera.Perspective(eye, _camera.Orbit.Target, Vector3.UnitY, _camera.Orbit.FieldOfViewDegrees);
         World.Begin(camera);
 
-        for (var i = -8; i <= 8; i++)
+        World.DrawGrid(32, 1f);
+
+        var live = new HashSet<Guid>();
+        foreach (var mesh in cache.EvaluatedMeshes)
         {
-            World.DrawLine(new Vector3(i, 0, -8), new Vector3(i, 0, 8), Grid);
-            World.DrawLine(new Vector3(-8, 0, i), new Vector3(8, 0, i), Grid);
+            live.Add(mesh.SourceId);
+            DrawEvaluatedMesh(mesh);
         }
 
-        foreach (var mesh in cache.EvaluatedMeshes)
-            DrawEvaluatedMesh(mesh);
-
+        PruneWireCaches(live);
         DrawSelectionGizmo();
 
         foreach (var light in cache.Lights)
@@ -113,21 +96,21 @@ public sealed class SceneViewportRenderer
         World.End();
         var edit = _session.Document.Edit;
         Graphics.DrawText(
-            $"{_session.Document.Name}  {edit.Mode}/{edit.DisplayMode}  sel={edit.SelectionCount}  meshes={cache.EvaluatedMeshes.Count}",
+            $"{_session.Document.Name}  {edit.Mode}/{edit.DisplayMode}  {_screenWidth}x{_screenHeight}  meshes={cache.EvaluatedMeshes.Count}",
             12, 12, 16, Hud);
+        _sw.Stop();
+        FrameMeter?.Record(_sw.Elapsed.TotalMilliseconds, _camera.CameraInteracting);
     }
 
-    private void ApplyActiveCamera(LookCache cache)
+    private void PruneWireCaches(HashSet<Guid> live)
     {
-        if (_session.Document.ActiveCameraId is not { } id)
+        if (_wireCaches.Count == live.Count)
             return;
-        var cam = cache.Cameras.FirstOrDefault(c => c.Source.Id == id);
-        if (cam?.Source is not CameraNode node)
-            return;
-        var target = new Vector3(node.Target[0], node.Target[1], node.Target[2]);
-        var pos = cam.WorldPosition;
-        _orbit.Target = target;
-        _orbit.Distance = MathF.Max(1f, Vector3.Distance(pos, target));
+        foreach (var id in _wireCaches.Keys.ToArray())
+        {
+            if (!live.Contains(id))
+                _wireCaches.Remove(id);
+        }
     }
 
     private void DrawEvaluatedMesh(EvaluatedMesh mesh)
@@ -140,50 +123,62 @@ public sealed class SceneViewportRenderer
         var editingThis = edit.Mode != SceneEditMode.Object
                           && (edit.EditMeshId == mesh.SourceId || objectSelected);
 
-        for (var t = 0; t < mesh.Indices.Length; t += 3)
+        if (!_wireCaches.TryGetValue(mesh.SourceId, out var wire))
         {
-            var face = t / 3;
-            var a = Vector3.Transform(mesh.Vertices[mesh.Indices[t]], mesh.World);
-            var b = Vector3.Transform(mesh.Vertices[mesh.Indices[t + 1]], mesh.World);
-            var c = Vector3.Transform(mesh.Vertices[mesh.Indices[t + 2]], mesh.World);
-            var faceSelected = editingThis && edit.Mode == SceneEditMode.Polygon && edit.SelectedFaces.Contains(face);
-            var edgeColor = faceSelected ? CompSelected : color;
+            wire = new WireMeshCache();
+            _wireCaches[mesh.SourceId] = wire;
+        }
 
-            World.DrawLine(a, b, EdgeSelected(mesh.Indices[t], mesh.Indices[t + 1], editingThis) ? CompSelected : edgeColor);
-            World.DrawLine(b, c, EdgeSelected(mesh.Indices[t + 1], mesh.Indices[t + 2], editingThis) ? CompSelected : edgeColor);
-            World.DrawLine(c, a, EdgeSelected(mesh.Indices[t + 2], mesh.Indices[t], editingThis) ? CompSelected : edgeColor);
-
-            if (display == SceneDisplayMode.Isoline && faceSelected)
+        HashSet<(int A, int B)>? highlights = null;
+        if (editingThis && edit.Mode == SceneEditMode.Edge && edit.SelectedEdges.Count > 0)
+            highlights = edit.SelectedEdges.ToHashSet();
+        else if (editingThis && edit.Mode == SceneEditMode.Polygon && edit.SelectedFaces.Count > 0)
+        {
+            highlights = new HashSet<(int, int)>();
+            foreach (var face in edit.SelectedFaces)
             {
-                var mid = (a + b + c) / 3f;
-                World.DrawLine(a, mid, FaceTint);
-                World.DrawLine(b, mid, FaceTint);
-                World.DrawLine(c, mid, FaceTint);
+                var t = face * 3;
+                if (t + 2 >= mesh.Indices.Length)
+                    continue;
+                AddEdge(highlights, mesh.Indices[t], mesh.Indices[t + 1]);
+                AddEdge(highlights, mesh.Indices[t + 1], mesh.Indices[t + 2]);
+                AddEdge(highlights, mesh.Indices[t + 2], mesh.Indices[t]);
             }
         }
 
-        if (display is SceneDisplayMode.WirePoints or SceneDisplayMode.Isoline || edit.Mode == SceneEditMode.Point)
+        wire.Draw(mesh, color, highlights, CompSelected);
+
+        if (display == SceneDisplayMode.Isoline && editingThis && edit.Mode == SceneEditMode.Polygon && edit.SelectedFaces.Count > 0)
+            wire.DrawFaceStars(mesh, edit.SelectedFaces, FaceTint);
+
+        var showPoints = display is SceneDisplayMode.WirePoints or SceneDisplayMode.Isoline
+                         || edit.Mode == SceneEditMode.Point;
+        if (showPoints && mesh.Vertices.Length > 0)
         {
-            for (var i = 0; i < mesh.Vertices.Length; i++)
+            // Cap point density for very large meshes — still readable, keeps frame rate.
+            var pointSize = MathF.Max(0.02f, _camera.Orbit.Distance * 0.004f);
+            if (mesh.Vertices.Length <= 25_000 || edit.Mode == SceneEditMode.Point)
             {
-                var p = Vector3.Transform(mesh.Vertices[i], mesh.World);
-                var selected = editingThis && edit.SelectedVertices.Contains(i);
-                World.DrawSphere(p, selected ? 0.06f : 0.035f, selected ? CompSelected : PointColor);
+                wire.DrawPoints(
+                    mesh,
+                    pointSize,
+                    PointColor,
+                    editingThis && edit.Mode == SceneEditMode.Point ? edit.SelectedVertices : null,
+                    CompSelected);
             }
         }
+    }
 
-        bool EdgeSelected(int a, int b, bool active)
-        {
-            if (!active || edit.Mode != SceneEditMode.Edge)
-                return false;
-            var key = a < b ? (a, b) : (b, a);
-            return edit.SelectedEdges.Contains(key);
-        }
+    private static void AddEdge(HashSet<(int, int)> set, int a, int b)
+    {
+        if (a == b)
+            return;
+        set.Add(a < b ? (a, b) : (b, a));
     }
 
     private void DrawSelectionGizmo()
     {
-        _gizmoOrigin = null;
+        _camera.GizmoOrigin = null;
         var edit = _session.Document.Edit;
         Vector3? origin = null;
         if (edit.Mode == SceneEditMode.Object && _session.Document.SelectionId is { } sid)
@@ -212,9 +207,9 @@ public sealed class SceneViewportRenderer
 
         if (origin is null)
             return;
-        _gizmoOrigin = origin;
+        _camera.GizmoOrigin = origin;
         var o = origin.Value;
-        var len = MathF.Max(0.4f, _orbit.Distance * 0.06f);
+        var len = MathF.Max(0.4f, _camera.Orbit.Distance * 0.06f);
         World.DrawLine(o, o + Vector3.UnitX * len, GizmoX);
         World.DrawLine(o, o + Vector3.UnitY * len, GizmoY);
         World.DrawLine(o, o + Vector3.UnitZ * len, GizmoZ);

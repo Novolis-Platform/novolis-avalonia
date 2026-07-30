@@ -14,7 +14,7 @@
     <PackageReference Include="Novolis.Raylib.Abstractions" />
     <PackageReference Include="Novolis.Raylib.Bindings" />
     <PackageReference Include="Novolis.Raylib.Runtime" />
-    <PackageReference Include="Novolis.Rendering.Presentation.Silk" />
+    <PackageReference Include="Novolis.Simulation.View" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />

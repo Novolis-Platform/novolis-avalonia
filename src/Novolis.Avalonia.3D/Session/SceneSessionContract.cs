@@ -8,7 +8,7 @@ namespace Novolis.Avalonia._3D.Session;
     TcpPort = 18786,
     EnableEnv = "NOVOLIS_SCENE_SESSION",
     MarkerPrefix = "novolis-scene-session",
-    Description = "C4D-inspired mesh modeling (Object Manager, primitives, wireframe poly edit, Look).")]
+    Description = "CAD 3D scene editor (hierarchy, primitives, mesh edit, lights, cameras).")]
 [AgentAction("new", Summary = "New empty scene")]
 [AgentAction("open", Summary = "Open .nov3djson", Params = "path")]
 [AgentAction("save", Summary = "Save .nov3djson", Params = "path?")]
@@ -19,9 +19,9 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("addcamera", Summary = "Place a camera", Params = "parentId?; name?")]
 [AgentAction("addmesh", Summary = "Place a mesh primitive", Params = "primitive|box,sphere,plane,cylinder,cone,capsule,torus,pyramid,disc,tube,platonictetra,platonicocta,platonicicosa,platonicdodeca,landscape; name?; segments?")]
 [AgentAction("addmaterial", Summary = "Add a material node", Params = "name?; materialColor?")]
-[AgentAction("addgenerator", Summary = "Add Array/Cloner or Symmetry", Params = "generatorKind|cloner,symmetry; sourceId?; count?; axis?")]
-[AgentAction("addboole", Summary = "Add Boole (Target/Cutter)", Params = "booleanKind|union,difference,intersection; targetId?; cutterId?")]
-[AgentAction("setboole", Summary = "Edit Boole params", Params = "nodeId; booleanKind?; targetId?; cutterId?")]
+[AgentAction("addgenerator", Summary = "Add Array or Symmetry", Params = "generatorKind|cloner,symmetry; sourceId?; count?; axis?")]
+[AgentAction("addboole", Summary = "Add Boolean (Target/Cutter)", Params = "booleanKind|union,difference,intersection; targetId?; cutterId?")]
+[AgentAction("setboole", Summary = "Edit Boolean params", Params = "nodeId; booleanKind?; targetId?; cutterId?")]
 [AgentAction("addmodifier", Summary = "Add shaping modifier", Params = "modifierKind|weld,subdivision,optimize,bridge,extrude,bevel,inset,dissolve,knife; inputId?; distance?")]
 [AgentAction("setlight", Summary = "Edit light properties", Params = "nodeId; lightKind?; intensity?; name?")]
 [AgentAction("settransform", Summary = "Set node transform", Params = "nodeId; x?; y?; z?; rx?; ry?; rz?")]

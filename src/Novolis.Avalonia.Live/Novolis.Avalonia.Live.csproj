@@ -3,14 +3,20 @@
     <PackageId>Novolis.Avalonia.Live</PackageId>
     <IsPackable>true</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <Description>Avalonia controls for Novolis Audio Live transport snapshots and program graphs.</Description>
+    <Description>Avalonia Live editor, DSL completion, script compiler, and visualizers for Novolis Audio Live.</Description>
     <RootNamespace>Novolis.Avalonia.Live</RootNamespace>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
+    <PackageReference Include="Novolis.Audio.Live" />
+    <PackageReference Include="Novolis.Audio.Live.Dsl" />
     <PackageReference Include="Novolis.Audio.Live.Protocol" />
     <PackageReference Include="Novolis.Audio.Live.Visuals" />
+    <PackageReference Include="Novolis.Audio.MusicTheory" />
+    <PackageReference Include="Novolis.Audio.Patterns" />
     <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
   </ItemGroup>

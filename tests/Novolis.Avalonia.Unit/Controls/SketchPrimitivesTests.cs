@@ -37,6 +37,29 @@ public sealed class SketchPrimitivesTests
     }
 
     [Test]
+    public async Task SmoothPolyline_Keeps_Endpoints_And_Adds_Points()
+    {
+        var pts = new[]
+        {
+            new SketchPoint(0, 0),
+            new SketchPoint(10, 20),
+            new SketchPoint(30, 10),
+            new SketchPoint(40, 0)
+        };
+        var smooth = SketchPrimitives.SmoothPolyline(pts, iterations: 1);
+        await Assert.That(smooth.Count).IsGreaterThan(pts.Length);
+        await Assert.That(smooth[0]).IsEqualTo(pts[0]);
+        await Assert.That(smooth[^1]).IsEqualTo(pts[^1]);
+    }
+
+    [Test]
+    public async Task SvgDashArray_Null_For_Solid()
+    {
+        await Assert.That(SketchStrokeStyles.SvgDashArray(SketchStrokeStyle.Solid, 2)).IsNull();
+        await Assert.That(SketchStrokeStyles.SvgDashArray(SketchStrokeStyle.Dotted, 2)).IsNotNull();
+    }
+
+    [Test]
     public async Task Meetup_Finds_Nearby_Vertex()
     {
         var stroke = new StrokeShape

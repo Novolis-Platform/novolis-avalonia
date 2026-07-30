@@ -316,7 +316,7 @@ public sealed class SceneSessionService : ISceneSession
 
         var gen = new GeneratorNode
         {
-            Name = $"Boole {booleanKind}",
+            Name = $"Boolean {booleanKind}",
             ParentId = ResolveParent(command.ParentId),
             Generator = GeneratorKind.Boole,
             TargetId = targetId,
@@ -328,13 +328,13 @@ public sealed class SceneSessionService : ISceneSession
         _document.SelectionId = gen.Id;
         _evaluator.InvalidateMesh();
         RaiseChanged("addboole");
-        return Ok(SceneSessionActionIds.AddBoole, $"Added Boole {booleanKind}.", gen.Id.ToString());
+        return Ok(SceneSessionActionIds.AddBoole, $"Added Boolean {booleanKind}.", gen.Id.ToString());
     }
 
     private AgentCommandResultDto DoSetBoole(AgentCommandDto command)
     {
         if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is not GeneratorNode { Generator: GeneratorKind.Boole } gen)
-            return Fail(SceneSessionActionIds.SetBoole, "Select a Boole generator.", "badNode");
+            return Fail(SceneSessionActionIds.SetBoole, "Select a Boolean generator.", "badNode");
         if (!string.IsNullOrWhiteSpace(command.BooleanKind)
             && Enum.TryParse<BooleanKind>(command.BooleanKind, ignoreCase: true, out var bk))
             gen.BooleanKind = bk;
@@ -344,7 +344,7 @@ public sealed class SceneSessionService : ISceneSession
             gen.CutterId = cid;
         _evaluator.InvalidateMesh();
         RaiseChanged("setboole");
-        return Ok(SceneSessionActionIds.SetBoole, "Boole updated.", gen.Id.ToString());
+        return Ok(SceneSessionActionIds.SetBoole, "Boolean updated.", gen.Id.ToString());
     }
 
     private AgentCommandResultDto DoAddModifier(AgentCommandDto command)

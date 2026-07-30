@@ -92,4 +92,36 @@ public static class SketchPrimitives
                        + (-p0.Y + 3 * p1.Y - 3 * p2.Y + p3.Y) * t3);
         return new SketchPoint(x, y);
     }
+
+    /// <summary>
+    /// Softens freehand polylines with Chaikin corner-cutting (keeps endpoints).
+    /// </summary>
+    public static List<SketchPoint> SmoothPolyline(IReadOnlyList<SketchPoint> points, int iterations = 1)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count < 3)
+            return [.. points];
+
+        iterations = Math.Clamp(iterations, 0, 4);
+        if (iterations == 0)
+            return [.. points];
+
+        var current = points.ToList();
+        for (var iter = 0; iter < iterations; iter++)
+        {
+            var next = new List<SketchPoint>(current.Count * 2) { current[0] };
+            for (var i = 0; i < current.Count - 1; i++)
+            {
+                var a = current[i];
+                var b = current[i + 1];
+                next.Add(new SketchPoint(0.75 * a.X + 0.25 * b.X, 0.75 * a.Y + 0.25 * b.Y));
+                next.Add(new SketchPoint(0.25 * a.X + 0.75 * b.X, 0.25 * a.Y + 0.75 * b.Y));
+            }
+
+            next.Add(current[^1]);
+            current = next;
+        }
+
+        return current;
+    }
 }

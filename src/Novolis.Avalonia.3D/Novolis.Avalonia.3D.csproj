@@ -2,22 +2,30 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.3D</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>C4D-inspired Avalonia 3D modeling surface: Object Manager, Raylib viewport, light/camera components, and agent session via Novolis.Agent.Surface.</Description>
+    <Description>Avalonia CAD 3D editor surface: scene hierarchy, Raylib viewport, mesh tools, lights/cameras, and agent session via Novolis.Agent.Surface.</Description>
     <RootNamespace>Novolis.Avalonia._3D</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Math.Geometry" />
+    <PackageReference Include="Novolis.Modeling.Scene" />
+    <PackageReference Include="Novolis.Agent.Surface" />
     <PackageReference Include="Novolis.Raylib.Abstractions" />
     <PackageReference Include="Novolis.Raylib.Bindings" />
     <PackageReference Include="Novolis.Raylib.Runtime" />
-    <PackageReference Include="Novolis.Rendering.Presentation.Silk" />
+    <PackageReference Include="Novolis.Simulation.View" />
+    <PackageReference Include="Silk.NET.OpenGL" />
+    <!-- Owned here so CAD hosts (SceneLab/ViewportBench) need not pin Silk for OpenGL/Vulkan natives. -->
+    <PackageReference Include="Silk.NET.Vulkan" />
+    <PackageReference Include="Silk.NET.Shaderc" />
+    <PackageReference Include="Silk.NET.Shaderc.Native" />
+    <PackageReference Include="Novolis.Rendering.Backends.Vulkan" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Novolis.Modeling.Scene\Novolis.Modeling.Scene.csproj" />
-    <ProjectReference Include="..\Novolis.Agent.Surface\Novolis.Agent.Surface.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
   </ItemGroup>
 </Project>

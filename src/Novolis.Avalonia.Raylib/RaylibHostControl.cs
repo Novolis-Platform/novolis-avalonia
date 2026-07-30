@@ -144,8 +144,8 @@ public class RaylibHostControl : Panel
         if (!_hostActiveRequested || VisualRoot is null)
             return;
 
-        var width = System.Math.Clamp(FrameWidth, 64, 4096);
-        var height = System.Math.Clamp(FrameHeight, 64, 4096);
+        var width = System.Math.Clamp(FrameWidth, 64, 8192);
+        var height = System.Math.Clamp(FrameHeight, 64, 8192);
         if (width < 64 || height < 64)
             return;
 
@@ -227,8 +227,8 @@ public class RaylibHostControl : Panel
 
         var options = new RaylibEmbeddedOptions
         {
-            Width = System.Math.Clamp(FrameWidth, 64, 4096),
-            Height = System.Math.Clamp(FrameHeight, 64, 4096),
+            Width = System.Math.Clamp(FrameWidth, 64, 8192),
+            Height = System.Math.Clamp(FrameHeight, 64, 8192),
             TargetFps = System.Math.Clamp(TargetFps, 1, 240),
             WindowTitle = "Novolis.Avalonia.Raylib",
         };

@@ -1,11 +1,11 @@
 # Novolis.Avalonia.3D
 
-Lightweight C4D-inspired Avalonia modeling surface (Object Manager + mesh tools):
+Avalonia CAD 3D editor / renderer surface:
 
-- Primitives: Box, Sphere, Cylinder, Cone, Plane, Capsule, Torus
-- Generators: Array/Cloner, Symmetry, Boole (Union/Difference/Intersection)
-- Shaping: Extrude, Bevel, Weld, Optimize, Subdivision
-- Look: materials, Omni/Spot/Infinite/Area lights, cameras
+- Primitives: Box, Sphere, Cylinder, Cone, Plane, Capsule, Torus, …
+- Generators: Array, Symmetry, Boolean (Union/Difference/Intersection)
+- Mesh tools: Extrude, Bevel, Weld, Optimize, Subdivision, …
+- Lights & cameras: Point/Spot/Directional/Area, materials, cameras
 - Mutations via `SceneSessionService.Execute` (UI + LLM parity)
 - Agent: `AgentSurface.AttachAll` — HTTP `:18785`, TCP `:18786`
 

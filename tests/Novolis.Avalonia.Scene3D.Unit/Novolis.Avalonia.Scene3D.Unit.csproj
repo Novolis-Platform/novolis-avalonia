@@ -7,8 +7,8 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="Novolis.Math.Geometry" />
-    <ProjectReference Include="..\..\src\Novolis.Modeling.Scene\Novolis.Modeling.Scene.csproj" />
-    <ProjectReference Include="..\..\src\Novolis.Agent.Surface\Novolis.Agent.Surface.csproj" />
+    <PackageReference Include="Novolis.Modeling.Scene" />
+    <PackageReference Include="Novolis.Agent.Surface" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.3D\Novolis.Avalonia.3D.csproj" />
   </ItemGroup>
 </Project>

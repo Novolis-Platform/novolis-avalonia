@@ -24,17 +24,7 @@ internal static class Program
             {
                 services.AddSingleton(_ =>
                 {
-                    var sample = args.Any(a => a.Equals("--cloner", StringComparison.OrdinalIgnoreCase))
-                        ? SceneDocument.CreateClonerRow()
-                        : args.Any(a => a.Equals("--boole", StringComparison.OrdinalIgnoreCase))
-                            ? SceneDocument.CreateBooleCut()
-                            : args.Any(a => a.Equals("--look", StringComparison.OrdinalIgnoreCase))
-                                ? SceneDocument.CreateLookSetup()
-                                : args.Any(a => a.Equals("--edit", StringComparison.OrdinalIgnoreCase))
-                                    ? SceneDocument.CreateEditBox()
-                                    : args.Any(a => a.Equals("--gallery", StringComparison.OrdinalIgnoreCase))
-                                        ? SceneDocument.CreatePrimitiveGallery()
-                                        : SceneDocument.CreatePrimitiveStage("SceneLab");
+                    var sample = ResolveStartupDocument(args);
                     return new SceneSessionService(sample) { AppId = "scenelab" };
                 });
                 services.AddTransient<MainWindow>();
@@ -57,6 +47,24 @@ internal static class Program
         }
     }
 
+    private static SceneDocument ResolveStartupDocument(string[] args)
+    {
+        bool Has(params string[] flags) =>
+            flags.Any(f => args.Any(a => a.Equals(f, StringComparison.OrdinalIgnoreCase)));
+
+        if (Has("--array", "--cloner"))
+            return SceneDocument.CreateClonerRow();
+        if (Has("--boolean", "--boole"))
+            return SceneDocument.CreateBooleCut();
+        if (Has("--lights", "--look"))
+            return SceneDocument.CreateLookSetup();
+        if (Has("--edit"))
+            return SceneDocument.CreateEditBox();
+        if (Has("--gallery"))
+            return SceneDocument.CreatePrimitiveGallery();
+        return SceneDocument.CreatePrimitiveStage("Untitled");
+    }
+
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
@@ -67,7 +75,7 @@ internal sealed class MainWindow : Window
 {
     public MainWindow(SceneSessionService session)
     {
-        Title = "Novolis SceneLab — mesh modeller";
+        Title = "SceneLab";
         Width = 1600;
         Height = 920;
         MinWidth = 960;

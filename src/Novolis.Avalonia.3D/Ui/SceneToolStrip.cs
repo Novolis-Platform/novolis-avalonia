@@ -46,7 +46,7 @@ public sealed class SceneToolStrip : StackPanel
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "symmetry",
         })));
-        Children.Add(Btn("Boole", () => Cmd(SceneSessionActionIds.AddBoole, new AgentCommandDto
+        Children.Add(Btn("Boolean", () => Cmd(SceneSessionActionIds.AddBoole, new AgentCommandDto
         {
             ActionId = SceneSessionActionIds.AddBoole,
             BooleanKind = "difference",
@@ -64,9 +64,9 @@ public sealed class SceneToolStrip : StackPanel
         Children.Add(Btn("Material", () => Cmd(SceneSessionActionIds.AddMaterial)));
 
         Children.Add(Sep());
-        Children.Add(Btn("Omni", () => AddLight(LightKind.Omni)));
+        Children.Add(Btn("Point", () => AddLight(LightKind.Omni)));
         Children.Add(Btn("Spot", () => AddLight(LightKind.Spot)));
-        Children.Add(Btn("Infinite", () => AddLight(LightKind.Infinite)));
+        Children.Add(Btn("Directional", () => AddLight(LightKind.Infinite)));
         Children.Add(Btn("Area", () => AddLight(LightKind.Area)));
 
         Children.Add(Sep());

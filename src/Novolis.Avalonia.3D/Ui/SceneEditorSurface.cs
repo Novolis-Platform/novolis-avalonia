@@ -7,17 +7,20 @@ using Novolis.Avalonia._3D.Session;
 
 namespace Novolis.Avalonia._3D.Ui;
 
-/// <summary>Object Manager | Viewport | Properties shell. Chrome is created for hosts to dock.</summary>
+/// <summary>Scene hierarchy | Viewport | Properties shell. Chrome is created for hosts to dock.</summary>
 public sealed class SceneEditorSurface : UserControl
 {
     private readonly SceneSessionService _session;
     private readonly DispatcherTimer _presentTimer;
 
-    public SceneEditorSurface(SceneSessionService? session = null, bool composeDefaultLayout = true)
+    public SceneEditorSurface(
+        SceneSessionService? session = null,
+        bool composeDefaultLayout = true,
+        SceneViewportBackendKind backend = SceneViewportBackendKind.OpenGl)
     {
         _session = session ?? new SceneSessionService();
         ObjectManager = new ObjectManagerControl(_session) { Width = 260 };
-        Viewport = new SceneViewportControl(_session);
+        Viewport = new SceneViewportControl(_session, backend);
         Properties = new PropertyInspectorControl(_session) { Width = 280 };
         EditModeBar = new SceneEditModeBar(_session);
         DisplayModeBar = new SceneDisplayModeBar(_session);
@@ -42,8 +45,7 @@ public sealed class SceneEditorSurface : UserControl
 
         _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
         {
-            Viewport.Host.RequestFrame();
-            Viewport.InvalidateVisual();
+            Viewport.RequestPresent();
         });
 
         AttachedToVisualTree += (_, _) =>

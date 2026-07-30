@@ -8,7 +8,7 @@ using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Ui;
 
-/// <summary>Object Manager hierarchy list.</summary>
+/// <summary>Scene hierarchy list.</summary>
 public sealed class ObjectManagerControl : UserControl
 {
     private readonly SceneSessionService _session;
@@ -24,7 +24,7 @@ public sealed class ObjectManagerControl : UserControl
             {
                 new TextBlock
                 {
-                    Text = "Object Manager",
+                    Text = "Scene",
                     FontWeight = FontWeight.SemiBold,
                     Margin = new Thickness(8, 8, 8, 4),
                     [DockPanel.DockProperty] = Dock.Top,
@@ -70,7 +70,7 @@ public sealed class ObjectManagerControl : UserControl
             _ => "◼",
         },
         MaterialNode => "◐",
-        GeneratorNode g => g.Generator == GeneratorKind.Boole ? "⬡" : "⧉",
+        GeneratorNode g => g.Generator == GeneratorKind.Boole ? "⊖" : "⧉",
         ModifierNode => "✎",
         GroupNode => "▢",
         _ => "○",

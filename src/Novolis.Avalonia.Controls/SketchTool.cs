@@ -9,7 +9,7 @@ public enum SketchTool
     /// <summary>Select, move, and resize committed shapes (Shift multi-select, drag marquee).</summary>
     Select = 1,
 
-    /// <summary>Continuous polyline — click vertices; double-click / Enter to finish; Esc to cancel.</summary>
+    /// <summary>Continuous polyline — click vertices; Done / Enter to finish; Close / click start / Ctrl+Enter to close; Esc cancels.</summary>
     Line = 2,
 
     /// <summary>Spline through clicked control points (Catmull-Rom tessellation on commit).</summary>

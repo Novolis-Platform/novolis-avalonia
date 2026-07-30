@@ -50,6 +50,7 @@ public sealed class SketchControl : Control
     DateTime _lastVertexClickUtc;
     SketchPoint? _lastVertexClickWorld;
     HashSet<string>? _eraserBatch;
+    bool _pendingClose;
 
     /// <summary>Document shown and edited by this control.</summary>
     public static readonly StyledProperty<SketchDocument?> DocumentProperty =
@@ -83,11 +84,24 @@ public sealed class SketchControl : Control
     public static readonly StyledProperty<double> StrokeWidthProperty =
         AvaloniaProperty.Register<SketchControl, double>(nameof(StrokeWidth), 2);
 
+    /// <summary>When true, closed shapes (box/ellipse/closed line) get a fill.</summary>
+    public static readonly StyledProperty<bool> FillEnabledProperty =
+        AvaloniaProperty.Register<SketchControl, bool>(nameof(FillEnabled));
+
+    /// <summary>Fill color for new closed shapes (#RRGGBB). Empty uses <see cref="StrokeColor"/>.</summary>
+    public static readonly StyledProperty<string> FillColorProperty =
+        AvaloniaProperty.Register<SketchControl, string>(nameof(FillColor), "");
+
+    /// <summary>Dash / stipple style for new strokes.</summary>
+    public static readonly StyledProperty<SketchStrokeStyle> StrokeStyleProperty =
+        AvaloniaProperty.Register<SketchControl, SketchStrokeStyle>(nameof(StrokeStyle));
+
     static SketchControl()
     {
         AffectsRender<SketchControl>(
             DocumentProperty, ToolProperty, GridSizeProperty, GridVisibleProperty, SnapEnabledProperty,
-            MeetupEnabledProperty, StrokeColorProperty, StrokeWidthProperty);
+            MeetupEnabledProperty, StrokeColorProperty, StrokeWidthProperty,
+            FillEnabledProperty, FillColorProperty, StrokeStyleProperty);
         DocumentProperty.Changed.AddClassHandler<SketchControl>((c, e) => c.OnDocumentChanged(e));
         ToolProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.CancelInProgressDrawing());
         GridSizeProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.SyncGridFromProperties());
@@ -160,6 +174,32 @@ public sealed class SketchControl : Control
         set => SetValue(StrokeWidthProperty, value);
     }
 
+    /// <summary>When true, closed shapes get a fill using <see cref="FillColor"/> (or stroke color).</summary>
+    public bool FillEnabled
+    {
+        get => GetValue(FillEnabledProperty);
+        set => SetValue(FillEnabledProperty, value);
+    }
+
+    /// <summary>Fill color for new closed shapes. Empty falls back to <see cref="StrokeColor"/>.</summary>
+    public string FillColor
+    {
+        get => GetValue(FillColorProperty);
+        set => SetValue(FillColorProperty, value);
+    }
+
+    /// <summary>Dash / stipple style for new strokes.</summary>
+    public SketchStrokeStyle StrokeStyle
+    {
+        get => GetValue(StrokeStyleProperty);
+        set => SetValue(StrokeStyleProperty, value);
+    }
+
+    /// <summary>Whether Line/Spline has an unfinished vertex path.</summary>
+    public bool HasInProgressDrawing =>
+        Tool is SketchTool.Line or SketchTool.Spline
+        && (_draft is { Count: > 0 } || _splineControls is { Count: > 0 });
+
     /// <summary>Raised after the document mutates.</summary>
     public event Action? DocumentChanged;
 
@@ -167,6 +207,19 @@ public sealed class SketchControl : Control
     public event Action? SelectionChanged;
 
     string? _lastSelectionKey;
+
+    /// <summary>
+    /// Finishes the in-progress Line/Spline. When <paramref name="closeShape"/> is true,
+    /// closes the path to the first vertex (and fills when <see cref="FillEnabled"/>).
+    /// </summary>
+    public void CompleteDrawing(bool closeShape = false)
+    {
+        if (!HasInProgressDrawing)
+            return;
+        _pendingClose = closeShape;
+        CommitVertexTool();
+        InvalidateVisual();
+    }
 
     /// <summary>Gridifies selection (or all strokes) using the current grid size.</summary>
     public void GridifySelection()
@@ -222,7 +275,9 @@ public sealed class SketchControl : Control
         if (e.Key == Key.Enter && Tool is SketchTool.Line or SketchTool.Spline
             && (_draft is { Count: > 0 } || _splineControls is { Count: > 0 }))
         {
-            CommitVertexTool();
+            // Enter = finish open; Ctrl/Shift+Enter = close then finish
+            CompleteDrawing(closeShape: e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                                        || e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             e.Handled = true;
             return;
         }
@@ -466,7 +521,7 @@ public sealed class SketchControl : Control
     {
         if (_dragMode == DragMode.Draw && _draft is { Count: > 0 })
         {
-            CommitPolyline(_draft);
+            CommitPolyline(SketchPrimitives.SmoothPolyline(_draft, iterations: 1));
         }
         else if (_dragMode == DragMode.ShapeDrag && _draft is { Count: >= 2 })
         {
@@ -510,9 +565,10 @@ public sealed class SketchControl : Control
         foreach (var stroke in doc.Elements)
             DrawStroke(context, stroke);
 
-        var draftPen = new ImmutablePen(
+        var draftPen = CreateStrokePen(
             new ImmutableSolidColorBrush(ParseColor(StrokeColor)),
-            Math.Max(0.5, StrokeWidth * _scale));
+            Math.Max(0.15, StrokeWidth * _scale),
+            StrokeStyle);
 
         if (_draft is { Count: > 0 })
             DrawPolyline(context, _draft, draftPen);
@@ -555,13 +611,23 @@ public sealed class SketchControl : Control
 
         if (isDouble)
         {
-            CommitVertexTool();
+            // Double-click closes when we have enough vertices; otherwise finishes open.
+            var count = Tool == SketchTool.Spline
+                ? _splineControls?.Count ?? 0
+                : _draft?.Count ?? 0;
+            CompleteDrawing(closeShape: count >= 3);
             return;
         }
 
         if (Tool == SketchTool.Line)
         {
             _draft ??= [];
+            if (_draft.Count >= 3 && Distance(_draft[0], world) <= CloseRadiusWorld())
+            {
+                CompleteDrawing(closeShape: true);
+                return;
+            }
+
             if (_draft.Count == 0 || Distance(_draft[^1], world) > 1e-6)
                 _draft.Add(world);
             return;
@@ -569,9 +635,18 @@ public sealed class SketchControl : Control
 
         // Spline
         _splineControls ??= [];
+        if (_splineControls.Count >= 3 && Distance(_splineControls[0], world) <= CloseRadiusWorld())
+        {
+            CompleteDrawing(closeShape: true);
+            return;
+        }
+
         if (_splineControls.Count == 0 || Distance(_splineControls[^1], world) > 1e-6)
             _splineControls.Add(world);
     }
+
+    double CloseRadiusWorld() =>
+        MeetupScreenRadius / Math.Max(_scale, 0.01);
 
     void CommitVertexTool()
     {
@@ -590,14 +665,37 @@ public sealed class SketchControl : Control
     void CommitPolyline(IReadOnlyList<SketchPoint> points)
     {
         if (points.Count == 0)
+        {
+            _pendingClose = false;
             return;
-        var pts = points.Count == 1 ? new List<SketchPoint> { points[0], points[0] } : points.ToList();
+        }
+
+        var pts = points.Count == 1
+            ? new List<SketchPoint> { points[0], points[0] }
+            : points.ToList();
+
+        var closed = _pendingClose
+                     || Tool is SketchTool.Rect or SketchTool.Ellipse
+                     || IsNearlyClosed(pts);
+        _pendingClose = false;
+
+        if (closed && pts.Count >= 3 && Distance(pts[0], pts[^1]) > 1e-6)
+            pts.Add(pts[0]);
+
+        var strokeColor = string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor;
+        string? fill = null;
+        if (FillEnabled && closed)
+            fill = string.IsNullOrWhiteSpace(FillColor) ? strokeColor : FillColor;
+
         var stroke = new StrokeShape
         {
             Id = Guid.NewGuid().ToString("N"),
             Points = pts,
-            StrokeColor = string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor,
-            StrokeWidth = StrokeWidth <= 0 ? 2 : StrokeWidth
+            StrokeColor = strokeColor,
+            StrokeWidth = StrokeWidth < 0.05 ? 2 : StrokeWidth,
+            FillColor = fill,
+            StrokeStyle = StrokeStyle,
+            Closed = closed
         };
         EnsureDocument().AddStroke(stroke);
         EnsureDocument().Select(stroke.Id);
@@ -610,6 +708,13 @@ public sealed class SketchControl : Control
         InvalidateVisual();
     }
 
+    static bool IsNearlyClosed(IReadOnlyList<SketchPoint> pts)
+    {
+        if (pts.Count < 3)
+            return false;
+        return Distance(pts[0], pts[^1]) < 1e-6;
+    }
+
     void CancelInProgressDrawing()
     {
         _draft = null;
@@ -617,6 +722,7 @@ public sealed class SketchControl : Control
         _hoverWorld = null;
         _meetupHint = null;
         _lastVertexClickWorld = null;
+        _pendingClose = false;
         _dragMode = DragMode.None;
         _marqueeScreen = null;
         _eraserBatch = null;
@@ -857,23 +963,59 @@ public sealed class SketchControl : Control
     {
         if (stroke.Points.Count == 0)
             return;
-        var pen = new ImmutablePen(
+        var thickness = Math.Max(0.15, stroke.StrokeWidth * _scale);
+        var pen = CreateStrokePen(
             new ImmutableSolidColorBrush(ParseColor(stroke.StrokeColor)),
-            Math.Max(0.5, stroke.StrokeWidth * _scale));
-        DrawPolyline(context, stroke.Points, pen);
+            thickness,
+            stroke.StrokeStyle);
+        IBrush? fill = null;
+        if (!string.IsNullOrWhiteSpace(stroke.FillColor) && (stroke.Closed || IsNearlyClosed(stroke.Points)))
+            fill = new ImmutableSolidColorBrush(ParseColor(stroke.FillColor));
+        DrawPolyline(context, stroke.Points, pen, fill, stroke.Closed || IsNearlyClosed(stroke.Points));
     }
 
-    void DrawPolyline(DrawingContext context, IReadOnlyList<SketchPoint> points, IPen pen)
+    /// <summary>
+    /// Continuous polyline stroke (round caps/joins). Avoids per-segment DrawLine,
+    /// which renders as disjoint rectangular slabs at corners.
+    /// </summary>
+    void DrawPolyline(
+        DrawingContext context,
+        IReadOnlyList<SketchPoint> points,
+        IPen pen,
+        IBrush? fill = null,
+        bool closed = false)
     {
+        if (points.Count == 0)
+            return;
+
         if (points.Count == 1)
         {
-            context.DrawEllipse(pen.Brush, null, WorldToScreen(points[0]), 1.5, 1.5);
+            var r = Math.Max(0.5, pen.Thickness * 0.5);
+            context.DrawEllipse(fill ?? pen.Brush, fill is null ? null : pen, WorldToScreen(points[0]), r, r);
             return;
         }
 
-        for (var i = 0; i < points.Count - 1; i++)
-            context.DrawLine(pen, WorldToScreen(points[i]), WorldToScreen(points[i + 1]));
+        var list = new List<Point>(points.Count + 1);
+        for (var i = 0; i < points.Count; i++)
+            list.Add(WorldToScreen(points[i]));
+        if (closed && list.Count >= 3)
+        {
+            var a = list[0];
+            var b = list[^1];
+            if (Math.Abs(a.X - b.X) > 0.5 || Math.Abs(a.Y - b.Y) > 0.5)
+                list.Add(a);
+        }
+
+        context.DrawGeometry(fill, pen, new PolylineGeometry(list, isFilled: fill is not null));
     }
+
+    static IPen CreateStrokePen(IImmutableBrush brush, double thickness, SketchStrokeStyle style = SketchStrokeStyle.Solid) =>
+        new ImmutablePen(
+            brush,
+            thickness,
+            dashStyle: SketchStrokeStyles.CreateDash(style, thickness),
+            lineCap: PenLineCap.Round,
+            lineJoin: PenLineJoin.Round);
 
     void DrawSelections(DrawingContext context, SketchDocument doc)
     {

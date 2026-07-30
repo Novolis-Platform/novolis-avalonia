@@ -119,7 +119,7 @@ public sealed class PropertyInspectorControl : UserControl
         {
             _body.Children.Add(Label($"{gen.Generator} count={gen.Count} axis={gen.Axis}"));
             if (gen.Generator == GeneratorKind.Boole)
-                _body.Children.Add(Label($"Boole {gen.BooleanKind} target={gen.TargetId} cutter={gen.CutterId}"));
+                _body.Children.Add(Label($"Boolean {gen.BooleanKind} target={gen.TargetId} cutter={gen.CutterId}"));
         }
 
         if (node is ModifierNode mod)

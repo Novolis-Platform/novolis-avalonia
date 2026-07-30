@@ -10,7 +10,8 @@ public static class SketchJson
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
     /// <summary>Serializes document elements and grid settings to JSON.</summary>
@@ -58,6 +59,9 @@ public static class SketchJson
         Id = s.Id,
         StrokeColor = s.StrokeColor,
         StrokeWidth = s.StrokeWidth,
+        FillColor = string.IsNullOrWhiteSpace(s.FillColor) ? null : s.FillColor,
+        StrokeStyle = s.StrokeStyle == SketchStrokeStyle.Solid ? null : s.StrokeStyle,
+        Closed = s.Closed ? true : null,
         Points = s.Points.Select(p => new SketchPointDto { X = p.X, Y = p.Y }).ToList()
     };
 
@@ -66,6 +70,9 @@ public static class SketchJson
         Id = string.IsNullOrWhiteSpace(d.Id) ? Guid.NewGuid().ToString("N") : d.Id,
         StrokeColor = string.IsNullOrWhiteSpace(d.StrokeColor) ? "#1e1e1e" : d.StrokeColor!,
         StrokeWidth = d.StrokeWidth <= 0 ? 2 : d.StrokeWidth,
+        FillColor = string.IsNullOrWhiteSpace(d.FillColor) ? null : d.FillColor,
+        StrokeStyle = d.StrokeStyle ?? SketchStrokeStyle.Solid,
+        Closed = d.Closed == true,
         Points = d.Points?.Select(p => new SketchPoint(p.X, p.Y)).ToList() ?? []
     };
 
@@ -88,6 +95,9 @@ public static class SketchJson
         public string? Id { get; set; }
         public string? StrokeColor { get; set; }
         public double StrokeWidth { get; set; } = 2;
+        public string? FillColor { get; set; }
+        public SketchStrokeStyle? StrokeStyle { get; set; }
+        public bool? Closed { get; set; }
         public List<SketchPointDto>? Points { get; set; }
     }
 

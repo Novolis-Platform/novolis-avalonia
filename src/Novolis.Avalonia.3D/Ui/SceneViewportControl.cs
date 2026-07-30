@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,47 +12,132 @@ using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Ui;
 
+/// <summary>CAD viewport host. Backends: OpenGL (default), CPU, Vulkan, Raylib.</summary>
 public sealed class SceneViewportControl : Panel
 {
-    private readonly RaylibHostControl _host = new();
     private readonly SceneSessionService _session;
-    private readonly SceneViewportRenderer _renderer;
+    private readonly SceneViewportCamera _camera;
+    private readonly SceneViewportBackendKind _backend;
+    private readonly SceneViewportRenderer? _raylibRenderer;
+    private readonly RaylibHostControl? _raylibHost;
+    private readonly SceneWireGlControl? _gl;
+    private readonly SceneWireCpuControl? _cpu;
+    private readonly SceneWireVulkanControl? _vulkan;
     private Point? _last;
     private bool _orbiting;
     private bool _draggingGizmo;
     private bool _potentialPick;
     private KeyModifiers _mods;
 
-    public SceneViewportControl(SceneSessionService session)
+    public SceneViewportControl(
+        SceneSessionService session,
+        SceneViewportBackendKind backend = SceneViewportBackendKind.OpenGl,
+        SceneViewportCamera? sharedCamera = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
-        _renderer = new SceneViewportRenderer(session);
+        _backend = backend;
+        _camera = sharedCamera ?? new SceneViewportCamera(session);
+        FrameMeter = new ViewportFrameMeter();
         Background = new SolidColorBrush(Color.FromRgb(18, 24, 32));
-        Children.Add(_host);
-        _renderer.Bind(_host);
 
+        switch (backend)
+        {
+            case SceneViewportBackendKind.Cpu:
+                _cpu = new SceneWireCpuControl(session, _camera, FrameMeter);
+                Children.Add(_cpu);
+                break;
+            case SceneViewportBackendKind.Raylib:
+                _raylibHost = new RaylibHostControl();
+                _raylibRenderer = new SceneViewportRenderer(session, _camera) { FrameMeter = FrameMeter };
+                Children.Add(_raylibHost);
+                _raylibRenderer.Bind(_raylibHost);
+                break;
+            case SceneViewportBackendKind.Vulkan:
+                _vulkan = new SceneWireVulkanControl(session, _camera, FrameMeter);
+                Children.Add(_vulkan);
+                break;
+            default:
+                _gl = new SceneWireGlControl(session, _camera, FrameMeter);
+                Children.Add(_gl);
+                break;
+        }
+
+        LayoutUpdated += (_, _) =>
+        {
+            if (_raylibHost is not null)
+                SyncRaylibResolution();
+        };
         PointerPressed += OnPressed;
         PointerMoved += OnMoved;
         PointerReleased += OnReleased;
         PointerWheelChanged += (_, e) =>
         {
-            _renderer.Zoom((float)e.Delta.Y);
+            _camera.Zoom((float)e.Delta.Y);
             e.Handled = true;
         };
     }
 
-    public RaylibHostControl Host => _host;
-    public SceneViewportRenderer Renderer => _renderer;
+    public SceneViewportBackendKind Backend => _backend;
+    public SceneViewportCamera Camera => _camera;
+    public ViewportFrameMeter FrameMeter { get; }
+    public RaylibHostControl? Host => _raylibHost;
+    public SceneViewportRenderer? RaylibRenderer => _raylibRenderer;
+
+    /// <summary>OpenGL or Vulkan init/present error, when available.</summary>
+    public string? LastError => _gl?.LastError ?? _vulkan?.LastError;
+
+    /// <summary>Legacy accessor used by Raylib present loop.</summary>
+    public SceneViewportRenderer Renderer =>
+        _raylibRenderer ?? throw new InvalidOperationException("Raylib renderer only available for Raylib backend.");
 
     public void Start()
     {
-        _host.SetHostActive(true);
-        _host.EnsureHostStarted();
+        if (_raylibHost is not null)
+        {
+            SyncRaylibResolution();
+            _raylibHost.SetHostActive(true);
+            _raylibHost.EnsureHostStarted();
+        }
+
+        _cpu?.Start();
+        _vulkan?.Start();
     }
 
-    public void Stop() => _host.SetHostActive(false);
+    public void Stop()
+    {
+        _raylibHost?.SetHostActive(false);
+        _cpu?.Stop();
+        _vulkan?.Stop();
+    }
 
-    public void Fit() => _renderer.Fit();
+    public void Fit() => _camera.Fit();
+
+    public void RequestPresent()
+    {
+        _raylibHost?.RequestFrame();
+        _gl?.RequestPresent();
+        _cpu?.InvalidateVisual();
+        _vulkan?.RequestPresent();
+        InvalidateVisual();
+    }
+
+    private void SyncRaylibResolution()
+    {
+        if (_raylibHost is null)
+            return;
+        var w = Bounds.Width;
+        var h = Bounds.Height;
+        if (w < 8 || h < 8)
+            return;
+        var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        var ss = System.Math.Clamp(scale * 1.5, 1.0, 2.5);
+        var fw = (int)System.Math.Clamp(System.Math.Round(w * ss), 64, 8192);
+        var fh = (int)System.Math.Clamp(System.Math.Round(h * ss), 64, 8192);
+        if (_raylibHost.FrameWidth == fw && _raylibHost.FrameHeight == fh)
+            return;
+        _raylibHost.FrameWidth = fw;
+        _raylibHost.FrameHeight = fh;
+    }
 
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -70,9 +156,8 @@ public sealed class SceneViewportControl : Panel
         if (!pt.Properties.IsLeftButtonPressed)
             return;
 
-        // Start potential pick / gizmo drag; decide on move/release.
         _potentialPick = true;
-        _draggingGizmo = _renderer.GizmoOrigin is not null && NearGizmo(_last.Value);
+        _draggingGizmo = _camera.GizmoOrigin is not null && NearGizmo(_last.Value);
         e.Pointer.Capture(this);
         e.Handled = true;
     }
@@ -88,14 +173,14 @@ public sealed class SceneViewportControl : Panel
         if (_orbiting)
         {
             _last = p;
-            _renderer.OrbitDrag(dx, dy);
+            _camera.OrbitDrag(dx, dy);
             return;
         }
 
         if (_draggingGizmo && (MathF.Abs(dx) + MathF.Abs(dy) > 0.5f))
         {
             _potentialPick = false;
-            var scale = _renderer.Orbit.Distance * 0.0025f;
+            var scale = _camera.Orbit.Distance * 0.0025f;
             _session.Execute(new AgentCommandDto
             {
                 ActionId = SceneSessionActionIds.MoveSelection,
@@ -109,10 +194,9 @@ public sealed class SceneViewportControl : Panel
 
         if (_potentialPick && (MathF.Abs(dx) + MathF.Abs(dy) > 4f) && !_draggingGizmo)
         {
-            // Drag without Alt = orbit fallback when not on gizmo
             _potentialPick = false;
             _orbiting = true;
-            _renderer.OrbitDrag(dx, dy);
+            _camera.OrbitDrag(dx, dy);
             _last = p;
         }
     }
@@ -131,7 +215,7 @@ public sealed class SceneViewportControl : Panel
 
     private void ApplyPick(Point local, bool additive)
     {
-        var hit = _renderer.PickAt((float)local.X, (float)local.Y, (float)Bounds.Width, (float)Bounds.Height);
+        var hit = _camera.PickAt((float)local.X, (float)local.Y, (float)Bounds.Width, (float)Bounds.Height);
         if (hit is null)
         {
             if (!additive && _session.Document.Edit.Mode != SceneEditMode.Object)
@@ -173,15 +257,14 @@ public sealed class SceneViewportControl : Panel
 
     private bool NearGizmo(Point local)
     {
-        if (_renderer.GizmoOrigin is not { } origin)
+        if (_camera.GizmoOrigin is not { } origin)
             return false;
-        // Approximate: if pick misses mesh but gizmo drawn, allow drag when close in screen — use pick distance heuristic via world ray closeness
-        var ray = _renderer.BuildScreenRay((float)local.X, (float)local.Y, (float)Bounds.Width, (float)Bounds.Height);
+        var ray = _camera.BuildScreenRay((float)local.X, (float)local.Y, (float)Bounds.Width, (float)Bounds.Height);
         var w = origin - ray.Position;
         var proj = Vector3.Dot(w, ray.Direction);
         if (proj < 0)
             return false;
         var closest = ray.Position + ray.Direction * proj;
-        return Vector3.Distance(closest, origin) < MathF.Max(0.25f, _renderer.Orbit.Distance * 0.04f);
+        return Vector3.Distance(closest, origin) < MathF.Max(0.25f, _camera.Orbit.Distance * 0.04f);
     }
 }

@@ -12,8 +12,17 @@ public sealed class StrokeShape
     /// <summary>Stroke color as #RRGGBB or #AARRGGBB.</summary>
     public string StrokeColor { get; set; } = "#1e1e1e";
 
-    /// <summary>Stroke width in world units.</summary>
+    /// <summary>Stroke width in world units (hairlines down to ~0.25 supported).</summary>
     public double StrokeWidth { get; set; } = 2;
+
+    /// <summary>Optional fill color (#RRGGBB). Null/empty = unfilled.</summary>
+    public string? FillColor { get; set; }
+
+    /// <summary>Dash / stipple pattern.</summary>
+    public SketchStrokeStyle StrokeStyle { get; set; } = SketchStrokeStyle.Solid;
+
+    /// <summary>When true, path is treated as a closed polygon (fill + join ends).</summary>
+    public bool Closed { get; set; }
 
     /// <summary>Deep-clones this stroke.</summary>
     public StrokeShape Clone() => new()
@@ -21,6 +30,9 @@ public sealed class StrokeShape
         Id = Id,
         Points = [.. Points],
         StrokeColor = StrokeColor,
-        StrokeWidth = StrokeWidth
+        StrokeWidth = StrokeWidth,
+        FillColor = FillColor,
+        StrokeStyle = StrokeStyle,
+        Closed = Closed
     };
 }

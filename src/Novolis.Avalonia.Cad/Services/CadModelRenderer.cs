@@ -7,7 +7,8 @@ using Novolis.Avalonia.Raylib;
 using Novolis.Math.Geometry;
 using Novolis.Raylib.Colors;
 using Novolis.Raylib.Rendering;
-using Novolis.Rendering.Presentation.Silk;
+using Novolis.Simulation.View;
+using RayCamera = Novolis.Raylib.Rendering.Camera;
 
 namespace Novolis.Avalonia.Cad.Services;
 
@@ -23,7 +24,7 @@ public sealed class CadModelRenderer
 
     private readonly CadDocumentSession _session;
     private readonly CadEditorSettings _settings;
-    private readonly SilkOrbitCamera _orbit = new()
+    private readonly OrbitCameraRig _orbit = new()
     {
         Target = new Vector3(0f, 0.5f, 0f),
         Distance = 24f,
@@ -43,7 +44,7 @@ public sealed class CadModelRenderer
         _settings = settings ?? new CadEditorSettings();
     }
 
-    public SilkOrbitCamera Orbit => _orbit;
+    public OrbitCameraRig Orbit => _orbit;
 
     public void Bind(RaylibHostControl host) =>
         host.FrameRendering += (_, e) => OnFrame(e.DeltaSeconds, e.ScreenWidth, e.ScreenHeight);
@@ -89,7 +90,7 @@ public sealed class CadModelRenderer
         _ = screenHeight;
         Graphics.ClearBackground(Background);
         var eye = _orbit.BuildEyePosition();
-        var camera = Camera.Perspective(eye, _orbit.Target, Vector3.UnitY, _orbit.FieldOfViewDegrees);
+        var camera = RayCamera.Perspective(eye, _orbit.Target, Vector3.UnitY, _orbit.FieldOfViewDegrees);
         World.Begin(camera);
         var elev = _settings.Settings.DrawElevation;
         var gridExtent = EstimateGridExtent();

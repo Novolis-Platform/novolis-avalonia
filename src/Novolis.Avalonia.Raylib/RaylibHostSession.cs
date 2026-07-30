@@ -31,8 +31,8 @@ internal sealed class RaylibHostSession : IDisposable
     public RaylibHostSession(RaylibEmbeddedOptions options, IRaylibFrameRenderer renderer)
     {
         _renderer = renderer;
-        _width = System.Math.Clamp(options.Width, 64, 4096);
-        _height = System.Math.Clamp(options.Height, 64, 4096);
+        _width = System.Math.Clamp(options.Width, 64, 8192);
+        _height = System.Math.Clamp(options.Height, 64, 8192);
         _targetFps = System.Math.Clamp(options.TargetFps, 1, 240);
         _windowTitle = options.WindowTitle;
         _hideWindow = options.HideWindow;
@@ -76,8 +76,8 @@ internal sealed class RaylibHostSession : IDisposable
 
     public void RequestResize(int width, int height, int targetFps)
     {
-        _width = System.Math.Clamp(width, 64, 4096);
-        _height = System.Math.Clamp(height, 64, 4096);
+        _width = System.Math.Clamp(width, 64, 8192);
+        _height = System.Math.Clamp(height, 64, 8192);
         _targetFps = System.Math.Clamp(targetFps, 1, 240);
         _requestChannel.Writer.TryWrite(new HostRenderRequest(HostRenderRequestKind.Resize));
         _requestChannel.Writer.TryWrite(new HostRenderRequest(HostRenderRequestKind.Redraw));

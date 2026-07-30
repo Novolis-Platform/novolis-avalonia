@@ -111,7 +111,7 @@ public sealed class GeneratorToolStrip : StackPanel
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "symmetry",
         })));
-        Children.Add(Chrome.Btn("Boole", () => session.Execute(new AgentCommandDto
+        Children.Add(Chrome.Btn("Boolean", () => session.Execute(new AgentCommandDto
         {
             ActionId = SceneSessionActionIds.AddBoole,
             BooleanKind = "difference",
@@ -162,9 +162,9 @@ public sealed class LookToolStrip : StackPanel
         Margin = new Thickness(8, 4);
         Children.Add(Chrome.Btn("Camera", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.AddCamera })));
         Children.Add(Chrome.Btn("Material", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.AddMaterial })));
-        Children.Add(Chrome.Btn("Omni", () => AddLight(session, LightKind.Omni)));
+        Children.Add(Chrome.Btn("Point", () => AddLight(session, LightKind.Omni)));
         Children.Add(Chrome.Btn("Spot", () => AddLight(session, LightKind.Spot)));
-        Children.Add(Chrome.Btn("Infinite", () => AddLight(session, LightKind.Infinite)));
+        Children.Add(Chrome.Btn("Directional", () => AddLight(session, LightKind.Infinite)));
         Children.Add(Chrome.Btn("Area", () => AddLight(session, LightKind.Area)));
         Children.Add(Chrome.Sep());
         Children.Add(Chrome.Btn("New", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.New })));
