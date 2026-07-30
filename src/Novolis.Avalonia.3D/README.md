@@ -1,6 +1,30 @@
 # Novolis.Avalonia.3D
 
-Avalonia CAD 3D editor / renderer surface:
+Avalonia CAD 3D editor / renderer surface.
+
+## Install
+
+```bash
+dotnet add package Novolis.Avalonia.3D
+```
+
+## Quick start
+
+```csharp
+using Novolis.Avalonia._3D;
+using Novolis.Avalonia._3D.Ui;
+
+// OpenGL is the product default for CAD / interactive 3D.
+var surface = new SceneEditorSurface();
+```
+
+On Windows hosts, prefer WGL so `OpenGlControlBase` initializes:
+
+```csharp
+.With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Wgl] })
+```
+
+**Viewport:** OpenGL (`SceneViewportBackendKind.OpenGl`) is the product default for CAD and interactive 3D. CPU / Vulkan / Raylib presenters are for `ViewportBench` compare and fallbacks only.
 
 - Primitives: Box, Sphere, Cylinder, Cone, Plane, Capsule, Torus, …
 - Generators: Array, Symmetry, Boolean (Union/Difference/Intersection)
