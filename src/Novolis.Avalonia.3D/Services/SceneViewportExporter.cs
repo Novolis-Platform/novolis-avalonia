@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Novolis.Avalonia._3D.Ui;
 
 namespace Novolis.Avalonia._3D.Services;
@@ -32,6 +33,42 @@ public static class SceneViewportExporter
                 Directory.CreateDirectory(dir);
             using var stream = File.Create(path);
             bitmap.Save(stream);
+            return stream.Length > 32;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Writes top-down RGBA8888 bytes to a PNG file.</summary>
+    public static bool TryWriteRgbaPng(string path, ReadOnlySpan<byte> rgbaTopDown, int width, int height)
+    {
+        try
+        {
+            if (width < 2 || height < 2 || rgbaTopDown.Length < width * height * 4)
+                return false;
+
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+                Directory.CreateDirectory(dir);
+
+            using var bmp = new WriteableBitmap(
+                new PixelSize(width, height),
+                new Vector(96, 96),
+                PixelFormat.Rgba8888,
+                AlphaFormat.Opaque);
+            using (var fb = bmp.Lock())
+            {
+                unsafe
+                {
+                    fixed (byte* src = rgbaTopDown)
+                        Buffer.MemoryCopy(src, (void*)fb.Address, fb.RowBytes * height, width * height * 4);
+                }
+            }
+
+            using var stream = File.Create(path);
+            bmp.Save(stream);
             return stream.Length > 32;
         }
         catch

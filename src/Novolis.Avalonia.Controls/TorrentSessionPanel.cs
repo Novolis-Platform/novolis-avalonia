@@ -286,15 +286,25 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             SetStatus("Listen port reset to 6881 (must be 1024–65535).");
         }
 
-        // Dogfood: if the payload already exists next to the .torrent (or under samples),
-        // stage it into the download dir so hashing becomes a local seed instead of a barren swarm.
-        var staged = TryStageLocalPayload(dir);
-        if (staged is not null)
-            SetStatus($"Staged local payload → {staged} (this torrent has no public seeders).");
-
         try
         {
+            // Release any file locks before staging the payload.
             StopSession();
+
+            // Dogfood: this sample infohash has no public seeders. If Core-current.iso sits
+            // next to the .torrent (or under samples/), copy it over any zero-filled stub so
+            // hashing becomes a local seed instead of a barren swarm.
+            string? staged;
+            try
+            {
+                staged = TryStageLocalPayload(dir);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Could not stage local ISO: {ex.Message}");
+                return;
+            }
+
             _client = new TorrentClient(port, dir);
             _client.TorrentStarted += (_, e) => Dispatcher.UIThread.Post(() =>
                 SetStatus($"Started {e.TorrentInfo.InfoHash[..Math.Min(8, e.TorrentInfo.InfoHash.Length)]}… listening :{port}"));
@@ -308,7 +318,7 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             _browseTorrent.IsEnabled = false;
             _timer.Start();
             SetStatus(staged is null
-                ? $"Downloading to {dir} on :{port} — note: this sample infohash has no public swarm; stage Core-current.iso beside the .torrent to seed locally."
+                ? $"Downloading to {dir} on :{port} — no public swarm for this sample; place Core-current.iso beside the .torrent to seed locally."
                 : $"Hashing/seeding staged ISO on :{port}");
             RefreshProgress();
         }

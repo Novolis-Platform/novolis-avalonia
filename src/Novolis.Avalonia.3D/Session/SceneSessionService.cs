@@ -1,4 +1,5 @@
 using Novolis.Agent.Surface;
+using Novolis.Avalonia._3D.Services;
 using Novolis.Math.Geometry;
 using Novolis.Modeling.Import;
 using Novolis.Modeling.Scene;
@@ -27,6 +28,9 @@ public sealed class SceneSessionService : ISceneSession
     public SceneEvaluator Evaluator => _evaluator;
     public string? DocumentPath => _path;
     public int Revision { get; private set; }
+
+    /// <summary>Shaded render preview settings (ambient, exposure, clear). Runtime only.</summary>
+    public SceneRenderSettings RenderSettings { get; } = new();
 
     public event Action? DocumentChanged;
     public event Action<AgentChangedEventDto>? Changed;

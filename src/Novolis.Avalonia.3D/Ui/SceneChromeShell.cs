@@ -44,6 +44,7 @@ public sealed class SceneChromeShell : UserControl
             Chrome.Group("File", BuildFileCluster(dumpsDirectoryTooltip)),
             Chrome.Group("Edit", surface.EditModeBar),
             Chrome.Group("Display", surface.DisplayModeBar),
+            Chrome.Group("Render", surface.RenderTools),
             Chrome.Group("Transform", surface.TransformHud));
 
         var row2 = new ScrollViewer

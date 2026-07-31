@@ -28,6 +28,7 @@ public sealed class SceneEditorSurface : UserControl
         GeneratorTools = new GeneratorToolStrip(_session);
         MeshEditTools = new MeshEditToolStrip(_session);
         LookTools = new LookToolStrip(_session);
+        RenderTools = new SceneRenderToolStrip(_session, () => this);
         MeshAttributes = new MeshAttributePanel(_session) { Width = 280 };
         TransformHud = new TransformHud(_session);
         ModifierStack = new ModifierStackPanel(_session) { Width = 280 };
@@ -85,6 +86,7 @@ public sealed class SceneEditorSurface : UserControl
     public GeneratorToolStrip GeneratorTools { get; }
     public MeshEditToolStrip MeshEditTools { get; }
     public LookToolStrip LookTools { get; }
+    public SceneRenderToolStrip RenderTools { get; }
     public MeshAttributePanel MeshAttributes { get; }
     public TransformHud TransformHud { get; }
     public ModifierStackPanel ModifierStack { get; }
