@@ -2,12 +2,13 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Controls</PackageId>
 <IsPackable>true</IsPackable>
-    <Description>Reusable Avalonia controls: analyzer views, choice/picker dialogs, marked lists, job queue panels, and SketchControl freehand canvas (code-only, no XAML).</Description>
+    <Description>Reusable Avalonia controls: analyzer views, choice/picker dialogs, marked lists, job queue panels, SketchControl, and torrent session panels (code-only, no XAML).</Description>
     <RootNamespace>Novolis.Avalonia.Controls</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Novolis.Transports.Torrent" />
     <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
   </ItemGroup>
 </Project>

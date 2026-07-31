@@ -13,17 +13,20 @@ public sealed class SceneArtifactDumper
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
-    public SceneArtifactDumper(SceneSessionService session, string dataRoot)
+    public SceneArtifactDumper(SceneSessionService session, string dataRoot, bool dataRootIsDumpsDirectory = false)
     {
         Session = session ?? throw new ArgumentNullException(nameof(session));
         DataRoot = string.IsNullOrWhiteSpace(dataRoot)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Novolis", "SceneLab")
             : dataRoot;
+        DumpsDirectory = dataRootIsDumpsDirectory
+            ? DataRoot
+            : SceneViewportExporter.DumpsDirectory(DataRoot);
     }
 
     public SceneSessionService Session { get; }
     public string DataRoot { get; }
-    public string DumpsDirectory => SceneViewportExporter.DumpsDirectory(DataRoot);
+    public string DumpsDirectory { get; }
     public string ManifestPath => Path.Combine(DumpsDirectory, "last-artifact.json");
 
     public async Task<SceneArtifactResult> DumpAsync(

@@ -20,6 +20,7 @@
     <PackageVersion Include="TUnit" Version="1.44.39" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
     <PackageVersion Include="Novolis.Transports.LocalIpc" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Transports.Torrent" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.Primitives" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />

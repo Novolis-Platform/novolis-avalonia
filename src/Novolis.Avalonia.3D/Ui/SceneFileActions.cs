@@ -35,6 +35,56 @@ public static class SceneFileActions
     public static void ImportMesh(Control host, SceneSessionService session, Action<string>? notice = null, float? targetLengthMeters = null) =>
         _ = RunSafe(() => ImportMeshAsync(host, session, notice, targetLengthMeters), notice);
 
+    /// <summary>Pick a folder, then dump artifacts into that folder (not a nested dumps/ subdir).</summary>
+    public static void Dump(Control host, SceneSessionService session, string actionId = SceneSessionActionIds.Dump, Action<string>? notice = null) =>
+        _ = RunSafe(() => DumpAsync(host, session, actionId, notice), notice);
+
+    public static string? LastDumpDirectory { get; set; }
+
+    public static async Task DumpAsync(
+        Control host,
+        SceneSessionService session,
+        string actionId = SceneSessionActionIds.Dump,
+        Action<string>? notice = null)
+    {
+        var folder = await PickDumpFolderAsync(host).ConfigureAwait(true);
+        if (string.IsNullOrWhiteSpace(folder))
+            return;
+
+        LastDumpDirectory = folder;
+        Directory.CreateDirectory(folder);
+
+        var result = session.Execute(new AgentCommandDto
+        {
+            ActionId = actionId,
+            Path = folder,
+        });
+        notice?.Invoke(result.Ok ? $"{result.Message} → {folder}" : $"Dump failed: {result.Message}");
+    }
+
+    public static async Task<string?> PickDumpFolderAsync(Control host)
+    {
+        var sp = Storage(host);
+        if (sp is null)
+            return null;
+
+        var start = !string.IsNullOrWhiteSpace(LastDumpDirectory) && Directory.Exists(LastDumpDirectory)
+            ? await sp.TryGetFolderFromPathAsync(LastDumpDirectory).ConfigureAwait(true)
+            : null;
+
+        var folders = await sp.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Dump artifacts to folder",
+            AllowMultiple = false,
+            SuggestedStartLocation = start,
+        }).ConfigureAwait(true);
+
+        if (folders.Count == 0)
+            return null;
+
+        return folders[0].TryGetLocalPath();
+    }
+
     public static async Task OpenAsync(Control host, SceneSessionService session, Action<string>? notice = null)
     {
         var sp = Storage(host);

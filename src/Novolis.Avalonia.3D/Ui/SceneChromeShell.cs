@@ -69,10 +69,12 @@ public sealed class SceneChromeShell : UserControl
 
     private Control BuildFileCluster(string? dumpsTooltip)
     {
-        var dumpAll = Chrome.PrimaryBtn("Dump", () =>
-            _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Dump }));
-        if (!string.IsNullOrWhiteSpace(dumpsTooltip))
-            ToolTip.SetTip(dumpAll, dumpsTooltip);
+        var dumpAll = Chrome.PrimaryBtn("Dump…", () =>
+            SceneFileActions.Dump(this, _session, SceneSessionActionIds.Dump, Notice));
+        ToolTip.SetTip(dumpAll,
+            string.IsNullOrWhiteSpace(dumpsTooltip)
+                ? "Choose a folder, then write viewport/window/scene/mesh artifacts there."
+                : $"Choose a folder for dumps.\nDefault (HTTP without path): {dumpsTooltip}");
 
         var dumpMenu = new Menu
         {
@@ -87,22 +89,21 @@ public sealed class SceneChromeShell : UserControl
             Background = new SolidColorBrush(Color.FromRgb(28, 72, 78)),
             Padding = new Thickness(6, 4),
         };
-        if (!string.IsNullOrWhiteSpace(dumpsTooltip))
-            ToolTip.SetTip(dumpRoot, dumpsTooltip);
+        ToolTip.SetTip(dumpRoot, "Dump a single artifact type (folder picker).");
 
         void AddDump(string header, string actionId)
         {
             var item = new MenuItem { Header = header };
             item.Click += (_, _) =>
-                _session.Execute(new AgentCommandDto { ActionId = actionId });
+                SceneFileActions.Dump(this, _session, actionId, Notice);
             dumpRoot.Items.Add(item);
         }
 
-        AddDump("All artifacts", SceneSessionActionIds.DumpAll);
-        AddDump("Viewport PNG", SceneSessionActionIds.DumpViewport);
-        AddDump("Window PNG", SceneSessionActionIds.DumpWindow);
-        AddDump("Scene JSON", SceneSessionActionIds.DumpScene);
-        AddDump("Mesh OBJ", SceneSessionActionIds.DumpMesh);
+        AddDump("All artifacts…", SceneSessionActionIds.DumpAll);
+        AddDump("Viewport PNG…", SceneSessionActionIds.DumpViewport);
+        AddDump("Window PNG…", SceneSessionActionIds.DumpWindow);
+        AddDump("Scene JSON…", SceneSessionActionIds.DumpScene);
+        AddDump("Mesh OBJ…", SceneSessionActionIds.DumpMesh);
         dumpMenu.Items.Add(dumpRoot);
 
         return new StackPanel
