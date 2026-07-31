@@ -32,7 +32,7 @@ public sealed class SceneEditorSurface : UserControl
         TransformHud = new TransformHud(_session);
         ModifierStack = new ModifierStackPanel(_session) { Width = 280 };
         StatusBar = new ViewportStatusBar(_session);
-        ToolStrip = new SceneToolStrip(_session);
+        ToolStrip = new SceneToolStrip(_session, onFit: () => Viewport.Fit());
 
         _session.DocumentChanged += () =>
         {
@@ -45,6 +45,13 @@ public sealed class SceneEditorSurface : UserControl
         };
 
         Viewport.Camera.Changed += () => Viewport.RequestPresent();
+        _session.FitRequested += () =>
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                Viewport.Fit();
+            else
+                Dispatcher.UIThread.Post(() => Viewport.Fit());
+        };
 
         _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Background, (_, _) =>
         {
@@ -84,6 +91,10 @@ public sealed class SceneEditorSurface : UserControl
     public ViewportStatusBar StatusBar { get; }
     public SceneToolStrip ToolStrip { get; }
 
+    /// <summary>Builds the shared two-row chrome (call once per surface — reparents tool strips).</summary>
+    public SceneChromeShell CreateChrome(string? dumpsDirectoryTooltip = null) =>
+        new(this, dumpsDirectoryTooltip);
+
     public void Fit() => Viewport.Fit();
 
     /// <summary>Hosts that dock chrome themselves must call this (AttachedToVisualTree will not fire on an unused surface).</summary>
@@ -102,30 +113,7 @@ public sealed class SceneEditorSurface : UserControl
 
     public Control BuildDefaultLayout()
     {
-        var top = new StackPanel
-        {
-            Spacing = 0,
-            Children =
-            {
-                WrapChrome(EditModeBar, DisplayModeBar, TransformHud),
-                WrapChrome(PrimitivePalette),
-                WrapChrome(GeneratorTools, MeshEditTools),
-                WrapChrome(LookTools),
-            },
-        };
-
         var right = new DockPanel
-        {
-            Width = 300,
-            Children =
-            {
-                MeshAttributes,
-                ModifierStack,
-                Properties,
-            },
-        };
-        // stack right panels vertically
-        right = new DockPanel
         {
             Width = 300,
             Children =
@@ -153,7 +141,7 @@ public sealed class SceneEditorSurface : UserControl
             Background = new SolidColorBrush(Color.FromRgb(22, 32, 42)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(40, 60, 75)),
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Child = top,
+            Child = CreateChrome(),
             [DockPanel.DockProperty] = Dock.Top,
         };
 
@@ -170,19 +158,6 @@ public sealed class SceneEditorSurface : UserControl
         {
             Background = new SolidColorBrush(Color.FromRgb(14, 20, 28)),
             Children = { chrome, status, split },
-        };
-    }
-
-    private static Border WrapChrome(params Control[] children)
-    {
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        foreach (var child in children)
-            row.Children.Add(child);
-        return new Border
-        {
-            BorderBrush = new SolidColorBrush(Color.FromRgb(40, 60, 75)),
-            BorderThickness = new Thickness(0, 0, 0, 1),
-            Child = row,
         };
     }
 }

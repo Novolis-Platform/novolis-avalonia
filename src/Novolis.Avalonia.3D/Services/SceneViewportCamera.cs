@@ -53,10 +53,36 @@ public sealed class SceneViewportCamera
 
     public void Fit()
     {
-        _orbit.Target = new Vector3(0f, 1f, 0f);
-        _orbit.Distance = 12f;
-        _orbit.Yaw = 0.6f;
-        _orbit.Pitch = 0.4f;
+        var meshes = _session.Evaluator.Cache.EvaluatedMeshes;
+        if (meshes.Count == 0)
+        {
+            _orbit.SnapTarget(new Vector3(0f, 1f, 0f));
+            _orbit.Distance = 12f;
+            _orbit.Yaw = 0.6f;
+            _orbit.Pitch = 0.4f;
+            MarkInteracting();
+            Changed?.Invoke();
+            return;
+        }
+
+        var min = new Vector3(float.MaxValue);
+        var max = new Vector3(float.MinValue);
+        foreach (var mesh in meshes)
+        {
+            foreach (var v in mesh.Vertices)
+            {
+                var w = Vector3.Transform(v, mesh.World);
+                min = Vector3.Min(min, w);
+                max = Vector3.Max(max, w);
+            }
+        }
+
+        var center = (min + max) * 0.5f;
+        var radius = Vector3.Distance(min, max) * 0.5f;
+        _orbit.SnapTarget(center);
+        _orbit.Distance = System.Math.Clamp(radius * 2.4f, 4f, _orbit.MaxDistance);
+        _orbit.Yaw = 0.75f;
+        _orbit.Pitch = 0.35f;
         MarkInteracting();
         Changed?.Invoke();
     }

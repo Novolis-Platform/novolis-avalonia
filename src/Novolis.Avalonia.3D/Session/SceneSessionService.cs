@@ -1,5 +1,6 @@
 using Novolis.Agent.Surface;
 using Novolis.Math.Geometry;
+using Novolis.Modeling.Import;
 using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Session;
@@ -32,6 +33,8 @@ public sealed class SceneSessionService : ISceneSession
     public event Action<AgentActionResultEventDto>? ActionResult;
     /// <summary>Raised when dump/dumpall/dumpviewport/… is requested. Host should capture UI artifacts.</summary>
     public event Action<string>? DumpArtifactsRequested;
+    /// <summary>Raised on Fit — hosts should frame the viewport camera.</summary>
+    public event Action? FitRequested;
 
     public AgentHelloDto Hello() => Definition.BuildHello(AppId);
 
@@ -72,9 +75,10 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.New => DoNew(),
                 SceneSessionActionIds.Open => DoOpen(command),
                 SceneSessionActionIds.Save => DoSave(command),
+                SceneSessionActionIds.ImportMesh => DoImportMesh(command),
                 SceneSessionActionIds.Select => DoSelect(command),
                 SceneSessionActionIds.Delete => DoDelete(),
-                SceneSessionActionIds.Fit => Ok(id, "Fit."),
+                SceneSessionActionIds.Fit => DoFit(),
                 SceneSessionActionIds.AddLight => DoAddLight(command),
                 SceneSessionActionIds.AddCamera => DoAddCamera(command),
                 SceneSessionActionIds.AddMesh => DoAddMesh(command),
@@ -126,6 +130,12 @@ public sealed class SceneSessionService : ISceneSession
         RaiseChanged("replace");
     }
 
+    private AgentCommandResultDto DoFit()
+    {
+        FitRequested?.Invoke();
+        return Ok(SceneSessionActionIds.Fit, "Fit.");
+    }
+
     private AgentCommandResultDto DoDump(string kind, AgentCommandDto command)
     {
         // Optional Path overrides host dump root when the UI handler reads command.Path.
@@ -155,7 +165,55 @@ public sealed class SceneSessionService : ISceneSession
             return Fail(SceneSessionActionIds.Save, "path required.", "badPath");
         SceneSerializer.Save(_document, path);
         _path = path;
+        RaiseChanged("save");
         return Ok(SceneSessionActionIds.Save, $"Saved {Path.GetFileName(path)}.");
+    }
+
+    private AgentCommandResultDto DoImportMesh(AgentCommandDto command)
+    {
+        if (string.IsNullOrWhiteSpace(command.Path))
+            return Fail(SceneSessionActionIds.ImportMesh, "path required.", "badPath");
+        if (!File.Exists(command.Path))
+            return Fail(SceneSessionActionIds.ImportMesh, "file not found.", "missingFile");
+
+        EditableMesh editable;
+        try
+        {
+            editable = AssimpMeshImporter.ImportEditable(command.Path, new MeshImportOptions
+            {
+                TargetLengthMeters = command.Distance is > 0f ? command.Distance : null,
+                CenterAtOrigin = true,
+                LongestAxisToPositiveZ = command.Distance is > 0f,
+                PreTransformVertices = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            return Fail(SceneSessionActionIds.ImportMesh, ex.Message, "importFailed");
+        }
+
+        var name = string.IsNullOrWhiteSpace(command.Name)
+            ? Path.GetFileNameWithoutExtension(command.Path)
+            : command.Name!;
+        var mesh = new MeshNode
+        {
+            Name = name,
+            ParentId = ResolveParent(command.ParentId),
+            Primitive = MeshPrimitiveKind.Box,
+            Transform = new SceneTransform
+            {
+                Position = [command.X ?? 0f, command.Y ?? 0f, command.Z ?? 0f],
+            },
+        };
+        MeshEditBake.WriteBaked(mesh, editable);
+        _document.Nodes.Add(mesh);
+        _document.SelectionId = mesh.Id;
+        _evaluator.NotifyNodeChanged(mesh);
+        RaiseChanged("importmesh");
+        return Ok(
+            SceneSessionActionIds.ImportMesh,
+            $"Imported {name} ({editable.VertexCount} verts / {editable.TriangleCount} tris).",
+            mesh.Id.ToString());
     }
 
     private AgentCommandResultDto DoSelect(AgentCommandDto command)

@@ -12,6 +12,7 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("new", Summary = "New empty scene")]
 [AgentAction("open", Summary = "Open .nov3djson", Params = "path")]
 [AgentAction("save", Summary = "Save .nov3djson", Params = "path?")]
+[AgentAction("importmesh", Summary = "Import FBX/OBJ/glTF mesh via Assimp", Params = "path; name?; distance?=targetLengthMeters; parentId?")]
 [AgentAction("select", Summary = "Select node", Params = "nodeId?")]
 [AgentAction("delete", Summary = "Delete selection")]
 [AgentAction("fit", Summary = "Fit view to scene")]
@@ -50,6 +51,7 @@ public static class SceneSessionActionIds
     public const string New = "new";
     public const string Open = "open";
     public const string Save = "save";
+    public const string ImportMesh = "importmesh";
     public const string Select = "select";
     public const string Delete = "delete";
     public const string Fit = "fit";

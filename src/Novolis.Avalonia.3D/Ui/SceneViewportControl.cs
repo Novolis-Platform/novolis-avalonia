@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
@@ -27,7 +26,6 @@ public sealed class SceneViewportControl : Panel
     private bool _orbiting;
     private bool _draggingGizmo;
     private bool _potentialPick;
-    private KeyModifiers _mods;
 
     public SceneViewportControl(
         SceneSessionService session,
@@ -39,25 +37,28 @@ public sealed class SceneViewportControl : Panel
         _camera = sharedCamera ?? new SceneViewportCamera(session);
         FrameMeter = new ViewportFrameMeter();
         Background = new SolidColorBrush(Color.FromRgb(18, 24, 32));
+        Focusable = true;
+        ClipToBounds = true;
 
         switch (backend)
         {
             case SceneViewportBackendKind.Cpu:
-                _cpu = new SceneWireCpuControl(session, _camera, FrameMeter);
+                _cpu = new SceneWireCpuControl(session, _camera, FrameMeter) { IsHitTestVisible = false };
                 Children.Add(_cpu);
                 break;
             case SceneViewportBackendKind.Raylib:
-                _raylibHost = new RaylibHostControl();
+                _raylibHost = new RaylibHostControl { IsHitTestVisible = false };
                 _raylibRenderer = new SceneViewportRenderer(session, _camera) { FrameMeter = FrameMeter };
                 Children.Add(_raylibHost);
                 _raylibRenderer.Bind(_raylibHost);
                 break;
             case SceneViewportBackendKind.Vulkan:
-                _vulkan = new SceneWireVulkanControl(session, _camera, FrameMeter);
+                _vulkan = new SceneWireVulkanControl(session, _camera, FrameMeter) { IsHitTestVisible = false };
                 Children.Add(_vulkan);
                 break;
             default:
-                _gl = new SceneWireGlControl(session, _camera, FrameMeter);
+                // Presenter paints; this host owns all mouse input (otherwise OpenGL eats hits).
+                _gl = new SceneWireGlControl(session, _camera, FrameMeter) { IsHitTestVisible = false };
                 Children.Add(_gl);
                 break;
         }
@@ -67,6 +68,11 @@ public sealed class SceneViewportControl : Panel
             if (_raylibHost is not null)
                 SyncRaylibResolution();
         };
+        _session.DocumentChanged += () =>
+        {
+            RefreshGizmoOrigin();
+            RequestPresent();
+        };
         PointerPressed += OnPressed;
         PointerMoved += OnMoved;
         PointerReleased += OnReleased;
@@ -75,6 +81,7 @@ public sealed class SceneViewportControl : Panel
             _camera.Zoom((float)e.Delta.Y);
             e.Handled = true;
         };
+        RefreshGizmoOrigin();
     }
 
     public SceneViewportBackendKind Backend => _backend;
@@ -149,13 +156,16 @@ public sealed class SceneViewportControl : Panel
 
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
+        Focus();
         var pt = e.GetCurrentPoint(this);
-        _mods = e.KeyModifiers;
+        var mods = e.KeyModifiers;
         _last = e.GetPosition(this);
 
-        if (pt.Properties.IsMiddleButtonPressed || (pt.Properties.IsLeftButtonPressed && _mods.HasFlag(KeyModifiers.Alt)))
+        // Orbit: middle button, or Alt+left (CAD convention). Plain left is select/gizmo only.
+        if (pt.Properties.IsMiddleButtonPressed || (pt.Properties.IsLeftButtonPressed && mods.HasFlag(KeyModifiers.Alt)))
         {
             _orbiting = true;
+            _potentialPick = false;
             e.Pointer.Capture(this);
             e.Handled = true;
             return;
@@ -164,6 +174,7 @@ public sealed class SceneViewportControl : Panel
         if (!pt.Properties.IsLeftButtonPressed)
             return;
 
+        RefreshGizmoOrigin();
         _potentialPick = true;
         _draggingGizmo = _camera.GizmoOrigin is not null && NearGizmo(_last.Value);
         e.Pointer.Capture(this);
@@ -196,17 +207,16 @@ public sealed class SceneViewportControl : Panel
                 Y = -dy * scale,
                 Z = 0,
             });
+            RefreshGizmoOrigin();
             _last = p;
             return;
         }
 
+        // Do not convert plain left-drag into orbit — that steals selection clicks.
         if (_potentialPick && (MathF.Abs(dx) + MathF.Abs(dy) > 4f) && !_draggingGizmo)
-        {
             _potentialPick = false;
-            _orbiting = true;
-            _camera.OrbitDrag(dx, dy);
-            _last = p;
-        }
+
+        _last = p;
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
@@ -219,6 +229,7 @@ public sealed class SceneViewportControl : Panel
         _potentialPick = false;
         _last = null;
         e.Pointer.Capture(null);
+        e.Handled = true;
     }
 
     private void ApplyPick(Point local, bool additive)
@@ -235,6 +246,7 @@ public sealed class SceneViewportControl : Panel
                 });
             }
 
+            RefreshGizmoOrigin();
             return;
         }
 
@@ -246,6 +258,7 @@ public sealed class SceneViewportControl : Panel
                 ActionId = SceneSessionActionIds.Select,
                 NodeId = h.SourceId.ToString(),
             });
+            RefreshGizmoOrigin();
             return;
         }
 
@@ -261,6 +274,77 @@ public sealed class SceneViewportControl : Panel
             Additive = additive,
             NodeId = h.SourceId.ToString(),
         });
+        RefreshGizmoOrigin();
+    }
+
+    private void RefreshGizmoOrigin()
+    {
+        var edit = _session.Document.Edit;
+        Vector3? origin = null;
+        if (edit.Mode == SceneEditMode.Object && _session.Document.SelectionId is { } sid)
+        {
+            var mesh = _session.Evaluator.Cache.EvaluatedMeshes.FirstOrDefault(m => m.SourceId == sid);
+            if (mesh is not null && mesh.Vertices.Length > 0)
+            {
+                var sum = Vector3.Zero;
+                foreach (var v in mesh.Vertices)
+                    sum += Vector3.Transform(v, mesh.World);
+                origin = sum / mesh.Vertices.Length;
+            }
+            else if (_session.Document.Find(sid) is { } node)
+            {
+                origin = node.Transform.PositionV;
+            }
+        }
+        else if (edit.Mode != SceneEditMode.Object && edit.EditMeshId is { } mid)
+        {
+            var mesh = _session.Evaluator.Cache.EvaluatedMeshes.FirstOrDefault(m => m.SourceId == mid);
+            if (mesh is not null)
+                origin = ComponentCentroid(mesh, edit);
+        }
+
+        _camera.GizmoOrigin = origin;
+    }
+
+    private static Vector3? ComponentCentroid(EvaluatedMesh mesh, MeshEditState edit)
+    {
+        var pts = new List<Vector3>();
+        if (edit.Mode == SceneEditMode.Point)
+        {
+            foreach (var i in edit.SelectedVertices)
+            {
+                if (i >= 0 && i < mesh.Vertices.Length)
+                    pts.Add(Vector3.Transform(mesh.Vertices[i], mesh.World));
+            }
+        }
+        else if (edit.Mode == SceneEditMode.Edge)
+        {
+            foreach (var (a, b) in edit.SelectedEdges)
+            {
+                if (a >= 0 && a < mesh.Vertices.Length)
+                    pts.Add(Vector3.Transform(mesh.Vertices[a], mesh.World));
+                if (b >= 0 && b < mesh.Vertices.Length)
+                    pts.Add(Vector3.Transform(mesh.Vertices[b], mesh.World));
+            }
+        }
+        else if (edit.Mode == SceneEditMode.Polygon)
+        {
+            foreach (var f in edit.SelectedFaces)
+            {
+                if (f < 0 || f * 3 + 2 >= mesh.Indices.Length)
+                    continue;
+                pts.Add(Vector3.Transform(mesh.Vertices[mesh.Indices[f * 3]], mesh.World));
+                pts.Add(Vector3.Transform(mesh.Vertices[mesh.Indices[f * 3 + 1]], mesh.World));
+                pts.Add(Vector3.Transform(mesh.Vertices[mesh.Indices[f * 3 + 2]], mesh.World));
+            }
+        }
+
+        if (pts.Count == 0)
+            return null;
+        var sum = Vector3.Zero;
+        foreach (var p in pts)
+            sum += p;
+        return sum / pts.Count;
     }
 
     private bool NearGizmo(Point local)

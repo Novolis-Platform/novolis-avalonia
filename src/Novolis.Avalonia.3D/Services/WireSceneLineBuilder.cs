@@ -37,6 +37,37 @@ public static class WireSceneLineBuilder
 
         foreach (var cam in session.Evaluator.Cache.Cameras)
             AppendCameraGizmo(dst, cam, session.Document.SelectionId == cam.Source.Id);
+
+        AppendSelectionAxes(dst, session);
+    }
+
+    private static void AppendSelectionAxes(List<WireSegment> dst, SceneSessionService session)
+    {
+        if (session.Document.SelectionId is not { } sid)
+            return;
+
+        Vector3? origin = null;
+        var mesh = session.Evaluator.Cache.EvaluatedMeshes.FirstOrDefault(m => m.SourceId == sid);
+        if (mesh is not null && mesh.Vertices.Length > 0)
+        {
+            var sum = Vector3.Zero;
+            foreach (var v in mesh.Vertices)
+                sum += Vector3.Transform(v, mesh.World);
+            origin = sum / mesh.Vertices.Length;
+        }
+        else if (session.Document.Find(sid) is { } node)
+        {
+            origin = node.Transform.PositionV;
+        }
+
+        if (origin is null)
+            return;
+
+        var o = origin.Value;
+        const float len = 1.2f;
+        Add(dst, o, o + Vector3.UnitX * len, 220, 70, 70);
+        Add(dst, o, o + Vector3.UnitY * len, 70, 200, 90);
+        Add(dst, o, o + Vector3.UnitZ * len, 70, 120, 220);
     }
 
     private static void AppendMeshEdges(List<WireSegment> dst, EvaluatedMesh mesh, byte r, byte g, byte b)

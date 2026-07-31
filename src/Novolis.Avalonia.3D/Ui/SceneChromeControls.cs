@@ -166,10 +166,6 @@ public sealed class LookToolStrip : StackPanel
         Children.Add(Chrome.Btn("Spot", () => AddLight(session, LightKind.Spot)));
         Children.Add(Chrome.Btn("Directional", () => AddLight(session, LightKind.Infinite)));
         Children.Add(Chrome.Btn("Area", () => AddLight(session, LightKind.Area)));
-        Children.Add(Chrome.Sep());
-        Children.Add(Chrome.Btn("New", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.New })));
-        Children.Add(Chrome.Btn("Fit", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Fit })));
-        Children.Add(Chrome.Btn("Delete", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Delete })));
     }
 
     private static void AddLight(SceneSessionService session, LightKind kind) =>
@@ -354,6 +350,7 @@ public sealed class ModifierStackPanel : UserControl
 
 public sealed class ViewportStatusBar : UserControl
 {
+    private readonly SceneSessionService _session;
     private readonly TextBlock _text = new()
     {
         Margin = new Thickness(10, 4),
@@ -361,37 +358,100 @@ public sealed class ViewportStatusBar : UserControl
         Opacity = 0.9,
         Foreground = Brushes.WhiteSmoke,
     };
+    private string? _notice;
 
     public ViewportStatusBar(SceneSessionService session)
     {
-        ArgumentNullException.ThrowIfNull(session);
+        _session = session ?? throw new ArgumentNullException(nameof(session));
         Content = _text;
-        session.DocumentChanged += () => Refresh(session);
-        Refresh(session);
+        _session.DocumentChanged += () => Refresh(_session);
+        Refresh(_session);
+    }
+
+    public void SetNotice(string? notice)
+    {
+        _notice = notice;
+        Refresh(_session);
     }
 
     public void Refresh(SceneSessionService session)
     {
         var edit = session.Document.Edit;
-        _text.Text =
-            $"{session.Document.Name} · {edit.Mode} · {edit.DisplayMode} · components={edit.SelectionCount} · nodes={session.Document.Nodes.Count}";
+        var pathHint = string.IsNullOrWhiteSpace(session.DocumentPath)
+            ? "unsaved"
+            : Path.GetFileName(session.DocumentPath);
+        var baseLine =
+            $"{session.Document.Name} · {pathHint} · {edit.Mode} · {edit.DisplayMode} · components={edit.SelectionCount} · nodes={session.Document.Nodes.Count}";
+        _text.Text = string.IsNullOrWhiteSpace(_notice) ? baseLine : $"{baseLine} · {_notice}";
     }
 }
 
 internal static class Chrome
 {
-    public static Button Btn(string label, Action onClick)
+    public static Button Btn(string label, Action onClick) => MakeBtn(label, onClick, Color.FromRgb(32, 48, 62));
+
+    public static Button PrimaryBtn(string label, Action onClick) =>
+        MakeBtn(label, onClick, Color.FromRgb(28, 72, 78));
+
+    private static Button MakeBtn(string label, Action onClick, Color background)
     {
         var b = new Button
         {
             Content = label,
             Padding = new Thickness(8, 4),
-            Background = new SolidColorBrush(Color.FromRgb(32, 48, 62)),
+            Background = new SolidColorBrush(background),
             Foreground = Brushes.WhiteSmoke,
             FontSize = 12,
         };
         b.Click += (_, _) => onClick();
         return b;
+    }
+
+    /// <summary>Labeled cluster for toolbar sections (CAD-style group box).</summary>
+    public static Control Group(string title, params Control[] children)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentNullException.ThrowIfNull(children);
+
+        var body = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        foreach (var child in children)
+        {
+            if (child is Layoutable layout)
+                layout.Margin = new Thickness(0);
+            body.Children.Add(child);
+        }
+
+        return new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.FromRgb(48, 68, 84)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(3),
+            Background = new SolidColorBrush(Color.FromArgb(40, 18, 28, 36)),
+            Margin = new Thickness(4, 3),
+            Padding = new Thickness(8, 4, 8, 5),
+            Child = new StackPanel
+            {
+                Spacing = 3,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = title.ToUpperInvariant(),
+                        FontSize = 9,
+                        LetterSpacing = 0.6,
+                        FontWeight = FontWeight.SemiBold,
+                        Opacity = 0.72,
+                        Foreground = new SolidColorBrush(Color.FromRgb(160, 190, 200)),
+                    },
+                    body,
+                },
+            },
+        };
     }
 
     public static Border Sep() => new()
