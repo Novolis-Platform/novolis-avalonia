@@ -24,7 +24,7 @@ public class InnoScriptGeneratorTests
     }
 
     [Test]
-    public async Task Generate_Includes_Upgrade_And_Publisher_Metadata()
+    public async Task Generate_Includes_Upgrade_Publisher_License_And_VersionInfo()
     {
         var script = new InnoScriptGenerator
         {
@@ -36,6 +36,8 @@ public class InnoScriptGeneratorTests
             AppId = "Novolis.ManuscriptStudio",
             AppSupportUrl = "https://github.com/Novolis-Platform/novolis-apps/issues",
             AppUpdatesUrl = "https://github.com/Novolis-Platform/novolis-apps/releases",
+            SetupIconFile = @"C:\brand\icon.ico",
+            LicenseFile = @"C:\repo\LICENSE",
         }.Generate();
 
         await Assert.That(script).Contains("UsePreviousAppDir=yes");
@@ -43,9 +45,17 @@ public class InnoScriptGeneratorTests
         await Assert.That(script).Contains("CloseApplications=yes");
         await Assert.That(script).Contains("CloseApplicationsFilter=ManuscriptStudio.exe");
         await Assert.That(script).Contains("RestartApplications=yes");
-        await Assert.That(script).Contains("AppPublisher=Novolis Platform");
+        await Assert.That(script).Contains("AppPublisher=Novolis");
+        await Assert.That(script).Contains("AppPublisherURL=https://github.com/Novolis-Platform");
+        await Assert.That(script).Contains("AppCopyright=Copyright (c) Novolis");
         await Assert.That(script).Contains("AppSupportURL=https://github.com/Novolis-Platform/novolis-apps/issues");
         await Assert.That(script).Contains("AppUpdatesURL=https://github.com/Novolis-Platform/novolis-apps/releases");
         await Assert.That(script).Contains("VersionInfoVersion=2026.1.0.42");
+        await Assert.That(script).Contains("VersionInfoCompany=Novolis");
+        await Assert.That(script).Contains("VersionInfoProduct=Manuscript Studio");
+        await Assert.That(script).Contains("VersionInfoCopyright=Copyright (c) Novolis");
+        await Assert.That(script).Contains("VersionInfoDescription=Manuscript Studio - Novolis");
+        await Assert.That(script).Contains(@"SetupIconFile=C:\brand\icon.ico");
+        await Assert.That(script).Contains(@"LicenseFile=C:\repo\LICENSE");
     }
 }

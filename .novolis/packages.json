@@ -91,6 +91,38 @@
         "Novolis.Avalonia.slnx"
       ],
       "project": "src/Novolis.Avalonia.Briefing/Novolis.Avalonia.Briefing.csproj"
+    },
+    "Novolis.Avalonia.Mobile": {
+      "paths": [
+        "src/Novolis.Avalonia.Mobile/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Mobile/Novolis.Avalonia.Mobile.csproj"
+    },
+    "Novolis.Avalonia.Mobile.Desktop": {
+      "paths": [
+        "src/Novolis.Avalonia.Mobile.Desktop/**",
+        "src/Novolis.Avalonia.Mobile/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Mobile.Desktop/Novolis.Avalonia.Mobile.Desktop.csproj"
+    },
+    "Novolis.Avalonia.Mobile.Android": {
+      "paths": [
+        "src/Novolis.Avalonia.Mobile.Android/**",
+        "src/Novolis.Avalonia.Mobile/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Mobile.Android/Novolis.Avalonia.Mobile.Android.csproj"
     }
   }
 }

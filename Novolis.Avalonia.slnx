@@ -17,6 +17,9 @@
     <Project Path="src/Novolis.Avalonia.Agent.Protocol/Novolis.Avalonia.Agent.Protocol.csproj" />
     <Project Path="src/Novolis.Avalonia.Agent/Novolis.Avalonia.Agent.csproj" />
     <Project Path="src/Novolis.Avalonia.3D/Novolis.Avalonia.3D.csproj" />
+    <Project Path="src/Novolis.Avalonia.Mobile/Novolis.Avalonia.Mobile.csproj" />
+    <Project Path="src/Novolis.Avalonia.Mobile.Desktop/Novolis.Avalonia.Mobile.Desktop.csproj" />
+    <Project Path="src/Novolis.Avalonia.Mobile.Android/Novolis.Avalonia.Mobile.Android.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />

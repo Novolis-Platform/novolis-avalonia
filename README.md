@@ -16,6 +16,9 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 | `Novolis.Avalonia.StarMap` | Pan/zoom star map for catalog points and route edges |
 | `Novolis.Avalonia.Studio` | Studio chrome: status, flash, busy overlay |
 | `Novolis.Avalonia.Briefing` | Briefing primitives: feed, scorecard, dual metric strip, metric table |
+| `Novolis.Avalonia.Mobile` | Secure token store, app-data paths, browser launcher, device-flow helpers |
+| `Novolis.Avalonia.Mobile.Desktop` | Windows Credential Manager + LocalAppData + system browser |
+| `Novolis.Avalonia.Mobile.Android` | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
 | `Novolis.Avalonia.Timeline` | Git-graph timeline panels |
 | `Novolis.Avalonia.Voice` | Voice preset studio UI |
 
