@@ -72,6 +72,9 @@ public sealed class CadToolStrip : StackPanel
                 ("connect", "Connect"),
                 ("split", "Split"),
                 ("group", "Group"),
+                ("exportScene", "Export Scene"),
+                ("bridgeScene", "Bridge Scene"),
+                ("extrudeProfile", "Extrude"),
             ],
         };
 }

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media;
 using Novolis.Avalonia.Cad.Core;
+using Novolis.Avalonia.Cad.Session;
 using Novolis.Cad.Primitives;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Math.Geometry;
@@ -34,6 +35,9 @@ public sealed class CadToolController
         };
     }
 
+    /// <summary>When set, commits go through session Execute (agent parity); otherwise bus EmitAdd.</summary>
+    public Func<CadCommandDto, CadCommandResultDto>? SessionExecute { get; set; }
+
     public event Action? Changed;
 
     public bool ContinuousLine
@@ -60,10 +64,62 @@ public sealed class CadToolController
         CadToolKind.Spline => _points.Count == 0
             ? "Spline: points (near start closes · Enter finishes)"
             : $"Spline: {_points.Count} pts — click / near start closes / Enter",
+        CadToolKind.Wall => _points.Count == 0 ? "Wall: first point" : "Wall: next point (Enter finishes)",
+        CadToolKind.Dimension => _points.Count == 0 ? "Dimension: first point" : "Dimension: second point",
         _ => "Command:",
     };
 
     public bool IsCollectingSpline => _dispatcher.ActiveTool == CadToolKind.Spline && _points.Count > 0;
+
+    public bool IsCollectingWall => _dispatcher.ActiveTool == CadToolKind.Wall && _points.Count > 0;
+
+    public bool TryCommitWall()
+    {
+        if (_dispatcher.ActiveTool != CadToolKind.Wall || _points.Count < 2)
+            return false;
+
+        var pts = string.Join(';', _points.Select(VecProp));
+        CommitViaSessionOrBus(
+            CadSessionActionIds.AddWall,
+            () => new CadEntity
+            {
+                Name = "Wall",
+                Kind = "wall",
+                Points = _points.Select(CadVec.From).ToList(),
+                Height = 2.4f,
+                Thickness = 0.15f,
+            },
+            new Dictionary<string, string>
+            {
+                ["points"] = pts,
+                ["height"] = "2.4",
+                ["thickness"] = "0.15",
+            });
+        _points.Clear();
+        Changed?.Invoke();
+        return true;
+    }
+
+    private void CommitViaSessionOrBus(
+        string actionId,
+        Func<CadEntity> buildEntity,
+        Dictionary<string, string> properties)
+    {
+        if (SessionExecute is not null)
+        {
+            SessionExecute(new CadCommandDto
+            {
+                ActionId = actionId,
+                Properties = properties,
+            });
+            return;
+        }
+
+        _dispatcher.EmitAdd(buildEntity());
+    }
+
+    private static string VecProp(Vector3 v) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{v.X},{v.Y},{v.Z}");
 
     public void Cancel()
     {
@@ -172,6 +228,35 @@ public sealed class CadToolController
                 }
 
                 _points.Add(world);
+                break;
+
+            case CadToolKind.Wall:
+                _points.Add(world);
+                break;
+
+            case CadToolKind.Dimension:
+                _points.Add(world);
+                if (_points.Count >= 2)
+                {
+                    CommitViaSessionOrBus(
+                        CadSessionActionIds.AddDimension,
+                        () => new CadEntity
+                        {
+                            Name = "Dimension",
+                            Kind = "dimension",
+                            A = CadVec.From(_points[0]),
+                            B = CadVec.From(_points[1]),
+                            Height = 0.35f,
+                        },
+                        new Dictionary<string, string>
+                        {
+                            ["a"] = VecProp(_points[0]),
+                            ["b"] = VecProp(_points[1]),
+                            ["offset"] = "0.35",
+                        });
+                    _points.Clear();
+                }
+
                 break;
         }
 

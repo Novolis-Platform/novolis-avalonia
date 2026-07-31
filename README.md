@@ -6,21 +6,26 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 
 | Package | Description |
 |---------|-------------|
-| `Novolis.Avalonia.Layout` | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
-| `Novolis.Avalonia.Controls` | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `HexDumpFormatter` |
-| `Novolis.Avalonia.Rendering` | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
-| `Novolis.Avalonia.Raylib` | `RaylibHostControl` (embedded Raylib viewport) |
-| `Novolis.Avalonia.Live` | Live editor, DSL completion/compiler, visualizers, transport panels |
-| `Novolis.Avalonia.Markdown` | Markdown editor, live HTML preview, split-pane studio controls |
-| `Novolis.Avalonia.Mermaid` | Mermaid diagram control (SVG via Mermaider) |
-| `Novolis.Avalonia.StarMap` | Pan/zoom star map for catalog points and route edges |
-| `Novolis.Avalonia.Studio` | Studio chrome: status, flash, busy overlay |
-| `Novolis.Avalonia.Briefing` | Briefing primitives: feed, scorecard, dual metric strip, metric table |
-| `Novolis.Avalonia.Mobile` | Secure token store, app-data paths, browser launcher, device-flow helpers |
-| `Novolis.Avalonia.Mobile.Desktop` | Windows Credential Manager + LocalAppData + system browser |
-| `Novolis.Avalonia.Mobile.Android` | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
-| `Novolis.Avalonia.Timeline` | Git-graph timeline panels |
-| `Novolis.Avalonia.Voice` | Voice preset studio UI |
+| [`Novolis.Avalonia.Layout`](src/Novolis.Avalonia.Layout/README.md) | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
+| [`Novolis.Avalonia.Controls`](src/Novolis.Avalonia.Controls/README.md) | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `SketchControl` |
+| [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
+| [`Novolis.Avalonia.Raylib`](src/Novolis.Avalonia.Raylib/README.md) | `RaylibHostControl` (embedded Raylib viewport) |
+| [`Novolis.Avalonia.Live`](src/Novolis.Avalonia.Live/README.md) | Live editor, DSL completion/compiler, visualizers, transport panels |
+| [`Novolis.Avalonia.Markdown`](src/Novolis.Avalonia.Markdown/README.md) | Markdown editor, live HTML preview, split-pane studio controls |
+| [`Novolis.Avalonia.Mermaid`](src/Novolis.Avalonia.Mermaid/README.md) | Mermaid diagram control (SVG via Mermaider) |
+| [`Novolis.Avalonia.StarMap`](src/Novolis.Avalonia.StarMap/README.md) | Pan/zoom star map for catalog points and route edges |
+| [`Novolis.Avalonia.Studio`](src/Novolis.Avalonia.Studio/README.md) | Studio chrome: status, flash, busy overlay |
+| [`Novolis.Avalonia.Briefing`](src/Novolis.Avalonia.Briefing/README.md) | Briefing primitives: feed, scorecard, dual metric strip, metric table |
+| [`Novolis.Avalonia.Mobile`](src/Novolis.Avalonia.Mobile/README.md) | Secure token store, app-data paths, browser launcher, device-flow helpers |
+| [`Novolis.Avalonia.Mobile.Desktop`](src/Novolis.Avalonia.Mobile.Desktop/README.md) | Windows Credential Manager + LocalAppData + system browser |
+| [`Novolis.Avalonia.Mobile.Android`](src/Novolis.Avalonia.Mobile.Android/README.md) | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
+| [`Novolis.Avalonia.Timeline`](src/Novolis.Avalonia.Timeline/README.md) | Git-graph timeline panels |
+| [`Novolis.Avalonia.Voice`](src/Novolis.Avalonia.Voice/README.md) | Voice preset studio UI |
+| [`Novolis.Avalonia.3D`](src/Novolis.Avalonia.3D/README.md) | Scene editor / OpenGL 3D renderer surface |
+| [`Novolis.Avalonia.Cad`](src/Novolis.Avalonia.Cad/README.md) | Shared CAD surface: Draft Studio, CAD Studio 3D, preview hosts |
+| [`Novolis.Avalonia.Agent`](src/Novolis.Avalonia.Agent/README.md) | LocalIpc UI agent host for MCP / tooling |
+| [`Novolis.Avalonia.Agent.Protocol`](src/Novolis.Avalonia.Agent.Protocol/README.md) | MessagePack DTOs and `UiAgentClient` RPC client |
+| [`Novolis.Avalonia.Packaging.Inno`](src/Novolis.Avalonia.Packaging.Inno/README.md) | Inno Setup `.iss` generation for per-user installers |
 
 ## Build
 

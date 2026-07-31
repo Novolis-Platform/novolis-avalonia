@@ -21,9 +21,27 @@ var commandBar = new StudioCommandBar();
 commandBar.Submitted += (_, e) => { /* handle e.Text */ };
 commandBar.Cancelled += (_, _) => { /* cancel tool / clear */ };
 
-// Focus mode hides chrome controls
 StudioFocusMode.Apply(focused: true, menu, topBar, statusBar);
-
-// Dirty status bar
 statusBar.Background = StudioStatusBrushes.ForDirtyState(isDirty);
 ```
+
+## API
+
+| Type | Role |
+|------|------|
+| `StudioChrome` | Factory for chrome + feedback helpers |
+| `StudioWorkspace` | Three-column editor shell |
+| `StudioCommandBar` | Domain-agnostic command entry (`Submitted` / `Cancelled`) |
+| `StudioFocusMode` | Hide/show chrome for focus mode |
+| `StudioStatusBrushes` | Dirty/clean status brushes |
+
+## Dogfooding
+
+SketchLab, CadStudio3D, DraftStudio, Books Writer Studio, SceneLab.
+
+## Related
+
+| Package | Role |
+|---------|------|
+| `Novolis.Avalonia.Controls` | Shared controls used inside studio shells |
+| `Novolis.Avalonia.Markdown` | Markdown preview often hosted in studio center panes |

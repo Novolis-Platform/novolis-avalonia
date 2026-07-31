@@ -32,5 +32,12 @@ On Windows hosts, prefer WGL so `OpenGlControlBase` initializes:
 - Lights & cameras: Point/Spot/Directional/Area, materials, cameras
 - Mutations via `SceneSessionService.Execute` (UI + LLM parity)
 - Agent: `AgentSurface.AttachAll` — HTTP `:18785`, TCP `:18786`
+- Stage/render actions: `setmeshmaterial`, `ensurestudiolights`, `openshaderender`, `saverenderpng`, plus `describescene` / `dumpviewport`
+
+**CAD Studio 3D** attaches this surface beside Cad (`:18775`). Typical LLM finish:
+
+```text
+ensurestudiolights → setactivecamera → matchviewport → saverenderpng → dumpviewport
+```
 
 Depends on `Novolis.Modeling.Scene` and `Novolis.Agent.Surface`.

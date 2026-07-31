@@ -6,6 +6,7 @@ using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Raylib;
 using Novolis.Cad.Primitives;
+using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia.Cad.Session;
 
@@ -39,6 +40,12 @@ public sealed class CadSessionService : ICadSession
         _dispatcher.FitRequested += () => FitHandler?.Invoke();
         _dispatcher.SaveRequested += () => Execute(new CadCommandDto { ActionId = CadSessionActionIds.Save });
         _dispatcher.ElevationChanged += () => RaiseChanged("elevation");
+        _dispatcher.SessionExecute = cmd =>
+        {
+            if (string.Equals(cmd.ActionId, CadSessionActionIds.RunCommand, StringComparison.OrdinalIgnoreCase))
+                return Fail(CadSessionActionIds.RunCommand, "Nested runcommand is not allowed.", "nestedRun");
+            return Execute(cmd);
+        };
     }
 
     public CadDocumentSession Document => _document;
@@ -49,6 +56,15 @@ public sealed class CadSessionService : ICadSession
 
     public CadCommandDispatcher Dispatcher => _dispatcher;
 
+    /// <summary>Last in-memory scene from <c>bridgescene</c>.</summary>
+    public SceneDocument? LastBridgedScene { get; private set; }
+
+    /// <summary>Raised when <c>bridgescene</c> succeeds — App should load into Scene session.</summary>
+    public event Action<SceneDocument>? SceneBridged;
+
+    /// <summary>App-level Draft2D/Draft3D/Model/Stage switch (Cad Studio 3D host).</summary>
+    public event Action<string>? StudioWorkspaceRequested;
+
     public CadEditorSurface? Editor
     {
         get => _editor;
@@ -58,7 +74,11 @@ public sealed class CadSessionService : ICadSession
                 _editor.ToolRequested -= OnEditorTool;
             _editor = value;
             if (_editor is not null)
+            {
                 _editor.ToolRequested += OnEditorTool;
+                _editor.Tools.SessionExecute = Execute;
+                _editor.PropertyPanel.SessionService = this;
+            }
         }
     }
 
@@ -193,6 +213,7 @@ public sealed class CadSessionService : ICadSession
             CadSessionActionIds.SetElevation => SetElevation(command),
             CadSessionActionIds.SetSnap => SetSnap(command),
             CadSessionActionIds.SetGrid => SetGrid(command),
+            CadSessionActionIds.SetAxisLock => SetAxisLock(command),
             CadSessionActionIds.RunCommand => RunCommand(command),
             CadSessionActionIds.ExportPlanPng => ExportPlan(command),
             CadSessionActionIds.ExportModelPng or CadSessionActionIds.ExportPreviewPng => ExportModel(command),
@@ -213,8 +234,57 @@ public sealed class CadSessionService : ICadSession
             CadSessionActionIds.AddMaterial => ActMaterial(command),
             CadSessionActionIds.AddLight => ActLight(command),
             CadSessionActionIds.AddCamera => ActCamera(command),
+            CadSessionActionIds.SetStudioWorkspace => ActSetStudioWorkspace(command),
+            CadSessionActionIds.ExportScene => CadDraftingActions.ExportScene(_document, command),
+            CadSessionActionIds.BridgeScene => ActBridgeScene(command),
+            CadSessionActionIds.SetMaterial => CadDraftingActions.SetMaterial(_bus, _document, command),
+            CadSessionActionIds.SetWallSide => CadDraftingActions.SetWallSide(_bus, _document, command),
+            CadSessionActionIds.AddWall => CadDraftingActions.AddWall(_bus, command),
+            CadSessionActionIds.ExtrudeProfile => CadDraftingActions.ExtrudeProfile(_bus, command),
+            CadSessionActionIds.AddDimension => CadDraftingActions.AddDimension(_bus, command),
+            CadSessionActionIds.AddLine => CadDraftingActions.AddLine(_bus, command),
+            CadSessionActionIds.AddCircle => CadDraftingActions.AddCircle(_bus, command),
+            CadSessionActionIds.AddRect => CadDraftingActions.AddRect(_bus, command),
+            CadSessionActionIds.AddSpline => CadDraftingActions.AddSpline(_bus, command),
+            CadSessionActionIds.AddBox => CadDraftingActions.AddBox(_bus, command),
             _ => Fail(id, $"Unknown action '{id}'.", "unknownAction"),
         };
+    }
+
+    private CadCommandResultDto ActSetStudioWorkspace(CadCommandDto command)
+    {
+        var raw = command.Workspace
+                  ?? command.Kind
+                  ?? (command.Properties is not null
+                      && command.Properties.TryGetValue("workspace", out var w) ? w : null);
+        if (string.IsNullOrWhiteSpace(raw))
+            return Fail(CadSessionActionIds.SetStudioWorkspace, "workspace required (draft2d|draft3d|model|stage).", "badWorkspace");
+
+        var key = raw.Trim().ToLowerInvariant() switch
+        {
+            "draft2d" or "draft_2d" or "2d" or "cad" => "draft2d",
+            "draft3d" or "draft_3d" or "3d" or "modeling" or "preview" => "draft3d",
+            "model" or "mesh" => "model",
+            "stage" or "render" or "stage/render" => "stage",
+            _ => null,
+        };
+        if (key is null)
+            return Fail(CadSessionActionIds.SetStudioWorkspace, $"Unknown workspace '{raw}'.", "badWorkspace");
+
+        StudioWorkspaceRequested?.Invoke(key);
+        return Ok(CadSessionActionIds.SetStudioWorkspace, $"Studio workspace → {key}.");
+    }
+
+    private CadCommandResultDto ActBridgeScene(CadCommandDto command)
+    {
+        var (result, scene) = CadDraftingActions.BridgeScene(_document, command);
+        if (result.Ok)
+        {
+            LastBridgedScene = scene;
+            SceneBridged?.Invoke(scene);
+        }
+
+        return result;
     }
 
     private CadCommandResultDto ImportShip(CadCommandDto command)
@@ -279,6 +349,8 @@ public sealed class CadSessionService : ICadSession
             "circle" => CadToolKind.Circle,
             "rect" or "rectangle" => CadToolKind.Rect,
             "spline" => CadToolKind.Spline,
+            "wall" => CadToolKind.Wall,
+            "dimension" or "dim" => CadToolKind.Dimension,
             "select" or "" => CadToolKind.Select,
             _ => (CadToolKind?)null,
         };
@@ -497,14 +569,36 @@ public sealed class CadSessionService : ICadSession
         return Ok(CadSessionActionIds.SetGrid, $"Grid {step}.");
     }
 
+    private CadCommandResultDto SetAxisLock(CadCommandDto command)
+    {
+        var raw = command.Kind
+                  ?? command.Tool
+                  ?? (command.Properties is not null
+                      && command.Properties.TryGetValue("axis", out var a) ? a : null)
+                  ?? "none";
+        var axis = raw.Trim().ToLowerInvariant() switch
+        {
+            "x" or "lockx" => "x",
+            "y" or "locky" => "y",
+            "z" or "lockz" => "z",
+            "none" or "off" or "" => "none",
+            _ => null,
+        };
+        if (axis is null)
+            return Fail(CadSessionActionIds.SetAxisLock, "axis must be none|x|y|z.", "badAxis");
+        _settings.Settings.AxisLock = axis;
+        return Ok(CadSessionActionIds.SetAxisLock, $"Axis lock → {axis}.");
+    }
+
     private CadCommandResultDto RunCommand(CadCommandDto command)
     {
         if (string.IsNullOrWhiteSpace(command.Prompt))
             return Fail(CadSessionActionIds.RunCommand, "prompt required.", "badPrompt");
         var msg = _dispatcher.TryDispatch(command.Prompt);
-        return msg is null || msg.StartsWith("Unknown", StringComparison.OrdinalIgnoreCase)
-            ? Fail(CadSessionActionIds.RunCommand, msg ?? "Failed.", "dispatchFailed")
-            : Ok(CadSessionActionIds.RunCommand, msg);
+        // CadCommandDispatcher: null = success; non-null = error / usage message.
+        if (msg is null)
+            return Ok(CadSessionActionIds.RunCommand, "OK.");
+        return Fail(CadSessionActionIds.RunCommand, msg, "dispatchFailed");
     }
 
     private CadCommandResultDto ExportPlan(CadCommandDto command)
@@ -583,7 +677,8 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.SetSelectionMode, "Set selection mode", true),
         A(CadSessionActionIds.SetElevation, "Set elevation", true),
         A(CadSessionActionIds.SetSnap, "Set snap", true),
-        A(CadSessionActionIds.SetGrid, "Set grid", true),
+        A(CadSessionActionIds.SetGrid, "Set grid step", true),
+        A(CadSessionActionIds.SetAxisLock, "Lock move to axis (none|x|y|z)", true),
         A(CadSessionActionIds.RunCommand, "Run command DSL", true),
         A(CadSessionActionIds.ExportPlanPng, "Export plan PNG", PlanViewport is not null, "No plan viewport"),
         A(CadSessionActionIds.ExportModelPng, "Export model PNG", ModelHost is not null, "No model host"),
@@ -605,6 +700,19 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.AddMaterial, "Add material", true),
         A(CadSessionActionIds.AddLight, "Add light", true),
         A(CadSessionActionIds.AddCamera, "Add camera", true),
+        A(CadSessionActionIds.SetStudioWorkspace, "Set studio workspace (draft2d|draft3d|model|stage)", true),
+        A(CadSessionActionIds.ExportScene, "Export .nov3djson", true),
+        A(CadSessionActionIds.BridgeScene, "Bridge to Scene (in-memory)", true),
+        A(CadSessionActionIds.SetMaterial, "Set material on selection", _document.SelectedId is not null, "Nothing selected"),
+        A(CadSessionActionIds.SetWallSide, "Set wall side shape", _document.SelectedId is not null, "Nothing selected"),
+        A(CadSessionActionIds.AddWall, "Add wall", true),
+        A(CadSessionActionIds.ExtrudeProfile, "Extrude profile", true),
+        A(CadSessionActionIds.AddDimension, "Add dimension", true),
+        A(CadSessionActionIds.AddLine, "Add line", true),
+        A(CadSessionActionIds.AddCircle, "Add circle", true),
+        A(CadSessionActionIds.AddRect, "Add rect", true),
+        A(CadSessionActionIds.AddSpline, "Add spline", true),
+        A(CadSessionActionIds.AddBox, "Add box", true),
         .._extra.Keys.Select(k => A(k, k, true)),
     ];
 
@@ -628,6 +736,7 @@ public sealed class CadSessionService : ICadSession
             DisplayUnit = _settings.Settings.DisplayUnit,
             SnapToGrid = _settings.Settings.SnapToGrid,
             GridStep = _settings.Settings.GridStep,
+            AxisLock = _settings.Settings.AxisLock,
             LastAction = _lastAction,
             RecentExportPaths = _recentExports.ToArray(),
             Actions = BuildActions(),

@@ -150,11 +150,34 @@ public sealed class PropertyInspectorControl : UserControl
         if (node is MeshNode mesh)
         {
             _body.Children.Add(Label($"Primitive: {mesh.Primitive}  size [{mesh.Size[0]:0.##},{mesh.Size[1]:0.##},{mesh.Size[2]:0.##}]"));
+            var mats = _session.Document.Nodes.OfType<MaterialNode>().ToList();
+            if (mats.Count > 0)
+            {
+                _body.Children.Add(Label("Material"));
+                var combo = new ComboBox
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    ItemsSource = mats.Select(m => m.Name).ToList(),
+                    SelectedItem = mats.FirstOrDefault(m => m.Id == mesh.MaterialId)?.Name,
+                };
+                combo.SelectionChanged += (_, _) =>
+                {
+                    if (combo.SelectedIndex < 0 || combo.SelectedIndex >= mats.Count)
+                        return;
+                    _session.Execute(new AgentCommand
+                    {
+                        ActionId = SceneSessionActionIds.SetMeshMaterial,
+                        NodeId = mesh.Id.ToString(),
+                        TargetId = mats[combo.SelectedIndex].Id.ToString(),
+                    });
+                };
+                _body.Children.Add(combo);
+            }
+
             _body.Children.Add(NumericRow("Seg", mesh.Segments, v =>
             {
                 mesh.Segments = (int)v;
                 _session.Evaluator.NotifyNodeChanged(mesh);
-                // force refresh via fake select
                 _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.Select, NodeId = mesh.Id.ToString() });
             }));
             _body.Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommand

@@ -67,6 +67,16 @@ public sealed class SceneEditorSurface : UserControl
             else
                 Dispatcher.UIThread.Post(Look);
         };
+        _session.OpenShadeRenderRequested += () =>
+            Dispatcher.UIThread.Post(() => SceneRenderActions.ShowRenderWindow(this, _session));
+        _session.SaveRenderPngRequested += path =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!string.IsNullOrWhiteSpace(path))
+                    _ = SceneRenderActions.SaveRenderPngAsync(this, _session);
+                else
+                    SceneRenderActions.SaveRenderPng(this, _session);
+            });
 
         _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Background, (_, _) =>
         {

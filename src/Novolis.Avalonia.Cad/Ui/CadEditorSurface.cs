@@ -10,8 +10,7 @@ using Novolis.Cad.Primitives;
 namespace Novolis.Avalonia.Cad.Ui;
 
 /// <summary>
-/// Viewport host for CAD (plan) / Modeling / Preview (shared Raylib).
-/// Chrome controls (<see cref="WorkspaceBar"/>, <see cref="SceneTree"/>, …) are created here for the host to place.
+/// Viewport host: CAD plan (2D), Modeling draft 3D (Avalonia wireframe), Preview (Raylib shaded).
 /// </summary>
 public sealed class CadEditorSurface : Panel
 {
@@ -40,11 +39,13 @@ public sealed class CadEditorSurface : Panel
         PropertyPanel = new CadPropertyPanel(session);
 
         DraftViewport = new CadDraftViewport(session, settings, dispatcher, bus, tools);
+        Draft3DViewport = new CadDraft3DViewport(session, settings, dispatcher, bus, tools);
         ModelHost = new RaylibHostControl();
         modelRenderer.Bind(ModelHost);
         modelRenderer.Evaluator = Evaluator;
 
         Children.Add(DraftViewport);
+        Children.Add(Draft3DViewport);
         Children.Add(ModelHost);
 
         WorkspaceBar.WorkspaceChanged += SetWorkspace;
@@ -73,6 +74,9 @@ public sealed class CadEditorSurface : Panel
 
     public CadDraftViewport DraftViewport { get; }
 
+    /// <summary>Avalonia-native 3D drafting (box grid, snap, axis lock) — not Raylib.</summary>
+    public CadDraft3DViewport Draft3DViewport { get; }
+
     public RaylibHostControl ModelHost { get; }
 
     public CadWorkspaceBar WorkspaceBar { get; }
@@ -89,7 +93,6 @@ public sealed class CadEditorSurface : Panel
 
     public CadSelectionMode SelectionMode { get; private set; } = CadSelectionMode.Object;
 
-    /// <summary>Legacy dual-view mapping (CAD→Draft, Modeling/Preview→Model).</summary>
     public CadViewMode ViewMode => CadWorkspaceMapping.ToViewMode(Workspace);
 
     public event Action? ViewModeChanged;
@@ -120,10 +123,18 @@ public sealed class CadEditorSurface : Panel
 
     public void Fit()
     {
-        if (Workspace == CadWorkspace.Cad)
-            DraftViewport.Fit();
-        else
-            ModelRenderer.Fit();
+        switch (Workspace)
+        {
+            case CadWorkspace.Cad:
+                DraftViewport.Fit();
+                break;
+            case CadWorkspace.Modeling:
+                Draft3DViewport.Fit();
+                break;
+            default:
+                ModelRenderer.Fit();
+                break;
+        }
     }
 
     private void ApplyWorkspace(CadWorkspace workspace)
@@ -138,10 +149,11 @@ public sealed class CadEditorSurface : Panel
         SelectionMode = SelectionModeBar.SelectionMode;
         ModelRenderer.Workspace = workspace;
 
-        var plan = workspace == CadWorkspace.Cad;
-        DraftViewport.IsVisible = plan;
-        ModelHost.IsVisible = !plan;
-        if (!plan)
+        DraftViewport.IsVisible = workspace == CadWorkspace.Cad;
+        Draft3DViewport.IsVisible = workspace == CadWorkspace.Modeling;
+        ModelHost.IsVisible = workspace == CadWorkspace.Preview;
+
+        if (workspace == CadWorkspace.Preview)
         {
             ModelHost.SetHostActive(true);
             ModelHost.EnsureHostStarted();
@@ -151,6 +163,8 @@ public sealed class CadEditorSurface : Panel
         else
         {
             ModelHost.SetHostActive(false);
+            if (workspace == CadWorkspace.Modeling)
+                Draft3DViewport.InvalidateVisual();
         }
     }
 }

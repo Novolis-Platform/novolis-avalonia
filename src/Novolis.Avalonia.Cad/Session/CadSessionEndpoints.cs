@@ -25,10 +25,12 @@ public static class CadSessionActionIds
     public const string SetTool = "settool";
     public const string SetViewMode = "setviewmode";
     public const string SetWorkspace = "setworkspace";
+    public const string SetStudioWorkspace = "setstudioworkspace";
     public const string SetSelectionMode = "setselectionmode";
     public const string SetElevation = "setelevation";
     public const string SetSnap = "setsnap";
     public const string SetGrid = "setgrid";
+    public const string SetAxisLock = "setaxislock";
     public const string RunCommand = "runcommand";
     public const string ExportPlanPng = "exportplanpng";
     public const string ExportModelPng = "exportmodelpng";
@@ -51,6 +53,19 @@ public static class CadSessionActionIds
     public const string AddMaterial = "addmaterial";
     public const string AddLight = "addlight";
     public const string AddCamera = "addcamera";
+
+    public const string ExportScene = "exportscene";
+    public const string BridgeScene = "bridgescene";
+    public const string SetMaterial = "setmaterial";
+    public const string SetWallSide = "setwallside";
+    public const string AddWall = "addwall";
+    public const string ExtrudeProfile = "extrudeprofile";
+    public const string AddDimension = "adddimension";
+    public const string AddLine = "addline";
+    public const string AddCircle = "addcircle";
+    public const string AddRect = "addrect";
+    public const string AddSpline = "addspline";
+    public const string AddBox = "addbox";
 }
 
 public static class CadSessionEndpoints

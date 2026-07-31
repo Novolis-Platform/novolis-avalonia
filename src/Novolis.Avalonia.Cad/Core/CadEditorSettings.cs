@@ -26,6 +26,9 @@ public sealed class CadEditorOptions
     public bool IsolateLevel { get; set; } = true;
 
     public float LevelTolerance { get; set; } = 0.05f;
+
+    /// <summary>Constrain interactive move: <c>none</c>, <c>x</c>, <c>y</c>, or <c>z</c>.</summary>
+    public string AxisLock { get; set; } = "none";
 }
 
 /// <summary>

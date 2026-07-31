@@ -42,9 +42,17 @@ var editor = new MarkdownSourceEditor { WordWrap = true };
 var preview = new MarkdownPreviewPane();
 ```
 
-**Editor features:** AvaloniaEdit source surface, Markdown syntax highlighting (including dialogue, `[!metadata]`, TK/TODO/FIXME in BookAuthoring profile), line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
-Use `MarkdownSpanAnalyzer` for portable span analysis without AvaloniaEdit.  
-**Preview features:** Markdig GFM HTML with Mermaid diagram rendering (via `Novolis.Avalonia.Mermaid` / Mermaider), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
+## Controls
+
+| Type | Purpose |
+|------|---------|
+| `MarkdownEditorPreview` | Split editor + live preview |
+| `MarkdownSourceEditor` | AvaloniaEdit source surface with syntax highlighting |
+| `MarkdownPreviewPane` | Markdig GFM HTML preview with Mermaid |
+| `MarkdownSpanAnalyzer` | Portable span analysis without AvaloniaEdit |
+
+**Editor features:** syntax highlighting (dialogue, `[!metadata]`, TK/TODO/FIXME in BookAuthoring profile), line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
+**Preview features:** Mermaid diagrams (via `Novolis.Avalonia.Mermaid`), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
 
 ## Related packages
 

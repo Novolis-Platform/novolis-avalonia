@@ -15,8 +15,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Novolis.Avalonia.Mobile;
 
 services.AddNovolisMobileCore();
-// Plus AddNovolisMobileDesktop() or AddNovolisMobileAndroid() from the platform package.
+// Then AddNovolisMobileDesktop() or AddNovolisMobileAndroid(...) from the platform package.
 ```
+
+## API
+
+| Surface | Role |
+|---------|------|
+| `AddNovolisMobileCore()` | Registers shared mobile abstractions (token store, paths, browser, device-flow UI hooks) |
+| Platform packages | Supply OS-backed implementations of those abstractions |
+
+## Dogfooding
+
+Books Mobile (`novolis-apps/src/BooksMobile`) consumes this stack on Desktop and Android.
 
 ## Related packages
 

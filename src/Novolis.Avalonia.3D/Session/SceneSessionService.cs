@@ -48,6 +48,10 @@ public sealed class SceneSessionService : ISceneSession
     public event Action? FitRequested;
     /// <summary>Raised when the active camera should drive viewport look-through.</summary>
     public event Action? LookThroughRequested;
+    /// <summary>Raised to open the shaded render window (host UI).</summary>
+    public event Action? OpenShadeRenderRequested;
+    /// <summary>Raised to save shaded render PNG; arg is optional path.</summary>
+    public event Action<string?>? SaveRenderPngRequested;
 
     public AgentHello Hello() => Definition.BuildHello(AppId);
 
@@ -108,6 +112,10 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.SetTransform => DoSetTransform(command),
                 SceneSessionActionIds.SetActiveCamera => DoSetActiveCamera(command),
                 SceneSessionActionIds.MatchViewport => DoMatchViewport(command),
+                SceneSessionActionIds.SetMeshMaterial => DoSetMeshMaterial(command),
+                SceneSessionActionIds.EnsureStudioLights => DoEnsureStudioLights(),
+                SceneSessionActionIds.OpenShadeRender => DoOpenShadeRender(command),
+                SceneSessionActionIds.SaveRenderPng => DoSaveRenderPng(command),
                 SceneSessionActionIds.SetEditMode => DoSetEditMode(command),
                 SceneSessionActionIds.SetDisplayMode => DoSetDisplayMode(command),
                 SceneSessionActionIds.MakeEditable => DoMakeEditable(command),
@@ -706,6 +714,63 @@ public sealed class SceneSessionService : ISceneSession
         RaiseChanged("matchviewport");
         DocumentChanged?.Invoke();
         return Ok(SceneSessionActionIds.MatchViewport, "Camera matched viewport.", cam.Id.ToString());
+    }
+
+    private AgentCommandResult DoSetMeshMaterial(AgentCommand command)
+    {
+        if (!Guid.TryParse(command.NodeId, out var meshId) || _document.Find(meshId) is not MeshNode mesh)
+            return Fail(SceneSessionActionIds.SetMeshMaterial, "Mesh nodeId required.", "badNode");
+        var matRaw = command.TargetId ?? command.Get("materialId");
+        if (string.IsNullOrWhiteSpace(matRaw) || !Guid.TryParse(matRaw, out var matId)
+            || _document.Find(matId) is not MaterialNode)
+            return Fail(SceneSessionActionIds.SetMeshMaterial, "materialId / targetId must be a MaterialNode.", "badMaterial");
+        mesh.MaterialId = matId;
+        _evaluator.NotifyNodeChanged(mesh);
+        RaiseChanged("setmeshmaterial");
+        DocumentChanged?.Invoke();
+        return Ok(SceneSessionActionIds.SetMeshMaterial, "Material bound.", mesh.Id.ToString());
+    }
+
+    private AgentCommandResult DoEnsureStudioLights()
+    {
+        var lights = _document.Nodes.OfType<LightNode>().ToList();
+        void Add(string name, LightKind kind, float intensity, float x, float y, float z, float rx, float ry, float rz)
+        {
+            if (lights.Any(l => l.Name.Contains(name, StringComparison.OrdinalIgnoreCase)))
+                return;
+            var light = new LightNode
+            {
+                Name = name,
+                LightKind = kind,
+                Intensity = intensity,
+                Transform = new SceneTransform
+                {
+                    Position = [x, y, z],
+                    RotationDeg = [rx, ry, rz],
+                },
+            };
+            _document.Nodes.Add(light);
+        }
+
+        Add("Key", LightKind.Spot, 3.8f, 22f, 16f, 18f, 40f, -35f, 0f);
+        Add("Fill", LightKind.Omni, 2f, 0f, 2f, -18f, 0f, 0f, 0f);
+        Add("Rim", LightKind.Infinite, 0.55f, 0f, 0f, 0f, -55f, 30f, 0f);
+        RaiseChanged("ensurestudiolights");
+        DocumentChanged?.Invoke();
+        return Ok(SceneSessionActionIds.EnsureStudioLights, "Studio lights ensured.");
+    }
+
+    private AgentCommandResult DoOpenShadeRender(AgentCommand command)
+    {
+        _ = command;
+        OpenShadeRenderRequested?.Invoke();
+        return Ok(SceneSessionActionIds.OpenShadeRender, "Open shaded render requested.");
+    }
+
+    private AgentCommandResult DoSaveRenderPng(AgentCommand command)
+    {
+        SaveRenderPngRequested?.Invoke(command.Path);
+        return Ok(SceneSessionActionIds.SaveRenderPng, command.Path ?? "Save render PNG requested.");
     }
 
     private AgentCommandResult DoSetActiveCamera(AgentCommand command)

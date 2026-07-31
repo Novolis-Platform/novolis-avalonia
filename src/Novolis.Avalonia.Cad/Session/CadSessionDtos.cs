@@ -179,6 +179,8 @@ public sealed class CadSnapshotDto
 
     public float GridStep { get; set; }
 
+    public string AxisLock { get; set; } = "none";
+
     public CadLastActionDto? LastAction { get; set; }
 
     public string[] RecentExportPaths { get; set; } = [];

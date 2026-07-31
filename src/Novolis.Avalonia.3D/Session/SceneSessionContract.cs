@@ -33,6 +33,10 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("settransform", Summary = "Set node transform", Params = "nodeId; x?; y?; z?; rx?; ry?; rz?")]
 [AgentAction("setactivecamera", Summary = "Set active look-through camera", Params = "nodeId")]
 [AgentAction("matchviewport", Summary = "Move selected camera to match current viewport orbit", Params = "nodeId?; x?; y?; z?; rx?=targetX; ry?=targetY; rz?=targetZ; distance?=fovDeg")]
+[AgentAction("setmeshmaterial", Summary = "Bind MaterialNode to MeshNode", Params = "nodeId; materialId|targetId")]
+[AgentAction("ensurestudiolights", Summary = "Ensure Key/Fill/Rim studio lights")]
+[AgentAction("openshaderender", Summary = "Open shaded render preview window")]
+[AgentAction("saverenderpng", Summary = "Save shaded render PNG", Params = "path?")]
 [AgentAction("seteditmode", Summary = "Object/Point/Edge/Polygon mode", Params = "editMode|object,point,edge,polygon")]
 [AgentAction("setdisplaymode", Summary = "Viewport display", Params = "displayMode|wireframe,wirepoints,isoline")]
 [AgentAction("makeeditable", Summary = "Bake mesh/generator to editable verts", Params = "nodeId?")]
@@ -77,6 +81,10 @@ public static class SceneSessionActionIds
     public const string SetTransform = "settransform";
     public const string SetActiveCamera = "setactivecamera";
     public const string MatchViewport = "matchviewport";
+    public const string SetMeshMaterial = "setmeshmaterial";
+    public const string EnsureStudioLights = "ensurestudiolights";
+    public const string OpenShadeRender = "openshaderender";
+    public const string SaveRenderPng = "saverenderpng";
     public const string SetEditMode = "seteditmode";
     public const string SetDisplayMode = "setdisplaymode";
     public const string MakeEditable = "makeeditable";
