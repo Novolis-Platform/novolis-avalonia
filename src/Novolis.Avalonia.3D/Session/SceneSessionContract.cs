@@ -14,6 +14,10 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("open", Summary = "Open .nov3djson", Params = "path")]
 [AgentAction("save", Summary = "Save .nov3djson", Params = "path?")]
 [AgentAction("importmesh", Summary = "Import FBX/OBJ/glTF mesh via Assimp", Params = "path; name?; distance?=targetLengthMeters; parentId?")]
+[AgentAction("importtriangles", Summary = "Import triangle soup JSON → EditableMesh bake", Params = "path?; vertices?; indices?; name?; distance?=targetLengthMeters; parentId?")]
+[AgentAction("describescene", Summary = "Structured scene summary (name, counts, hierarchy, properties)")]
+[AgentAction("groundphrase", Summary = "Match phrase to node name/id", Params = "phrase; select?=true")]
+[AgentAction("setsceneprops", Summary = "Set/clear SceneDocument.Properties entry", Params = "key; value?")]
 [AgentAction("select", Summary = "Select node", Params = "nodeId?")]
 [AgentAction("delete", Summary = "Delete selection")]
 [AgentAction("fit", Summary = "Fit view to scene")]
@@ -37,7 +41,7 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("meshedit", Summary = "Selection-aware mesh op", Params = "modifierKind|extrude,bevel,inset,dissolve,knife,bridge,weld,optimize,subdivision; distance?")]
 [AgentAction("dump", Summary = "Dump all artifacts (viewport PNG, window PNG, scene, mesh OBJ)", Params = "path?")]
 [AgentAction("dumpall", Summary = "Alias of dump")]
-[AgentAction("dumpviewport", Summary = "Dump viewport PNG only", Params = "path?")]
+[AgentAction("dumpviewport", Summary = "Dump viewport PNG only (VLM multimodal context)", Params = "path?")]
 [AgentAction("dumpscene", Summary = "Dump scene .nov3djson copy", Params = "path?")]
 [AgentAction("dumpmesh", Summary = "Dump mesh OBJ + stats", Params = "path?")]
 [AgentAction("dumpwindow", Summary = "Dump window UI PNG", Params = "path?")]
@@ -54,6 +58,10 @@ public static class SceneSessionActionIds
     public const string Open = "open";
     public const string Save = "save";
     public const string ImportMesh = "importmesh";
+    public const string ImportTriangles = "importtriangles";
+    public const string DescribeScene = "describescene";
+    public const string GroundPhrase = "groundphrase";
+    public const string SetSceneProps = "setsceneprops";
     public const string Select = "select";
     public const string Delete = "delete";
     public const string Fit = "fit";

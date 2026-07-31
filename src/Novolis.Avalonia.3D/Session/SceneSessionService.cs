@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Numerics;
+using System.Text.Json;
 using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Services;
@@ -86,6 +89,10 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.Open => DoOpen(command),
                 SceneSessionActionIds.Save => DoSave(command),
                 SceneSessionActionIds.ImportMesh => DoImportMesh(command),
+                SceneSessionActionIds.ImportTriangles => DoImportTriangles(command),
+                SceneSessionActionIds.DescribeScene => DoDescribeScene(),
+                SceneSessionActionIds.GroundPhrase => DoGroundPhrase(command),
+                SceneSessionActionIds.SetSceneProps => DoSetSceneProps(command),
                 SceneSessionActionIds.Select => DoSelect(command),
                 SceneSessionActionIds.Delete => DoDelete(),
                 SceneSessionActionIds.Fit => DoFit(),
@@ -234,6 +241,170 @@ public sealed class SceneSessionService : ISceneSession
             SceneSessionActionIds.ImportMesh,
             $"Imported {name} ({editable.VertexCount} verts / {editable.TriangleCount} tris).",
             mesh.Id.ToString());
+    }
+
+    private AgentCommandResult DoImportTriangles(AgentCommand command)
+    {
+        if (!TryResolveTriangleSoup(command, out var verts, out var indices, out var nameHint, out var error))
+            return Fail(SceneSessionActionIds.ImportTriangles, error, "badSoup");
+
+        EditableMesh editable;
+        try
+        {
+            var positions = new Vector3[verts.Length / 3];
+            for (var i = 0; i < positions.Length; i++)
+                positions[i] = new Vector3(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
+            editable = new EditableMesh(positions, indices);
+            FrameEditableMesh(editable, command.Distance is > 0f ? command.Distance : null);
+        }
+        catch (Exception ex)
+        {
+            return Fail(SceneSessionActionIds.ImportTriangles, ex.Message, "importFailed");
+        }
+
+        var name = string.IsNullOrWhiteSpace(command.Name)
+            ? (string.IsNullOrWhiteSpace(nameHint) ? "Triangles" : nameHint!)
+            : command.Name!;
+        var mesh = new MeshNode
+        {
+            Name = name,
+            ParentId = ResolveParent(command.ParentId),
+            Primitive = MeshPrimitiveKind.Box,
+            Transform = new SceneTransform
+            {
+                Position = [command.X ?? 0f, command.Y ?? 0f, command.Z ?? 0f],
+            },
+        };
+        MeshEditBake.WriteBaked(mesh, editable);
+        _document.Nodes.Add(mesh);
+        _document.SelectionId = mesh.Id;
+        _evaluator.NotifyNodeChanged(mesh);
+        RaiseChanged("importtriangles");
+        return Ok(
+            SceneSessionActionIds.ImportTriangles,
+            $"Imported {name} ({editable.VertexCount} verts / {editable.TriangleCount} tris).",
+            mesh.Id.ToString());
+    }
+
+    private AgentCommandResult DoDescribeScene()
+    {
+        var byKind = _document.Nodes
+            .GroupBy(NodeKindLabel)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+        string? selectionName = null;
+        if (_document.SelectionId is { } sid && _document.Find(sid) is { } sel)
+            selectionName = sel.Name;
+
+        string? cameraName = null;
+        if (_document.ActiveCameraId is { } cid && _document.Find(cid) is { } cam)
+            cameraName = cam.Name;
+
+        var roots = _document.Roots()
+            .Select(n => new { id = n.Id.ToString(), name = n.Name, kind = NodeKindLabel(n) })
+            .ToList();
+
+        var nodes = _document.Nodes
+            .Select(n => new
+            {
+                id = n.Id.ToString(),
+                name = n.Name,
+                kind = NodeKindLabel(n),
+                parentId = n.ParentId?.ToString(),
+            })
+            .ToList();
+
+        var payload = new
+        {
+            name = _document.Name,
+            unitScaleMeters = _document.UnitScaleMeters,
+            nodeCount = _document.Nodes.Count,
+            countsByKind = byKind,
+            selectionId = _document.SelectionId?.ToString(),
+            selectionName,
+            activeCameraId = _document.ActiveCameraId?.ToString(),
+            activeCameraName = cameraName,
+            properties = _document.Properties ?? new Dictionary<string, string>(),
+            roots,
+            nodes,
+            path = _path,
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        return Ok(SceneSessionActionIds.DescribeScene, json);
+    }
+
+    private AgentCommandResult DoGroundPhrase(AgentCommand command)
+    {
+        var phrase = command.Phrase ?? command.Get("phrase");
+        if (string.IsNullOrWhiteSpace(phrase))
+            return Fail(SceneSessionActionIds.GroundPhrase, "phrase required.", "badPhrase");
+
+        var needle = phrase.Trim();
+        var hits = _document.Nodes
+            .Select(n =>
+            {
+                var idStr = n.Id.ToString();
+                var score = RankPhrase(needle, n.Name, idStr);
+                return score <= 0
+                    ? null
+                    : new { id = idStr, name = n.Name, kind = NodeKindLabel(n), score };
+            })
+            .Where(h => h is not null)
+            .Select(h => h!)
+            .OrderByDescending(h => h.score)
+            .ThenBy(h => h.name, StringComparer.OrdinalIgnoreCase)
+            .Take(12)
+            .ToList();
+
+        var select = true;
+        if (command.Select is bool typedSelect)
+            select = typedSelect;
+        else if (command.TryGetBool("select", out var selectFlag))
+            select = selectFlag;
+
+        string? bestId = null;
+        if (hits.Count > 0)
+        {
+            bestId = hits[0].id;
+            if (select && Guid.TryParse(bestId, out var gid))
+            {
+                _document.SelectionId = gid;
+                RaiseChanged("groundphrase");
+            }
+        }
+
+        var payload = new
+        {
+            phrase = needle,
+            hitCount = hits.Count,
+            selected = select && bestId is not null,
+            hits,
+        };
+        return Ok(SceneSessionActionIds.GroundPhrase, JsonSerializer.Serialize(payload), bestId);
+    }
+
+    private AgentCommandResult DoSetSceneProps(AgentCommand command)
+    {
+        var key = command.Key ?? command.Get("key");
+        if (string.IsNullOrWhiteSpace(key))
+            return Fail(SceneSessionActionIds.SetSceneProps, "key required.", "badKey");
+
+        var value = command.Value ?? command.Get("value");
+        _document.Properties ??= new Dictionary<string, string>(StringComparer.Ordinal);
+        if (string.IsNullOrEmpty(value))
+        {
+            _document.Properties.Remove(key);
+            if (_document.Properties.Count == 0)
+                _document.Properties = null;
+            RaiseChanged("setsceneprops");
+            return Ok(SceneSessionActionIds.SetSceneProps, $"Cleared property '{key}'.");
+        }
+
+        _document.Properties[key] = value;
+        RaiseChanged("setsceneprops");
+        return Ok(SceneSessionActionIds.SetSceneProps, $"Set property '{key}'.");
     }
 
     private AgentCommandResult DoSelect(AgentCommand command)
@@ -775,6 +946,214 @@ public sealed class SceneSessionService : ISceneSession
 
     private static LightKind ParseLightKind(string? raw) =>
         Enum.TryParse<LightKind>(raw, ignoreCase: true, out var kind) ? kind : LightKind.Omni;
+
+    private static string NodeKindLabel(SceneNode n) => n switch
+    {
+        GroupNode => "group",
+        MeshNode => "mesh",
+        GeneratorNode => "generator",
+        ModifierNode => "modifier",
+        MaterialNode => "material",
+        LightNode => "light",
+        CameraNode => "camera",
+        NullNode => "null",
+        _ => "node",
+    };
+
+    private static int RankPhrase(string phrase, string name, string id)
+    {
+        if (string.Equals(name, phrase, StringComparison.OrdinalIgnoreCase))
+            return 100;
+        if (string.Equals(id, phrase, StringComparison.OrdinalIgnoreCase))
+            return 95;
+        if (name.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+            return 70;
+        if (id.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+            return 60;
+        return 0;
+    }
+
+    private static bool TryResolveTriangleSoup(
+        AgentCommand command,
+        out float[] vertices,
+        out int[] indices,
+        out string? nameHint,
+        out string error)
+    {
+        vertices = [];
+        indices = [];
+        nameHint = null;
+        error = "";
+
+        float[]? verts = null;
+        int[]? inds = null;
+
+        if (!string.IsNullOrWhiteSpace(command.Path))
+        {
+            if (!File.Exists(command.Path))
+            {
+                error = "file not found.";
+                return false;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(command.Path));
+                var root = doc.RootElement;
+                verts = ReadFloatArray(root, "vertices");
+                inds = ReadIntArray(root, "indices");
+                if (root.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                    nameHint = nameEl.GetString();
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
+        verts ??= ParseFloatList(command.Vertices ?? command.Get("vertices"));
+        inds ??= ParseIntList(command.Indices ?? command.Get("indices"));
+
+        if (verts is null || verts.Length < 9 || verts.Length % 3 != 0)
+        {
+            error = "vertices required (xyz triples, at least 3).";
+            return false;
+        }
+
+        if (inds is null || inds.Length < 3 || inds.Length % 3 != 0)
+        {
+            error = "indices required (triangle triples).";
+            return false;
+        }
+
+        var max = verts.Length / 3;
+        foreach (var i in inds)
+        {
+            if (i < 0 || i >= max)
+            {
+                error = $"index {i} out of range (0..{max - 1}).";
+                return false;
+            }
+        }
+
+        vertices = verts;
+        indices = inds;
+        return true;
+    }
+
+    private static float[]? ParseFloatList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        raw = raw.Trim();
+        if (raw.StartsWith('['))
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<float[]>(raw);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        var parts = raw.Split([',', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var list = new float[parts.Length];
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out list[i]))
+                return null;
+        }
+
+        return list;
+    }
+
+    private static int[]? ParseIntList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        raw = raw.Trim();
+        if (raw.StartsWith('['))
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<int[]>(raw);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        var parts = raw.Split([',', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var list = new int[parts.Length];
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (!int.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out list[i]))
+                return null;
+        }
+
+        return list;
+    }
+
+    private static float[]? ReadFloatArray(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array)
+            return null;
+        var list = new float[el.GetArrayLength()];
+        var i = 0;
+        foreach (var item in el.EnumerateArray())
+        {
+            if (item.ValueKind is not (JsonValueKind.Number))
+                return null;
+            list[i++] = item.GetSingle();
+        }
+
+        return list;
+    }
+
+    private static int[]? ReadIntArray(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array)
+            return null;
+        var list = new int[el.GetArrayLength()];
+        var i = 0;
+        foreach (var item in el.EnumerateArray())
+        {
+            if (item.ValueKind is not JsonValueKind.Number)
+                return null;
+            list[i++] = item.GetInt32();
+        }
+
+        return list;
+    }
+
+    private static void FrameEditableMesh(EditableMesh editable, float? targetLengthMeters)
+    {
+        if (editable.VertexCount == 0)
+            return;
+
+        var min = new Vector3(float.MaxValue);
+        var max = new Vector3(float.MinValue);
+        for (var i = 0; i < editable.VertexCount; i++)
+        {
+            var v = editable.Vertices[i];
+            min = Vector3.Min(min, v);
+            max = Vector3.Max(max, v);
+        }
+
+        var size = max - min;
+        var longest = MathF.Max(size.X, MathF.Max(size.Y, size.Z));
+        if (longest < 1e-6f)
+            return;
+
+        var center = (min + max) * 0.5f;
+        editable.Transform(Matrix4x4.CreateTranslation(-center));
+        if (targetLengthMeters is > 0f)
+            editable.Transform(Matrix4x4.CreateScale(targetLengthMeters.Value / longest));
+    }
 
     private void RaiseChanged(string reason)
     {
