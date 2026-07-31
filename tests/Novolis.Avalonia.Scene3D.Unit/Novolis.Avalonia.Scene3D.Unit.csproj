@@ -8,6 +8,7 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Modeling.Scene" />
+    <PackageReference Include="Novolis.Agent.Core" />
     <PackageReference Include="Novolis.Agent.Surface" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.3D\Novolis.Avalonia.3D.csproj" />
   </ItemGroup>

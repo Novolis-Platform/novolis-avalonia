@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
@@ -123,7 +125,7 @@ public sealed class ModelingSceneTests
         var session = new SceneSessionService(SceneDocument.CreatePrimitiveStage("Bake"));
         var box = session.Document.Nodes.OfType<MeshNode>().First(m => m.Primitive == MeshPrimitiveKind.Box);
         session.Document.SelectionId = box.Id;
-        var result = session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.MakeEditable });
+        var result = session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.MakeEditable });
         await Assert.That(result.Ok).IsTrue();
         await Assert.That(box.Vertices).IsNotNull();
         await Assert.That(box.Indices).IsNotNull();
@@ -145,18 +147,18 @@ public sealed class ModelingSceneTests
         var session = new SceneSessionService(SceneDocument.CreateEditBox());
         var mesh = session.Document.Nodes.OfType<MeshNode>().First(m => m.Name.Contains("Editable"));
         var beforeY = mesh.Vertices![1];
-        session.Execute(new AgentCommandDto
+        session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.SetEditMode,
             EditMode = "point",
             NodeId = mesh.Id.ToString(),
         });
-        session.Execute(new AgentCommandDto
+        session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.SelectComponents,
             Indices = "0,1,2",
         });
-        session.Execute(new AgentCommandDto
+        session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.MoveSelection,
             Y = 0.5f,
@@ -186,7 +188,7 @@ public sealed class AgentSurfaceDefinitionTests
         await Assert.That(def.SurfaceId).IsEqualTo("scene");
         await Assert.That(def.Actions.Any(a => a.Id == "addboole")).IsTrue();
         await Assert.That(def.Actions.Any(a => a.Id == "addmesh")).IsTrue();
-        var discovery = def.ToDiscoveryJson();
+        var discovery = JsonSerializer.Serialize(def.BuildCommandJsonSchema());
         await Assert.That(discovery.Contains("addboole", StringComparison.Ordinal)).IsTrue();
     }
 

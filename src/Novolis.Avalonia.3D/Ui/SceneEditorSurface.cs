@@ -22,6 +22,7 @@ public sealed class SceneEditorSurface : UserControl
         ObjectManager = new ObjectManagerControl(_session) { Width = 260 };
         Viewport = new SceneViewportControl(_session, backend);
         Properties = new PropertyInspectorControl(_session) { Width = 280 };
+        Properties.ViewportCamera = Viewport.Camera;
         EditModeBar = new SceneEditModeBar(_session);
         DisplayModeBar = new SceneDisplayModeBar(_session);
         PrimitivePalette = new PrimitivePalette(_session);
@@ -52,6 +53,19 @@ public sealed class SceneEditorSurface : UserControl
                 Viewport.Fit();
             else
                 Dispatcher.UIThread.Post(() => Viewport.Fit());
+        };
+        _session.LookThroughRequested += () =>
+        {
+            void Look()
+            {
+                Viewport.Camera.ApplyActiveCameraFromDocument();
+                Viewport.RequestPresent();
+            }
+
+            if (Dispatcher.UIThread.CheckAccess())
+                Look();
+            else
+                Dispatcher.UIThread.Post(Look);
         };
 
         _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Background, (_, _) =>

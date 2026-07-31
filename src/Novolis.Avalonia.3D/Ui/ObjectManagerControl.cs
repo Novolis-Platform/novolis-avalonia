@@ -1,27 +1,50 @@
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
 
 namespace Novolis.Avalonia._3D.Ui;
 
-/// <summary>Scene hierarchy list — always shows selectable nodes (Root + mesh/lights/cameras).</summary>
+/// <summary>Scene hierarchy — Root + mesh/lights/cameras via TreeDataTemplate (not nested TreeViewItems).</summary>
 public sealed class ObjectManagerControl : UserControl
 {
     private readonly SceneSessionService _session;
-    private readonly TreeView _tree = new()
-    {
-        SelectionMode = SelectionMode.Single,
-        Foreground = Brushes.WhiteSmoke,
-    };
+    private readonly TreeView _tree;
+    private readonly ObservableCollection<SceneTreeRow> _roots = new();
     private bool _suppress;
 
     public ObjectManagerControl(SceneSessionService session)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+
+        _tree = new TreeView
+        {
+            SelectionMode = SelectionMode.Single,
+            Foreground = Brushes.WhiteSmoke,
+            ItemsSource = _roots,
+            ItemTemplate = new FuncTreeDataTemplate<SceneTreeRow>(
+                (row, _) => new TextBlock
+                {
+                    Text = row.Header,
+                    Foreground = Brushes.WhiteSmoke,
+                },
+                row => row.Children),
+        };
+
+        // Keep expanders open so Camera/Lights under Root are visible without hunting.
+        _tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters = { new Setter(TreeViewItem.IsExpandedProperty, true) },
+        });
+
         _tree.SelectionChanged += OnSelectionChanged;
+
         Content = new DockPanel
         {
             Background = new SolidColorBrush(Color.FromRgb(18, 26, 34)),
@@ -47,16 +70,16 @@ public sealed class ObjectManagerControl : UserControl
         _suppress = true;
         try
         {
+            _roots.Clear();
             var roots = _session.Document.Roots().ToList();
-            // Orphan recovery: if parenting failed on load, still show every node as selectable.
             if (roots.Count == 0 && _session.Document.Nodes.Count > 0)
                 roots = _session.Document.Nodes.ToList();
 
-            var items = roots.Select(BuildItem).ToList();
-            // Always expose the primary mesh at the top level if somehow not under Root.
-            EnsureMeshVisible(items);
+            foreach (var node in roots)
+                _roots.Add(BuildRow(node));
 
-            _tree.ItemsSource = items;
+            // Promote orphans (parent missing / broken) so nothing is invisible.
+            PromoteOrphans();
 
             if (_session.Document.SelectionId is { } sel)
                 SelectInTree(sel);
@@ -67,48 +90,36 @@ public sealed class ObjectManagerControl : UserControl
         }
     }
 
-    private void EnsureMeshVisible(List<TreeViewItem> roots)
+    private void PromoteOrphans()
     {
-        var meshes = _session.Document.Nodes.OfType<MeshNode>().ToList();
-        if (meshes.Count == 0)
-            return;
-
-        foreach (var mesh in meshes)
+        foreach (var node in _session.Document.Nodes)
         {
-            if (ContainsTag(roots, mesh.Id))
+            if (ContainsId(_roots, node.Id))
                 continue;
-            // Promote orphan mesh into the tree so the ship is always selectable.
-            roots.Add(BuildItem(mesh));
+            // Skip if parent exists in doc but isn't shown yet — still show as top-level so it's selectable.
+            _roots.Add(BuildRow(node));
         }
     }
 
-    private static bool ContainsTag(IEnumerable<object?> items, Guid id)
+    private SceneTreeRow BuildRow(SceneNode node)
     {
-        foreach (var obj in items)
+        var row = new SceneTreeRow($"{Icon(node)} {node.Name}", node.Id);
+        foreach (var child in _session.Document.ChildrenOf(node.Id))
+            row.Children.Add(BuildRow(child));
+        return row;
+    }
+
+    private static bool ContainsId(IEnumerable<SceneTreeRow> rows, Guid id)
+    {
+        foreach (var row in rows)
         {
-            if (obj is not TreeViewItem item)
-                continue;
-            if (item.Tag is Guid g && g == id)
+            if (row.Id == id)
                 return true;
-            if (ContainsTag(item.Items.Cast<object?>(), id))
+            if (ContainsId(row.Children, id))
                 return true;
         }
 
         return false;
-    }
-
-    private TreeViewItem BuildItem(SceneNode node)
-    {
-        var item = new TreeViewItem
-        {
-            Header = $"{Icon(node)} {node.Name}",
-            Tag = node.Id,
-            IsExpanded = true,
-            Foreground = Brushes.WhiteSmoke,
-        };
-        foreach (var child in _session.Document.ChildrenOf(node.Id))
-            item.Items.Add(BuildItem(child));
-        return item;
     }
 
     private static string Icon(SceneNode node) => node switch
@@ -132,40 +143,40 @@ public sealed class ObjectManagerControl : UserControl
     {
         if (_suppress)
             return;
-        if (_tree.SelectedItem is TreeViewItem { Tag: Guid id })
+        if (_tree.SelectedItem is SceneTreeRow row)
         {
-            _session.Execute(new AgentCommandDto
+            _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.Select,
-                NodeId = id.ToString(),
+                NodeId = row.Id.ToString(),
             });
         }
     }
 
     private void SelectInTree(Guid id)
     {
-        if (_tree.ItemsSource is not System.Collections.IEnumerable source)
+        if (FindRow(_roots, id) is not { } match)
             return;
-        foreach (var obj in source)
-        {
-            if (obj is TreeViewItem item && Find(item, id) is { } match)
-            {
-                match.IsSelected = true;
-                return;
-            }
-        }
+        _tree.SelectedItem = match;
     }
 
-    private static TreeViewItem? Find(TreeViewItem item, Guid id)
+    private static SceneTreeRow? FindRow(IEnumerable<SceneTreeRow> rows, Guid id)
     {
-        if (item.Tag is Guid g && g == id)
-            return item;
-        foreach (var child in item.Items)
+        foreach (var row in rows)
         {
-            if (child is TreeViewItem c && Find(c, id) is { } hit)
+            if (row.Id == id)
+                return row;
+            if (FindRow(row.Children, id) is { } hit)
                 return hit;
         }
 
         return null;
+    }
+
+    private sealed class SceneTreeRow(string header, Guid id)
+    {
+        public string Header { get; } = header;
+        public Guid Id { get; } = id;
+        public ObservableCollection<SceneTreeRow> Children { get; } = new();
     }
 }

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia.Raylib;
 using Novolis.Avalonia._3D.Services;
@@ -24,6 +25,7 @@ public sealed class SceneViewportControl : Panel
     private readonly SceneWireVulkanControl? _vulkan;
     private Point? _last;
     private bool _orbiting;
+    private bool _panning;
     private bool _draggingGizmo;
     private bool _potentialPick;
 
@@ -161,10 +163,25 @@ public sealed class SceneViewportControl : Panel
         var mods = e.KeyModifiers;
         _last = e.GetPosition(this);
 
-        // Orbit: middle button, or Alt+left (CAD convention). Plain left is select/gizmo only.
-        if (pt.Properties.IsMiddleButtonPressed || (pt.Properties.IsLeftButtonPressed && mods.HasFlag(KeyModifiers.Alt)))
+        // Pan: Shift+MMB or Shift+Alt+LMB
+        if ((pt.Properties.IsMiddleButtonPressed && mods.HasFlag(KeyModifiers.Shift))
+            || (pt.Properties.IsLeftButtonPressed && mods.HasFlag(KeyModifiers.Alt) && mods.HasFlag(KeyModifiers.Shift)))
+        {
+            _panning = true;
+            _orbiting = false;
+            _potentialPick = false;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        // Orbit: middle button, right button, or Alt+left (CAD convention).
+        if (pt.Properties.IsMiddleButtonPressed
+            || pt.Properties.IsRightButtonPressed
+            || (pt.Properties.IsLeftButtonPressed && mods.HasFlag(KeyModifiers.Alt)))
         {
             _orbiting = true;
+            _panning = false;
             _potentialPick = false;
             e.Pointer.Capture(this);
             e.Handled = true;
@@ -189,6 +206,13 @@ public sealed class SceneViewportControl : Panel
         var dx = (float)(p.X - _last.Value.X);
         var dy = (float)(p.Y - _last.Value.Y);
 
+        if (_panning)
+        {
+            _last = p;
+            _camera.Pan(dx, dy);
+            return;
+        }
+
         if (_orbiting)
         {
             _last = p;
@@ -200,7 +224,7 @@ public sealed class SceneViewportControl : Panel
         {
             _potentialPick = false;
             var scale = _camera.Orbit.Distance * 0.0025f;
-            _session.Execute(new AgentCommandDto
+            _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.MoveSelection,
                 X = dx * scale,
@@ -221,10 +245,11 @@ public sealed class SceneViewportControl : Panel
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_potentialPick && !_orbiting && !_draggingGizmo && _last is not null)
+        if (_potentialPick && !_orbiting && !_panning && !_draggingGizmo && _last is not null)
             ApplyPick(_last.Value, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
 
         _orbiting = false;
+        _panning = false;
         _draggingGizmo = false;
         _potentialPick = false;
         _last = null;
@@ -239,7 +264,7 @@ public sealed class SceneViewportControl : Panel
         {
             if (!additive && _session.Document.Edit.Mode != SceneEditMode.Object)
             {
-                _session.Execute(new AgentCommandDto
+                _session.Execute(new AgentCommand
                 {
                     ActionId = SceneSessionActionIds.SelectComponents,
                     Indices = "",
@@ -253,7 +278,7 @@ public sealed class SceneViewportControl : Panel
         var h = hit.Value;
         if (_session.Document.Edit.Mode == SceneEditMode.Object)
         {
-            _session.Execute(new AgentCommandDto
+            _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.Select,
                 NodeId = h.SourceId.ToString(),
@@ -267,7 +292,7 @@ public sealed class SceneViewportControl : Panel
         var indices = h.Mode == SceneEditMode.Edge
             ? $"{h.Index}-{h.IndexB}"
             : h.Index.ToString();
-        _session.Execute(new AgentCommandDto
+        _session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.SelectComponents,
             Indices = indices,

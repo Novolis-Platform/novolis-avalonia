@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Services;
 using Novolis.Avalonia._3D.Session;
@@ -17,16 +18,20 @@ public static class SceneRenderActions
 {
     private static SceneRenderWindow? _open;
 
+    public static SceneRenderWindow? OpenWindow => _open is { IsVisible: true } ? _open : null;
+
     public static void ShowRenderWindow(Control host, SceneSessionService session, Action<string>? notice = null)
     {
         var owner = TopLevel.GetTopLevel(host) as Window;
         if (_open is { IsVisible: true })
         {
             _open.Activate();
+            _open.SyncFromMainViewport();
             return;
         }
 
-        var win = new SceneRenderWindow(session, notice);
+        SceneViewportCamera? mainCam = host is SceneEditorSurface surface ? surface.Viewport.Camera : null;
+        var win = new SceneRenderWindow(session, mainCam, notice);
         _open = win;
         win.Closed += (_, _) =>
         {
@@ -44,8 +49,13 @@ public static class SceneRenderActions
             win.Show();
         }
 
-        notice?.Invoke("Render window open — shaded preview with lights/ambient.");
+        notice?.Invoke("Render window open — preview matched to main viewport.");
     }
+
+    /// <summary>Push main-viewport or active-camera framing into the open render preview (if any).</summary>
+    public static void SyncOpenPreviewFromMain() => OpenWindow?.SyncFromMainViewport();
+
+    public static void SyncOpenPreviewFromActiveCamera() => OpenWindow?.SyncFromActiveCamera();
 
     public static void SaveRenderPng(Control host, SceneSessionService session, Action<string>? notice = null) =>
         _ = RunSafe(() => SaveRenderPngAsync(host, session, notice), notice);
@@ -75,7 +85,7 @@ public static class SceneRenderActions
 
         void Add(string name, string kind, float intensity, float x, float y, float z, float rx, float ry, float rz)
         {
-            session.Execute(new AgentCommandDto
+            session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.AddLight,
                 LightKind = kind,
@@ -84,7 +94,7 @@ public static class SceneRenderActions
             });
             if (session.Document.SelectionId is { } id)
             {
-                session.Execute(new AgentCommandDto
+                session.Execute(new AgentCommand
                 {
                     ActionId = SceneSessionActionIds.SetTransform,
                     NodeId = id.ToString(),
@@ -121,6 +131,7 @@ public static class SceneRenderActions
 public sealed class SceneRenderWindow : Window
 {
     private readonly SceneSessionService _session;
+    private readonly SceneViewportCamera? _mainCamera;
     private readonly Action<string>? _notice;
     private readonly SceneShadedGlControl _preview;
     private readonly StackPanel _lightPanel = new() { Spacing = 6 };
@@ -133,9 +144,13 @@ public sealed class SceneRenderWindow : Window
         TextWrapping = TextWrapping.Wrap,
     };
 
-    public SceneRenderWindow(SceneSessionService session, Action<string>? notice = null)
+    public SceneRenderWindow(
+        SceneSessionService session,
+        SceneViewportCamera? mainCamera = null,
+        Action<string>? notice = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _mainCamera = mainCamera;
         _notice = notice;
         Title = "Render — shaded preview";
         Width = 1100;
@@ -153,11 +168,53 @@ public sealed class SceneRenderWindow : Window
         Content = BuildLayout();
         Opened += (_, _) =>
         {
-            _preview.Fit();
-            _preview.RequestPresent();
+            // Match the CAD viewport — Fit() alone frames differently and looks "broken".
+            if (!SyncFromMainViewport())
+            {
+                _preview.Fit();
+                _preview.RequestPresent();
+            }
+
             RefreshLights();
         };
         _session.DocumentChanged += RefreshLights;
+        _session.LookThroughRequested += () => SyncFromActiveCamera();
+    }
+
+    public SceneViewportCamera PreviewCamera => _preview.Camera;
+
+    /// <summary>Copy main CAD orbit into this preview. Returns false if main camera unavailable.</summary>
+    public bool SyncFromMainViewport()
+    {
+        if (_mainCamera is null)
+            return false;
+
+        var eye = _mainCamera.Orbit.BuildEyePosition();
+        var target = _mainCamera.Orbit.Target;
+        _preview.Camera.ApplyFromEyeAndTarget(eye, target, _mainCamera.Orbit.FieldOfViewDegrees);
+        _preview.RequestPresent();
+        _status.Text = "Preview matched main viewport.";
+        return true;
+    }
+
+    /// <summary>Look through the document active camera in this preview.</summary>
+    public bool SyncFromActiveCamera()
+    {
+        if (_session.Document.ActiveCameraId is not { } id)
+        {
+            _status.Text = "No active camera — use Look Through on a Camera node.";
+            return false;
+        }
+
+        var ev = _session.Evaluator.Cache.Cameras.FirstOrDefault(c => c.Source.Id == id);
+        if (ev?.Source is not CameraNode node)
+            return false;
+
+        var target = new Vector3(node.Target[0], node.Target[1], node.Target[2]);
+        _preview.Camera.ApplyFromEyeAndTarget(ev.WorldPosition, target, node.FovDeg);
+        _preview.RequestPresent();
+        _status.Text = $"Preview looking through '{node.Name}'.";
+        return true;
     }
 
     public async Task SavePngAsync()
@@ -237,6 +294,16 @@ public sealed class SceneRenderWindow : Window
                     Children =
                     {
                         Chrome.PrimaryBtn("Save PNG…", () => _ = SavePngAsync()),
+                        Chrome.Btn("Match viewport", () =>
+                        {
+                            if (!SyncFromMainViewport())
+                                _status.Text = "Main viewport unavailable.";
+                        }),
+                        Chrome.Btn("Look through", () =>
+                        {
+                            if (!SyncFromActiveCamera())
+                                _status.Text = "Set a Camera active first (Look Through in Properties).";
+                        }),
                         Chrome.Btn("Fit", () => _preview.Fit()),
                         Chrome.Btn("Close", Close),
                     },
@@ -334,7 +401,7 @@ public sealed class SceneRenderWindow : Window
             {
                 light.Intensity = (float)intensity.Value;
                 valueLabel.Text = $"{light.Intensity:0.00}";
-                _session.Execute(new AgentCommandDto
+                _session.Execute(new AgentCommand
                 {
                     ActionId = SceneSessionActionIds.SetLight,
                     NodeId = light.Id.ToString(),

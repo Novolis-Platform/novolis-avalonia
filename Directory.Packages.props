@@ -26,6 +26,7 @@
     <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Modeling.Import" Version="2026.1.*" />
     <PackageVersion Include="AssimpNet" Version="4.1.0" />
+    <PackageVersion Include="Novolis.Agent.Core" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Agent.Surface" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Avalonia.3D" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Abstractions" Version="2026.1.*" />

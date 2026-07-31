@@ -28,12 +28,14 @@ public sealed class SceneShadedGlControl : OpenGlControlBase
     private TaskCompletionSource<bool>? _captureTcs;
     private Point? _last;
     private bool _orbiting;
+    private bool _panning;
 
     public SceneShadedGlControl(SceneSessionService session, SceneViewportCamera? camera = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _camera = camera ?? new SceneViewportCamera(session) { FollowDocumentCamera = false };
         _camera.Orbit.MaxDistance = 400f;
+        _camera.Orbit.MinPitch = -MathF.PI * 0.49f;
         _settings = session.RenderSettings;
         Focusable = true;
         ClipToBounds = true;
@@ -184,9 +186,19 @@ public sealed class SceneShadedGlControl : OpenGlControlBase
         Focus();
         var pt = e.GetCurrentPoint(this);
         _last = e.GetPosition(this);
-        if (pt.Properties.IsMiddleButtonPressed || pt.Properties.IsLeftButtonPressed)
+        if (pt.Properties.IsMiddleButtonPressed && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            _panning = true;
+            _orbiting = false;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (pt.Properties.IsMiddleButtonPressed || pt.Properties.IsLeftButtonPressed || pt.Properties.IsRightButtonPressed)
         {
             _orbiting = true;
+            _panning = false;
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -194,19 +206,23 @@ public sealed class SceneShadedGlControl : OpenGlControlBase
 
     private void OnMoved(object? sender, PointerEventArgs e)
     {
-        if (!_orbiting || _last is null) return;
+        if ((!_orbiting && !_panning) || _last is null) return;
         var pos = e.GetPosition(this);
         var dx = (float)(pos.X - _last.Value.X);
         var dy = (float)(pos.Y - _last.Value.Y);
         _last = pos;
-        _camera.OrbitDrag(dx, dy);
+        if (_panning)
+            _camera.Pan(dx, dy);
+        else
+            _camera.OrbitDrag(dx, dy);
         e.Handled = true;
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_orbiting) return;
+        if (!_orbiting && !_panning) return;
         _orbiting = false;
+        _panning = false;
         _last = null;
         e.Pointer.Capture(null);
         e.Handled = true;

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
@@ -113,7 +114,7 @@ public sealed class SceneChromeShell : UserControl
             Spacing = 4,
             Children =
             {
-                Chrome.Btn("New", () => _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.New })),
+                Chrome.Btn("New", () => _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.New })),
                 Chrome.Btn("Open…", () => SceneFileActions.Open(this, _session, Notice)),
                 Chrome.PrimaryBtn("Save", () => SceneFileActions.Save(this, _session, Notice)),
                 Chrome.Btn("Save As…", () => SceneFileActions.SaveAs(this, _session, Notice)),
@@ -123,9 +124,9 @@ public sealed class SceneChromeShell : UserControl
                 Chrome.PrimaryBtn("Fit", () =>
                 {
                     _surface.Fit();
-                    _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Fit });
+                    _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.Fit });
                 }),
-                Chrome.Btn("Delete", () => _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Delete })),
+                Chrome.Btn("Delete", () => _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.Delete })),
             },
         };
     }

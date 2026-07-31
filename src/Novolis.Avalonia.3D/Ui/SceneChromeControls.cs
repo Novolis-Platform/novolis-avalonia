@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
@@ -21,7 +22,7 @@ public sealed class SceneEditModeBar : StackPanel
         foreach (SceneEditMode mode in Enum.GetValues<SceneEditMode>())
         {
             var m = mode;
-            Children.Add(Chrome.Btn(m.ToString(), () => _session.Execute(new AgentCommandDto
+            Children.Add(Chrome.Btn(m.ToString(), () => _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.SetEditMode,
                 EditMode = m.ToString(),
@@ -29,7 +30,7 @@ public sealed class SceneEditModeBar : StackPanel
         }
 
         Children.Add(Chrome.Sep());
-        Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommandDto
+        Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.MakeEditable,
         })));
@@ -47,7 +48,7 @@ public sealed class SceneDisplayModeBar : StackPanel
         foreach (SceneDisplayMode mode in Enum.GetValues<SceneDisplayMode>())
         {
             var m = mode;
-            Children.Add(Chrome.Btn(Label(m), () => session.Execute(new AgentCommandDto
+            Children.Add(Chrome.Btn(Label(m), () => session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.SetDisplayMode,
                 DisplayMode = m.ToString(),
@@ -99,7 +100,7 @@ public sealed class PrimitivePalette : WrapPanel
         foreach (MeshPrimitiveKind kind in Enum.GetValues<MeshPrimitiveKind>())
         {
             var k = kind;
-            Children.Add(Chrome.Btn(Short(k), () => session.Execute(new AgentCommandDto
+            Children.Add(Chrome.Btn(Short(k), () => session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.AddMesh,
                 Primitive = k.ToString().ToLowerInvariant(),
@@ -127,18 +128,18 @@ public sealed class GeneratorToolStrip : StackPanel
         Orientation = Orientation.Horizontal;
         Spacing = 4;
         Margin = new Thickness(8, 4);
-        Children.Add(Chrome.Btn("Array", () => session.Execute(new AgentCommandDto
+        Children.Add(Chrome.Btn("Array", () => session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "cloner",
             Count = 4,
         })));
-        Children.Add(Chrome.Btn("Symmetry", () => session.Execute(new AgentCommandDto
+        Children.Add(Chrome.Btn("Symmetry", () => session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.AddGenerator,
             GeneratorKind = "symmetry",
         })));
-        Children.Add(Chrome.Btn("Boolean", () => session.Execute(new AgentCommandDto
+        Children.Add(Chrome.Btn("Boolean", () => session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.AddBoole,
             BooleanKind = "difference",
@@ -162,7 +163,7 @@ public sealed class MeshEditToolStrip : StackPanel
                  })
         {
             var k = kind;
-            Children.Add(Chrome.Btn(Short(k), () => session.Execute(new AgentCommandDto
+            Children.Add(Chrome.Btn(Short(k), () => session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.MeshEdit,
                 ModifierKind = k.ToString().ToLowerInvariant(),
@@ -187,8 +188,8 @@ public sealed class LookToolStrip : StackPanel
         Orientation = Orientation.Horizontal;
         Spacing = 4;
         Margin = new Thickness(8, 4);
-        Children.Add(Chrome.Btn("Camera", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.AddCamera })));
-        Children.Add(Chrome.Btn("Material", () => session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.AddMaterial })));
+        Children.Add(Chrome.Btn("Camera", () => session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.AddCamera })));
+        Children.Add(Chrome.Btn("Material", () => session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.AddMaterial })));
         Children.Add(Chrome.Btn("Point", () => AddLight(session, LightKind.Omni)));
         Children.Add(Chrome.Btn("Spot", () => AddLight(session, LightKind.Spot)));
         Children.Add(Chrome.Btn("Directional", () => AddLight(session, LightKind.Infinite)));
@@ -196,7 +197,7 @@ public sealed class LookToolStrip : StackPanel
     }
 
     private static void AddLight(SceneSessionService session, LightKind kind) =>
-        session.Execute(new AgentCommandDto
+        session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.AddLight,
             LightKind = kind.ToString().ToLowerInvariant(),
@@ -296,7 +297,7 @@ public sealed class TransformHud : UserControl
     {
         if (_suppress)
             return;
-        _session.Execute(new AgentCommandDto
+        _session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.MoveSelection,
             X = (float)(_x.Value ?? 0),
@@ -367,7 +368,7 @@ public sealed class ModifierStackPanel : UserControl
             var del = Chrome.Btn("×", () =>
             {
                 _session.Document.SelectionId = mod.Id;
-                _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Delete });
+                _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.Delete });
             });
             row.Children.Add(del);
             _body.Children.Add(row);

@@ -1,3 +1,4 @@
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 
 namespace Novolis.Avalonia._3D.Session;
@@ -27,6 +28,7 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("setlight", Summary = "Edit light properties", Params = "nodeId; lightKind?; intensity?; name?")]
 [AgentAction("settransform", Summary = "Set node transform", Params = "nodeId; x?; y?; z?; rx?; ry?; rz?")]
 [AgentAction("setactivecamera", Summary = "Set active look-through camera", Params = "nodeId")]
+[AgentAction("matchviewport", Summary = "Move selected camera to match current viewport orbit", Params = "nodeId?; x?; y?; z?; rx?=targetX; ry?=targetY; rz?=targetZ; distance?=fovDeg")]
 [AgentAction("seteditmode", Summary = "Object/Point/Edge/Polygon mode", Params = "editMode|object,point,edge,polygon")]
 [AgentAction("setdisplaymode", Summary = "Viewport display", Params = "displayMode|wireframe,wirepoints,isoline")]
 [AgentAction("makeeditable", Summary = "Bake mesh/generator to editable verts", Params = "nodeId?")]
@@ -39,7 +41,7 @@ namespace Novolis.Avalonia._3D.Session;
 [AgentAction("dumpscene", Summary = "Dump scene .nov3djson copy", Params = "path?")]
 [AgentAction("dumpmesh", Summary = "Dump mesh OBJ + stats", Params = "path?")]
 [AgentAction("dumpwindow", Summary = "Dump window UI PNG", Params = "path?")]
-public interface ISceneSession : IAgentSession;
+public interface ISceneSession : IAgentHost;
 
 public static class SceneSessionContract
 {
@@ -66,6 +68,7 @@ public static class SceneSessionActionIds
     public const string SetLight = "setlight";
     public const string SetTransform = "settransform";
     public const string SetActiveCamera = "setactivecamera";
+    public const string MatchViewport = "matchviewport";
     public const string SetEditMode = "seteditmode";
     public const string SetDisplayMode = "setdisplaymode";
     public const string MakeEditable = "makeeditable";

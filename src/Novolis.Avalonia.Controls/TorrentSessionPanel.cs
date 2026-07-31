@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -10,93 +12,186 @@ using Novolis.Transports.Torrent.TorrentEventArgs;
 namespace Novolis.Avalonia.Controls;
 
 /// <summary>
-///     Compact progress card for one torrent session snapshot.
+///     Transfer-list row for one torrent — name, progress, peers, speeds (familiar client look).
 /// </summary>
 public sealed class TorrentProgressView : Border
 {
-    readonly TextBlock _title = new() { FontWeight = FontWeight.SemiBold, FontSize = 14 };
-    readonly TextBlock _hash = new() { FontSize = 11, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
-    readonly ProgressBar _bar = new() { Minimum = 0, Maximum = 100, Height = 10 };
-    readonly TextBlock _pct = new() { FontSize = 12 };
-    readonly TextBlock _speeds = new() { FontSize = 12 };
-    readonly TextBlock _peers = new() { FontSize = 12 };
-    readonly TextBlock _bytes = new() { FontSize = 12 };
-    readonly TextBlock _duration = new() { FontSize = 12, Opacity = 0.8 };
+    static readonly IBrush Accent = new SolidColorBrush(Color.Parse("#2A9D8F"));
+    static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#A1A1AA"));
+    static readonly IBrush RowBorder = new SolidColorBrush(Color.Parse("#2E3A4A"));
+    static readonly IBrush SelectedBg = new SolidColorBrush(Color.Parse("#243447"));
 
-    /// <summary>Creates an empty progress view.</summary>
+    readonly TextBlock _name = new() { FontWeight = FontWeight.SemiBold, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis };
+    readonly TextBlock _size = new() { FontSize = 12, Foreground = Muted };
+    readonly ProgressBar _bar = new()
+    {
+        Minimum = 0,
+        Maximum = 100,
+        Height = 8,
+        MinWidth = 120,
+        Foreground = Accent
+    };
+    readonly TextBlock _pct = new() { FontSize = 12, Width = 52, TextAlignment = TextAlignment.Right };
+    readonly TextBlock _status = new() { FontSize = 12, FontWeight = FontWeight.Medium };
+    readonly TextBlock _seeds = new() { FontSize = 12, Width = 56, TextAlignment = TextAlignment.Right };
+    readonly TextBlock _peers = new() { FontSize = 12, Width = 56, TextAlignment = TextAlignment.Right };
+    readonly TextBlock _down = new() { FontSize = 12, Width = 78, TextAlignment = TextAlignment.Right };
+    readonly TextBlock _up = new() { FontSize = 12, Width = 78, TextAlignment = TextAlignment.Right };
+    readonly TextBlock _eta = new() { FontSize = 12, Width = 64, TextAlignment = TextAlignment.Right, Foreground = Muted };
+
+    /// <summary>Creates an empty transfer row.</summary>
     public TorrentProgressView()
     {
-        Padding = new Thickness(12);
+        Padding = new Thickness(10, 8);
         BorderThickness = new Thickness(1);
-        BorderBrush = new SolidColorBrush(Color.Parse("#3F3F46"));
-        Background = new SolidColorBrush(Color.Parse("#252526"));
-        CornerRadius = new CornerRadius(4);
+        BorderBrush = RowBorder;
+        Background = SelectedBg;
+        CornerRadius = new CornerRadius(3);
+        Cursor = new Cursor(StandardCursorType.Hand);
 
-        Child = new StackPanel
+        var progressCell = new Grid
         {
-            Spacing = 6,
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            MinWidth = 140,
             Children =
             {
-                _title,
-                _hash,
-                new Grid
-                {
-                    ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-                    Children =
-                    {
-                        Col(_bar, 0),
-                        Col(_pct, 1)
-                    }
-                },
-                _speeds,
-                _peers,
-                _bytes,
-                _duration
+                Col(_bar, 0),
+                Col(_pct, 1)
+            }
+        };
+        _pct.Margin = new Thickness(6, 0, 0, 0);
+        _bar.VerticalAlignment = VerticalAlignment.Center;
+
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,88,160,100,56,56,78,78,64"),
+            ColumnSpacing = 8,
+            Children =
+            {
+                Col(StackNameSize(), 0),
+                Col(_size, 1),
+                Col(progressCell, 2),
+                Col(_status, 3),
+                Col(_seeds, 4),
+                Col(_peers, 5),
+                Col(_down, 6),
+                Col(_up, 7),
+                Col(_eta, 8)
             }
         };
 
+        foreach (var child in new Control[] { _size, _status, _seeds, _peers, _down, _up, _eta })
+            child.VerticalAlignment = VerticalAlignment.Center;
+
+        Child = row;
         Clear();
     }
 
     /// <summary>Display title (usually torrent file name).</summary>
     public string Title
     {
-        get => _title.Text ?? string.Empty;
-        set => _title.Text = value;
+        get => _name.Text ?? string.Empty;
+        set => _name.Text = value;
+    }
+
+    /// <summary>Total size label when torrent metadata is known.</summary>
+    public void SetTorrentMeta(long length, int pieceCount)
+    {
+        _size.Text = FormatBytes(length);
+        ToolTip.SetTip(this, $"{pieceCount} pieces · {FormatBytes(length)}");
     }
 
     /// <summary>Applies a progress snapshot.</summary>
-    public void Apply(TorrentProgressInfo? info)
+    public void Apply(TorrentProgressInfo? info, string? forcedStatus = null)
     {
         if (info is null)
         {
-            Clear();
+            Clear(keepTitle: true);
+            if (!string.IsNullOrEmpty(forcedStatus))
+                _status.Text = forcedStatus;
             return;
         }
 
-        var pct = (double)info.CompletedPercentage;
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-
-        _hash.Text = $"infohash {info.TorrentInfoHash}";
+        var pct = ClampPct((double)info.CompletedPercentage);
         _bar.Value = pct;
-        _pct.Text = $"  {pct:0.0}%";
-        _speeds.Text = $"↓ {FormatRate(info.DownloadSpeed)}   ↑ {FormatRate(info.UploadSpeed)}";
-        _peers.Text = $"peers  seeders {info.SeederCount} · leechers {info.LeecherCount} · connected {info.Peers.Count()}";
-        _bytes.Text = $"bytes  down {FormatBytes(info.Downloaded)} · up {FormatBytes(info.Uploaded)}";
-        _duration.Text = $"elapsed {FormatDuration(info.Duration)}";
+        _pct.Text = $"{pct:0.0}%";
+        _seeds.Text = info.SeederCount.ToString();
+        _peers.Text = info.LeecherCount.ToString();
+        _down.Text = FormatRate(info.DownloadSpeed);
+        _up.Text = FormatRate(info.UploadSpeed);
+        _eta.Text = FormatEta(info);
+        _status.Text = forcedStatus ?? InferStatus(info);
+        _status.Foreground = StatusBrush(_status.Text);
     }
 
     /// <summary>Resets to idle placeholders.</summary>
-    public void Clear()
+    public void Clear(bool keepTitle = false)
     {
-        _hash.Text = "no torrent loaded";
+        if (!keepTitle)
+            _name.Text = "No torrent loaded";
+        _size.Text = "—";
         _bar.Value = 0;
-        _pct.Text = "  —";
-        _speeds.Text = "↓ —   ↑ —";
-        _peers.Text = "peers  —";
-        _bytes.Text = "bytes  —";
-        _duration.Text = "elapsed —";
+        _pct.Text = "—";
+        _status.Text = "Idle";
+        _status.Foreground = Muted;
+        _seeds.Text = "—";
+        _peers.Text = "—";
+        _down.Text = "—";
+        _up.Text = "—";
+        _eta.Text = "—";
+    }
+
+    Control StackNameSize() => new StackPanel
+    {
+        Spacing = 2,
+        VerticalAlignment = VerticalAlignment.Center,
+        Children =
+        {
+            _name,
+            new TextBlock
+            {
+                Text = "Selected transfer",
+                FontSize = 10,
+                Foreground = Muted
+            }
+        }
+    };
+
+    static string InferStatus(TorrentProgressInfo info)
+    {
+        if (info.CompletedPercentage >= 99.9m)
+            return info.UploadSpeed > 0 ? "Seeding" : "Completed";
+        if (info.DownloadSpeed > 0)
+            return "Downloading";
+        if (info.SeederCount + info.LeecherCount == 0)
+            return "Stalled";
+        return "Downloading";
+    }
+
+    static IBrush StatusBrush(string? status) => status switch
+    {
+        "Downloading" => Accent,
+        "Seeding" => new SolidColorBrush(Color.Parse("#5B9BD5")),
+        "Completed" => new SolidColorBrush(Color.Parse("#6FCF97")),
+        "Checking" => new SolidColorBrush(Color.Parse("#E9C46A")),
+        "Stalled" => new SolidColorBrush(Color.Parse("#E07A5F")),
+        "Stopped" => Muted,
+        _ => Muted
+    };
+
+    static double ClampPct(double pct)
+    {
+        if (pct < 0) return 0;
+        if (pct > 100) return 100;
+        return pct;
+    }
+
+    static string FormatEta(TorrentProgressInfo info)
+    {
+        if (info.CompletedPercentage >= 99.9m) return "Done";
+        if (info.DownloadSpeed <= 0) return "∞";
+        // Rough remaining from percentage (length unknown here) — show elapsed instead as activity signal.
+        return FormatDuration(info.Duration);
     }
 
     static Control Col(Control c, int column)
@@ -105,7 +200,7 @@ public sealed class TorrentProgressView : Border
         return c;
     }
 
-    static string FormatBytes(long bytes)
+    internal static string FormatBytes(long bytes)
     {
         if (bytes < 1024) return $"{bytes} B";
         double v = bytes;
@@ -120,27 +215,40 @@ public sealed class TorrentProgressView : Border
         return $"{v:0.##} {units[i]}";
     }
 
-    static string FormatRate(decimal bytesPerSecond) => $"{FormatBytes((long)bytesPerSecond)}/s";
+    internal static string FormatRate(decimal bytesPerSecond) => $"{FormatBytes((long)bytesPerSecond)}/s";
 
-    static string FormatDuration(TimeSpan t)
+    internal static string FormatDuration(TimeSpan t)
     {
-        if (t.TotalHours >= 1) return $"{(int)t.TotalHours}h {t.Minutes:D2}m {t.Seconds:D2}s";
+        if (t.TotalHours >= 1) return $"{(int)t.TotalHours}h {t.Minutes:D2}m";
         if (t.TotalMinutes >= 1) return $"{t.Minutes}m {t.Seconds:D2}s";
         return $"{t.Seconds}s";
     }
 }
 
 /// <summary>
-///     End-to-end torrent session control: pick .torrent, start/stop client, live progress.
+///     Familiar torrent-client session: toolbar, transfer list, detail tabs, status bar.
 /// </summary>
 public sealed class TorrentSessionPanel : Border, IDisposable
 {
+    static readonly IBrush Bg = new SolidColorBrush(Color.Parse("#121820"));
+    static readonly IBrush Panel = new SolidColorBrush(Color.Parse("#182230"));
+    static readonly IBrush BorderTone = new SolidColorBrush(Color.Parse("#2E3A4A"));
+    static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#A1A1AA"));
+    static readonly IBrush Accent = new SolidColorBrush(Color.Parse("#2A9D8F"));
+
     readonly TextBox _downloadDir;
     readonly NumericUpDown _port;
     readonly TextBlock _status;
+    readonly TextBlock _statusDown;
+    readonly TextBlock _statusUp;
+    readonly TextBlock _statusPort;
+    readonly TextBlock _generalBody;
+    readonly TextBlock _trackersBody;
+    readonly TextBlock _filesBody;
     readonly TorrentProgressView _progress = new();
     readonly Button _browseTorrent;
     readonly Button _browseDir;
+    readonly Button _openFolder;
     readonly Button _start;
     readonly Button _stop;
     readonly DispatcherTimer _timer;
@@ -149,6 +257,7 @@ public sealed class TorrentSessionPanel : Border, IDisposable
     TorrentInfo? _torrent;
     string? _torrentPath;
     bool _disposed;
+    string _sessionState = "Idle";
 
     /// <summary>Creates a session panel with default download directory under the user profile.</summary>
     public TorrentSessionPanel()
@@ -158,77 +267,97 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             "Novolis", "TorrentLab", "downloads");
         Directory.CreateDirectory(defaultDir);
 
-        Padding = new Thickness(12);
-        Background = new SolidColorBrush(Color.Parse("#1E1E1E"));
+        Background = Bg;
+        Padding = new Thickness(0);
 
-        _downloadDir = new TextBox { Text = defaultDir, PlaceholderText = "Download directory" };
+        _downloadDir = new TextBox
+        {
+            Text = defaultDir,
+            PlaceholderText = "Save path",
+            MinHeight = 28
+        };
         _port = new NumericUpDown
         {
             Minimum = 1024,
             Maximum = 65535,
             Value = 6881,
-            Width = 140,
-            MinWidth = 140,
+            Width = 100,
+            MinWidth = 100,
             FormatString = "0",
             Increment = 1
         };
-        _status = new TextBlock { Text = "Idle — open a .torrent to begin.", Opacity = 0.85, TextWrapping = TextWrapping.Wrap };
 
-        _browseTorrent = new Button { Content = "Open .torrent…", Padding = new Thickness(10, 4) };
-        _browseDir = new Button { Content = "Browse…", Padding = new Thickness(10, 4) };
-        _start = new Button { Content = "Start", Padding = new Thickness(14, 4), IsEnabled = false };
-        _stop = new Button { Content = "Stop", Padding = new Thickness(14, 4), IsEnabled = false };
+        _browseTorrent = ToolButton("Add torrent…");
+        _browseDir = ToolButton("Browse…");
+        _openFolder = ToolButton("Open folder");
+        _start = ToolButton("Start");
+        _stop = ToolButton("Stop");
+        _start.IsEnabled = false;
+        _stop.IsEnabled = false;
+        _openFolder.IsEnabled = true;
 
         _browseTorrent.Click += async (_, _) => await PickTorrentAsync();
         _browseDir.Click += async (_, _) => await PickDirectoryAsync();
+        _openFolder.Click += (_, _) => OpenDownloadFolder();
         _start.Click += (_, _) => StartSession();
-        _stop.Click += (_, _) => StopSession();
+        _stop.Click += (_, _) =>
+        {
+            StopSession();
+            SetSessionState("Stopped");
+            SetStatus("Transfer stopped.");
+            RefreshDetails(null);
+        };
 
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _timer.Tick += (_, _) => RefreshProgress();
 
-        var dirRow = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Children =
-            {
-                Col(_downloadDir, 0),
-                Col(_browseDir, 1)
-            }
-        };
-        _browseDir.Margin = new Thickness(8, 0, 0, 0);
+        _generalBody = DetailBody("Load a .torrent to see details.");
+        _trackersBody = DetailBody("No trackers yet.");
+        _filesBody = DetailBody("No files yet.");
 
-        var portRow = new StackPanel
+        _status = new TextBlock
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Children =
-            {
-                new TextBlock { Text = "Listen port", VerticalAlignment = VerticalAlignment.Center },
-                _port
-            }
+            Text = "Ready — add a torrent or load the Core sample.",
+            FontSize = 12,
+            Foreground = Muted,
+            TextWrapping = TextWrapping.NoWrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
         };
+        _statusDown = new TextBlock { Text = "↓ 0 B/s", FontSize = 12, Width = 88 };
+        _statusUp = new TextBlock { Text = "↑ 0 B/s", FontSize = 12, Width = 88 };
+        _statusPort = new TextBlock { Text = "Port 6881", FontSize = 12, Foreground = Muted, Width = 88 };
 
-        var actions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Children = { _browseTorrent, _start, _stop }
-        };
+        Child = new DockPanel();
+        var root = (DockPanel)Child;
 
-        Child = new StackPanel
+        var statusBar = BuildStatusBar();
+        DockPanel.SetDock(statusBar, Dock.Bottom);
+        root.Children.Add(statusBar);
+
+        var toolbar = BuildToolbar();
+        DockPanel.SetDock(toolbar, Dock.Top);
+        root.Children.Add(toolbar);
+
+        var options = BuildOptions();
+        DockPanel.SetDock(options, Dock.Top);
+        root.Children.Add(options);
+
+        var listHeader = BuildListHeader();
+        DockPanel.SetDock(listHeader, Dock.Top);
+        root.Children.Add(listHeader);
+
+        var transfer = new Border
         {
-            Spacing = 10,
-            Children =
-            {
-                new TextBlock { Text = "Torrent session", FontSize = 16, FontWeight = FontWeight.SemiBold },
-                dirRow,
-                portRow,
-                actions,
-                _progress,
-                _status
-            }
+            Margin = new Thickness(12, 0, 12, 8),
+            Child = _progress
         };
+        DockPanel.SetDock(transfer, Dock.Top);
+        root.Children.Add(transfer);
+
+        var tabs = BuildTabs();
+        tabs.Margin = new Thickness(12, 0, 12, 8);
+        root.Children.Add(tabs);
     }
 
     /// <summary>Current torrent metadata, if loaded.</summary>
@@ -252,12 +381,15 @@ public sealed class TorrentSessionPanel : Border, IDisposable
 
         _torrent = info;
         _torrentPath = path;
-        _progress.Title = info.Files.FirstOrDefault()?.FilePath
-                          ?? Path.GetFileName(path);
-        _progress.Clear();
-        _hashPreview(info);
+        var name = info.Files.FirstOrDefault()?.FilePath ?? Path.GetFileName(path);
+        _progress.Title = name;
+        _progress.SetTorrentMeta(info.Length, info.PiecesCount);
+        _progress.Clear(keepTitle: true);
+        SetSessionState("Stopped");
+        _progress.Apply(null, "Stopped");
         _start.IsEnabled = true;
-        SetStatus($"Loaded {Path.GetFileName(path)} · {FormatBytes(info.Length)} · {info.PiecesCount} pieces · {info.AnnounceList.Count()} trackers");
+        RefreshDetails(null);
+        SetStatus($"Added “{name}” · {TorrentProgressView.FormatBytes(info.Length)} · {info.PiecesCount} pieces · {info.AnnounceList.Count()} trackers");
         return true;
     }
 
@@ -266,14 +398,14 @@ public sealed class TorrentSessionPanel : Border, IDisposable
     {
         if (_torrent is null)
         {
-            SetStatus("Open a .torrent first.");
+            SetStatus("Add a .torrent first.");
             return;
         }
 
         var dir = _downloadDir.Text?.Trim();
         if (string.IsNullOrWhiteSpace(dir))
         {
-            SetStatus("Download directory is required.");
+            SetStatus("Save path is required.");
             return;
         }
 
@@ -286,14 +418,12 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             SetStatus("Listen port reset to 6881 (must be 1024–65535).");
         }
 
+        _statusPort.Text = $"Port {port}";
+
         try
         {
-            // Release any file locks before staging the payload.
             StopSession();
 
-            // Dogfood: this sample infohash has no public seeders. If Core-current.iso sits
-            // next to the .torrent (or under samples/), copy it over any zero-filled stub so
-            // hashing becomes a local seed instead of a barren swarm.
             string? staged;
             try
             {
@@ -301,25 +431,36 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             }
             catch (Exception ex)
             {
-                SetStatus($"Could not stage local ISO: {ex.Message}");
+                SetStatus($"Could not stage local payload: {ex.Message}");
                 return;
             }
 
             _client = new TorrentClient(port, dir);
             _client.TorrentStarted += (_, e) => Dispatcher.UIThread.Post(() =>
-                SetStatus($"Started {e.TorrentInfo.InfoHash[..Math.Min(8, e.TorrentInfo.InfoHash.Length)]}… listening :{port}"));
-            _client.TorrentStopped += (_, _) => Dispatcher.UIThread.Post(() => SetStatus("Torrent stopped."));
+            {
+                SetSessionState("Checking");
+                SetStatus($"Started {ShortHash(e.TorrentInfo.InfoHash)} — checking pieces on :{port}");
+            });
+            _client.TorrentStopped += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                SetSessionState("Stopped");
+                SetStatus("Torrent stopped.");
+            });
             _client.TorrentSeeding += (_, _) => Dispatcher.UIThread.Post(() =>
-                SetStatus($"Seeding on :{port} — file complete. Public trackers won't help this private sample torrent."));
+            {
+                SetSessionState("Seeding");
+                SetStatus($"Seeding on :{port} — transfer complete.");
+            });
             _client.Start();
             _client.Start(_torrent);
             _start.IsEnabled = false;
             _stop.IsEnabled = true;
             _browseTorrent.IsEnabled = false;
             _timer.Start();
+            SetSessionState(staged is null ? "Downloading" : "Checking");
             SetStatus(staged is null
-                ? $"Downloading to {dir} on :{port} — no public swarm for this sample; place Core-current.iso beside the .torrent to seed locally."
-                : $"Hashing/seeding staged ISO on :{port}");
+                ? $"Downloading to {dir} on :{port}"
+                : $"Checking local data on :{port}");
             RefreshProgress();
         }
         catch (Exception ex)
@@ -355,7 +496,6 @@ public sealed class TorrentSessionPanel : Border, IDisposable
             if (!File.Exists(src)) continue;
             if (new FileInfo(src).Length != _torrent.Length) continue;
 
-            // Same length is not enough: CreateFile pre-allocates zeros that hash ~0–3%.
             if (File.Exists(dest)
                 && new FileInfo(dest).Length == _torrent.Length
                 && FilesLikelyIdentical(src, dest))
@@ -374,7 +514,6 @@ public sealed class TorrentSessionPanel : Border, IDisposable
         var fa = new FileInfo(a);
         var fb = new FileInfo(b);
         if (fa.Length != fb.Length) return false;
-        // Quick content check: first + middle + last 64 KiB (enough to reject zero-filled stubs).
         const int chunk = 64 * 1024;
         using var sa = File.OpenRead(a);
         using var sb = File.OpenRead(b);
@@ -421,6 +560,8 @@ public sealed class TorrentSessionPanel : Border, IDisposable
         _start.IsEnabled = _torrent is not null;
         _stop.IsEnabled = false;
         _browseTorrent.IsEnabled = true;
+        _statusDown.Text = "↓ 0 B/s";
+        _statusUp.Text = "↑ 0 B/s";
     }
 
     /// <inheritdoc />
@@ -439,14 +580,12 @@ public sealed class TorrentSessionPanel : Border, IDisposable
 
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open BitTorrent file",
+            Title = "Add torrent",
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Torrent")
-                {
-                    Patterns = ["*.torrent"]
-                }
+                new FilePickerFileType("Torrent") { Patterns = ["*.torrent"] },
+                new FilePickerFileType("All files") { Patterns = ["*.*"] }
             ]
         });
 
@@ -462,13 +601,37 @@ public sealed class TorrentSessionPanel : Border, IDisposable
 
         var folders = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Download directory",
+            Title = "Save path",
             AllowMultiple = false
         });
 
         var folder = folders.FirstOrDefault();
         if (folder?.TryGetLocalPath() is { } path)
             _downloadDir.Text = path;
+    }
+
+    void OpenDownloadFolder()
+    {
+        var dir = _downloadDir.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            SetStatus("Save path is empty.");
+            return;
+        }
+
+        Directory.CreateDirectory(dir);
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not open folder: {ex.Message}");
+        }
     }
 
     void RefreshProgress()
@@ -479,10 +642,29 @@ public sealed class TorrentSessionPanel : Border, IDisposable
         try
         {
             var info = _client.GetProgressInfo(_torrent.InfoHash);
-            _progress.Apply(info);
+            var status = _sessionState;
+            if (info is not null)
+            {
+                if (info.CompletedPercentage >= 99.9m)
+                    status = info.UploadSpeed > 0 ? "Seeding" : "Completed";
+                else if (info.DownloadSpeed > 0)
+                    status = "Downloading";
+                else if (_sessionState is "Checking" && info.CompletedPercentage > 0 && info.CompletedPercentage < 99.9m)
+                    status = "Checking";
+                else if (info.SeederCount + info.LeecherCount == 0 && info.DownloadSpeed <= 0)
+                    status = info.CompletedPercentage > 3 ? "Downloading" : "Stalled";
+
+                _statusDown.Text = $"↓ {TorrentProgressView.FormatRate(info.DownloadSpeed)}";
+                _statusUp.Text = $"↑ {TorrentProgressView.FormatRate(info.UploadSpeed)}";
+            }
+
+            SetSessionState(status);
+            _progress.Apply(info, status);
+            RefreshDetails(info);
             ProgressUpdated?.Invoke(info);
-            if (info.CompletedPercentage >= 100m)
-                SetStatus($"Complete — {FormatBytes(info.Downloaded)} saved under {_downloadDir.Text}");
+
+            if (info is { CompletedPercentage: >= 100m })
+                SetStatus($"Completed — saved under {_downloadDir.Text}");
         }
         catch (Exception ex)
         {
@@ -490,41 +672,245 @@ public sealed class TorrentSessionPanel : Border, IDisposable
         }
     }
 
-    void _hashPreview(TorrentInfo info)
+    void RefreshDetails(TorrentProgressInfo? info)
     {
-        // nudge progress header with hash until first poll
-        _progress.Apply(new TorrentProgressInfo(
-            info.InfoHash,
-            TimeSpan.Zero,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0));
+        if (_torrent is null)
+        {
+            _generalBody.Text = "Load a .torrent to see details.";
+            _trackersBody.Text = "No trackers yet.";
+            _filesBody.Text = "No files yet.";
+            return;
+        }
+
+        var name = _torrent.Files.FirstOrDefault()?.FilePath ?? Path.GetFileName(_torrentPath) ?? "torrent";
+        var pct = info?.CompletedPercentage ?? 0m;
+        var lines = new List<string>
+        {
+            $"Name: {name}",
+            $"Save path: {_downloadDir.Text}",
+            $"Infohash: {_torrent.InfoHash}",
+            $"Size: {TorrentProgressView.FormatBytes(_torrent.Length)}",
+            $"Pieces: {_torrent.PiecesCount} × {TorrentProgressView.FormatBytes(_torrent.PieceLength)}",
+            $"Progress: {pct:0.0}%",
+            $"Status: {_sessionState}",
+            $"Elapsed: {(info is null ? "—" : TorrentProgressView.FormatDuration(info.Duration))}",
+            $"Downloaded: {(info is null ? "—" : TorrentProgressView.FormatBytes(info.Downloaded))}",
+            $"Uploaded: {(info is null ? "—" : TorrentProgressView.FormatBytes(info.Uploaded))}",
+            $"Ratio: {FormatRatio(info)}",
+            $"Seeds / peers: {(info is null ? "— / —" : $"{info.SeederCount} / {info.LeecherCount}")}",
+        };
+        if (!string.IsNullOrWhiteSpace(_torrentPath))
+            lines.Insert(1, $"Torrent file: {_torrentPath}");
+        _generalBody.Text = string.Join(Environment.NewLine, lines);
+
+        var trackers = _torrent.AnnounceList.Select(u => u.AbsoluteUri).Distinct().ToList();
+        _trackersBody.Text = trackers.Count == 0
+            ? "No announce URLs in this torrent."
+            : string.Join(Environment.NewLine, trackers.Select((u, i) => $"{i + 1}. {u}"));
+
+        var files = _torrent.Files.ToList();
+        _filesBody.Text = files.Count == 0
+            ? "No files listed."
+            : string.Join(Environment.NewLine,
+                files.Select(f => $"{f.FilePath}  ·  {TorrentProgressView.FormatBytes(f.Length)}"));
+    }
+
+    static string FormatRatio(TorrentProgressInfo? info)
+    {
+        if (info is null || info.Downloaded <= 0) return "—";
+        return (info.Uploaded / (decimal)info.Downloaded).ToString("0.000");
+    }
+
+    void SetSessionState(string state)
+    {
+        _sessionState = state;
     }
 
     void SetStatus(string text) => _status.Text = text;
+
+    static string ShortHash(string hash) =>
+        hash.Length <= 8 ? hash : hash[..8] + "…";
+
+    static Button ToolButton(string content) => new()
+    {
+        Content = content,
+        Padding = new Thickness(12, 6),
+        MinHeight = 30
+    };
+
+    static TextBlock DetailBody(string text) => new()
+    {
+        Text = text,
+        FontSize = 12,
+        Foreground = Muted,
+        TextWrapping = TextWrapping.Wrap,
+        FontFamily = new FontFamily("Consolas, Cascadia Mono, Courier New, monospace")
+    };
+
+    static TextBlock HeaderCell(string text, int col)
+    {
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = Muted,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(block, col);
+        return block;
+    }
+
+    Border BuildToolbar()
+    {
+        var bar = new Border
+        {
+            Background = Panel,
+            BorderBrush = BorderTone,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(12, 8),
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Children =
+                {
+                    _browseTorrent,
+                    _start,
+                    _stop,
+                    new Border { Width = 1, Background = BorderTone, Margin = new Thickness(4, 2) },
+                    _openFolder
+                }
+            }
+        };
+        return bar;
+    }
+
+    Border BuildOptions()
+    {
+        var saveLabel = new TextBlock
+        {
+            Text = "Save path",
+            FontSize = 12,
+            Foreground = Muted,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 72
+        };
+        var portLabel = new TextBlock
+        {
+            Text = "Port",
+            FontSize = 12,
+            Foreground = Muted,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var saveRow = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnSpacing = 8,
+            Children =
+            {
+                Col(saveLabel, 0),
+                Col(_downloadDir, 1),
+                Col(_browseDir, 2)
+            }
+        };
+
+        var portRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 8, 0, 0),
+            Children = { portLabel, _port }
+        };
+
+        return new Border
+        {
+            Background = Panel,
+            BorderBrush = BorderTone,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(12, 10),
+            Child = new StackPanel { Children = { saveRow, portRow } }
+        };
+    }
+
+    Border BuildListHeader()
+    {
+        var header = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,88,160,100,56,56,78,78,64"),
+            ColumnSpacing = 8,
+            Children =
+            {
+                HeaderCell("Name", 0),
+                HeaderCell("Size", 1),
+                HeaderCell("Progress", 2),
+                HeaderCell("Status", 3),
+                HeaderCell("Seeds", 4),
+                HeaderCell("Peers", 5),
+                HeaderCell("Down", 6),
+                HeaderCell("Up", 7),
+                HeaderCell("ETA", 8)
+            }
+        };
+
+        return new Border
+        {
+            Margin = new Thickness(12, 10, 12, 4),
+            Padding = new Thickness(10, 4),
+            Child = header
+        };
+    }
+
+    TabControl BuildTabs()
+    {
+        ScrollViewer Wrap(Control body) => new()
+        {
+            Content = new Border
+            {
+                Padding = new Thickness(12),
+                Background = Panel,
+                Child = body
+            }
+        };
+
+        return new TabControl
+        {
+            Items =
+            {
+                new TabItem { Header = "General", Content = Wrap(_generalBody) },
+                new TabItem { Header = "Trackers", Content = Wrap(_trackersBody) },
+                new TabItem { Header = "Files", Content = Wrap(_filesBody) }
+            }
+        };
+    }
+
+    Border BuildStatusBar()
+    {
+        return new Border
+        {
+            Background = Panel,
+            BorderBrush = BorderTone,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(12, 6),
+            Child = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"),
+                ColumnSpacing = 12,
+                Children =
+                {
+                    Col(_status, 0),
+                    Col(_statusDown, 1),
+                    Col(_statusUp, 2),
+                    Col(_statusPort, 3)
+                }
+            }
+        };
+    }
 
     static Control Col(Control c, int column)
     {
         Grid.SetColumn(c, column);
         return c;
-    }
-
-    static string FormatBytes(long bytes)
-    {
-        if (bytes < 1024) return $"{bytes} B";
-        double v = bytes;
-        string[] units = ["KB", "MB", "GB", "TB"];
-        var i = -1;
-        do
-        {
-            v /= 1024;
-            i++;
-        } while (v >= 1024 && i < units.Length - 1);
-
-        return $"{v:0.##} {units[i]}";
     }
 }

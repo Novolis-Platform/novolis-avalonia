@@ -1,3 +1,4 @@
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Services;
 using Novolis.Math.Geometry;
@@ -12,7 +13,7 @@ public sealed class SceneSessionService : ISceneSession
     private readonly SceneEvaluator _evaluator = new();
     private SceneDocument _document;
     private string? _path;
-    private string? _lastAction;
+    private AgentLastAction? _lastAction;
     private bool _subscribed;
 
     public SceneSessionService(SceneDocument? document = null)
@@ -33,16 +34,21 @@ public sealed class SceneSessionService : ISceneSession
     public SceneRenderSettings RenderSettings { get; } = new();
 
     public event Action? DocumentChanged;
-    public event Action<AgentChangedEventDto>? Changed;
-    public event Action<AgentActionResultEventDto>? ActionResult;
+#pragma warning disable CS0067 // Scene editing has no decision gate to raise; kept for IAgentHost compliance.
+    public event Action<AgentDecisionEvent>? Decision;
+#pragma warning restore CS0067
+    public event Action<AgentChangedEvent>? Changed;
+    public event Action<AgentActionResultEvent>? ActionResult;
     /// <summary>Raised when dump/dumpall/dumpviewport/… is requested. Host should capture UI artifacts.</summary>
     public event Action<string>? DumpArtifactsRequested;
     /// <summary>Raised on Fit — hosts should frame the viewport camera.</summary>
     public event Action? FitRequested;
+    /// <summary>Raised when the active camera should drive viewport look-through.</summary>
+    public event Action? LookThroughRequested;
 
-    public AgentHelloDto Hello() => Definition.BuildHello(AppId);
+    public AgentHello Hello() => Definition.BuildHello(AppId);
 
-    public AgentSnapshotDto Snapshot() => new()
+    public AgentSnapshot Snapshot() => new()
     {
         DocumentName = _document.Name,
         NodeCount = _document.Nodes.Count,
@@ -53,7 +59,7 @@ public sealed class SceneSessionService : ISceneSession
         Actions = Actions().Actions,
     };
 
-    public AgentActionsResponseDto Actions() => Definition.BuildActions(a =>
+    public AgentActionsResponse Actions() => Definition.BuildActions(a =>
     {
         if (a.Id is SceneSessionActionIds.Delete or SceneSessionActionIds.SetLight or SceneSessionActionIds.SetTransform)
         {
@@ -67,11 +73,11 @@ public sealed class SceneSessionService : ISceneSession
         return a;
     });
 
-    public AgentCommandResultDto Execute(AgentCommandDto command)
+    public AgentCommandResult Execute(AgentCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
         var id = (command.ActionId ?? "").Trim().ToLowerInvariant();
-        AgentCommandResultDto result;
+        AgentCommandResult result;
         try
         {
             result = id switch
@@ -94,6 +100,7 @@ public sealed class SceneSessionService : ISceneSession
                 SceneSessionActionIds.SetLight => DoSetLight(command),
                 SceneSessionActionIds.SetTransform => DoSetTransform(command),
                 SceneSessionActionIds.SetActiveCamera => DoSetActiveCamera(command),
+                SceneSessionActionIds.MatchViewport => DoMatchViewport(command),
                 SceneSessionActionIds.SetEditMode => DoSetEditMode(command),
                 SceneSessionActionIds.SetDisplayMode => DoSetDisplayMode(command),
                 SceneSessionActionIds.MakeEditable => DoMakeEditable(command),
@@ -113,16 +120,25 @@ public sealed class SceneSessionService : ISceneSession
             result = Fail(id, ex.Message, "exception");
         }
 
-        _lastAction = result.ActionId;
+        _lastAction = new AgentLastAction
+        {
+            ActionId = result.ActionId ?? id,
+            Ok = result.Ok,
+            Message = result.Message ?? "",
+            ErrorCode = result.ErrorCode,
+        };
         if (_subscribed)
-            ActionResult?.Invoke(new AgentActionResultEventDto
+            ActionResult?.Invoke(new AgentActionResultEvent
             {
                 Ok = result.Ok,
-                ActionId = result.ActionId,
-                Message = result.Message,
+                ActionId = result.ActionId ?? "",
+                Message = result.Message ?? "",
             });
         return result;
     }
+
+    /// <summary>Scene editing has no decision gate; always succeeds as a no-op.</summary>
+    public AgentCommandResult Continue() => Ok("continue", "No decision gate to release.");
 
     public void Subscribe() => _subscribed = true;
 
@@ -134,26 +150,26 @@ public sealed class SceneSessionService : ISceneSession
         RaiseChanged("replace");
     }
 
-    private AgentCommandResultDto DoFit()
+    private AgentCommandResult DoFit()
     {
         FitRequested?.Invoke();
         return Ok(SceneSessionActionIds.Fit, "Fit.");
     }
 
-    private AgentCommandResultDto DoDump(string kind, AgentCommandDto command)
+    private AgentCommandResult DoDump(string kind, AgentCommand command)
     {
         // Optional Path overrides host dump root when the UI handler reads command.Path.
         DumpArtifactsRequested?.Invoke(string.IsNullOrWhiteSpace(command.Path) ? kind : $"{kind}|{command.Path}");
         return Ok(command.ActionId ?? kind, $"Dump '{kind}' requested.");
     }
 
-    private AgentCommandResultDto DoNew()
+    private AgentCommandResult DoNew()
     {
         ReplaceDocument(SceneDocument.CreateEmpty());
         return Ok(SceneSessionActionIds.New, "New scene.");
     }
 
-    private AgentCommandResultDto DoOpen(AgentCommandDto command)
+    private AgentCommandResult DoOpen(AgentCommand command)
     {
         if (string.IsNullOrWhiteSpace(command.Path))
             return Fail(SceneSessionActionIds.Open, "path required.", "badPath");
@@ -162,7 +178,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.Open, $"Opened {Path.GetFileName(command.Path)}.");
     }
 
-    private AgentCommandResultDto DoSave(AgentCommandDto command)
+    private AgentCommandResult DoSave(AgentCommand command)
     {
         var path = command.Path ?? _path;
         if (string.IsNullOrWhiteSpace(path))
@@ -173,7 +189,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.Save, $"Saved {Path.GetFileName(path)}.");
     }
 
-    private AgentCommandResultDto DoImportMesh(AgentCommandDto command)
+    private AgentCommandResult DoImportMesh(AgentCommand command)
     {
         if (string.IsNullOrWhiteSpace(command.Path))
             return Fail(SceneSessionActionIds.ImportMesh, "path required.", "badPath");
@@ -220,7 +236,7 @@ public sealed class SceneSessionService : ISceneSession
             mesh.Id.ToString());
     }
 
-    private AgentCommandResultDto DoSelect(AgentCommandDto command)
+    private AgentCommandResult DoSelect(AgentCommand command)
     {
         if (string.IsNullOrWhiteSpace(command.NodeId))
         {
@@ -236,7 +252,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.Select, $"Selected {id}.");
     }
 
-    private AgentCommandResultDto DoDelete()
+    private AgentCommandResult DoDelete()
     {
         if (_document.SelectionId is not { } id)
             return Fail(SceneSessionActionIds.Delete, "Nothing selected.", "noSelection");
@@ -247,7 +263,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.Delete, "Deleted.");
     }
 
-    private AgentCommandResultDto DoAddLight(AgentCommandDto command)
+    private AgentCommandResult DoAddLight(AgentCommand command)
     {
         var kind = ParseLightKind(command.LightKind);
         var parent = ResolveParent(command.ParentId);
@@ -274,7 +290,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddLight, $"Added {kind}.", light.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddCamera(AgentCommandDto command)
+    private AgentCommandResult DoAddCamera(AgentCommand command)
     {
         var cam = new CameraNode
         {
@@ -293,7 +309,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddCamera, "Added camera.", cam.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddMesh(AgentCommandDto command)
+    private AgentCommandResult DoAddMesh(AgentCommand command)
     {
         var primitive = Enum.TryParse<MeshPrimitiveKind>(command.Primitive, ignoreCase: true, out var p)
             ? p
@@ -316,7 +332,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddMesh, $"Added {primitive}.", mesh.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddMaterial(AgentCommandDto command)
+    private AgentCommandResult DoAddMaterial(AgentCommand command)
     {
         var mat = new MaterialNode
         {
@@ -342,7 +358,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddMaterial, "Added material.", mat.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddGenerator(AgentCommandDto command)
+    private AgentCommandResult DoAddGenerator(AgentCommand command)
     {
         var kind = Enum.TryParse<GeneratorKind>(command.GeneratorKind, ignoreCase: true, out var g)
             ? g
@@ -372,7 +388,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddGenerator, $"Added {kind}.", gen.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddBoole(AgentCommandDto command)
+    private AgentCommandResult DoAddBoole(AgentCommand command)
     {
         Guid? targetId = ParseGuid(command.TargetId) ?? ParseGuid(command.SourceId);
         Guid? cutterId = ParseGuid(command.CutterId);
@@ -408,7 +424,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.AddBoole, $"Added Boolean {booleanKind}.", gen.Id.ToString());
     }
 
-    private AgentCommandResultDto DoSetBoole(AgentCommandDto command)
+    private AgentCommandResult DoSetBoole(AgentCommand command)
     {
         if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is not GeneratorNode { Generator: GeneratorKind.Boole } gen)
             return Fail(SceneSessionActionIds.SetBoole, "Select a Boolean generator.", "badNode");
@@ -424,7 +440,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetBoole, "Boolean updated.", gen.Id.ToString());
     }
 
-    private AgentCommandResultDto DoAddModifier(AgentCommandDto command)
+    private AgentCommandResult DoAddModifier(AgentCommand command)
     {
         var kind = Enum.TryParse<ModifierKind>(command.ModifierKind, ignoreCase: true, out var m)
             ? m
@@ -452,7 +468,7 @@ public sealed class SceneSessionService : ISceneSession
     private static Guid? ParseGuid(string? raw) =>
         !string.IsNullOrWhiteSpace(raw) && Guid.TryParse(raw, out var id) ? id : null;
 
-    private AgentCommandResultDto DoSetLight(AgentCommandDto command)
+    private AgentCommandResult DoSetLight(AgentCommand command)
     {
         if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is not LightNode light)
             return Fail(SceneSessionActionIds.SetLight, "Select a light.", "badNode");
@@ -467,7 +483,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetLight, "Light updated.", light.Id.ToString());
     }
 
-    private AgentCommandResultDto DoSetTransform(AgentCommandDto command)
+    private AgentCommandResult DoSetTransform(AgentCommand command)
     {
         if (!TryGetSelectedOrNode(command.NodeId, out var node) || node is null)
             return Fail(SceneSessionActionIds.SetTransform, "Select a node.", "badNode");
@@ -482,16 +498,57 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetTransform, "Transform updated.", node.Id.ToString());
     }
 
-    private AgentCommandResultDto DoSetActiveCamera(AgentCommandDto command)
+
+    private AgentCommandResult DoMatchViewport(AgentCommand command)
+    {
+        CameraNode? cam = null;
+        if (!string.IsNullOrWhiteSpace(command.NodeId) && Guid.TryParse(command.NodeId, out var nid))
+            cam = _document.Find(nid) as CameraNode;
+        cam ??= _document.ActiveCameraId is { } aid ? _document.Find(aid) as CameraNode : null;
+        cam ??= _document.SelectionId is { } sid ? _document.Find(sid) as CameraNode : null;
+        if (cam is null)
+            return Fail(SceneSessionActionIds.MatchViewport, "Camera node required.", "badNode");
+
+        if (command.X is not float x || command.Y is not float y || command.Z is not float z)
+            return Fail(SceneSessionActionIds.MatchViewport, "Viewport eye (x,y,z) required.", "badArgs");
+
+        cam.Transform.Position = [x, y, z];
+        if (command.Rx is float tx && command.Ry is float ty && command.Rz is float tz)
+            cam.Target = [tx, ty, tz];
+        if (command.Distance is float fov && fov is > 1f and < 170f)
+            cam.FovDeg = fov;
+
+        var eye = new System.Numerics.Vector3(x, y, z);
+        var target = new System.Numerics.Vector3(cam.Target[0], cam.Target[1], cam.Target[2]);
+        var forward = target - eye;
+        if (forward.LengthSquared() > 1e-8f)
+        {
+            forward = System.Numerics.Vector3.Normalize(forward);
+            var yaw = MathF.Atan2(forward.X, forward.Z) * (180f / MathF.PI);
+            var pitch = MathF.Asin(System.Math.Clamp(forward.Y, -1f, 1f)) * (180f / MathF.PI);
+            cam.Transform.RotationDeg = [-pitch, yaw, 0f];
+        }
+
+        _document.ActiveCameraId = cam.Id;
+        _document.SelectionId = cam.Id;
+        _evaluator.NotifyNodeChanged(cam);
+        RaiseChanged("matchviewport");
+        DocumentChanged?.Invoke();
+        return Ok(SceneSessionActionIds.MatchViewport, "Camera matched viewport.", cam.Id.ToString());
+    }
+
+    private AgentCommandResult DoSetActiveCamera(AgentCommand command)
     {
         if (!Guid.TryParse(command.NodeId, out var id) || _document.Find(id) is not CameraNode)
             return Fail(SceneSessionActionIds.SetActiveCamera, "Camera node required.", "badNode");
         _document.ActiveCameraId = id;
         RaiseChanged("setactivecamera");
+        DocumentChanged?.Invoke();
+        LookThroughRequested?.Invoke();
         return Ok(SceneSessionActionIds.SetActiveCamera, "Active camera set.", id.ToString());
     }
 
-    private AgentCommandResultDto DoSetEditMode(AgentCommandDto command)
+    private AgentCommandResult DoSetEditMode(AgentCommand command)
     {
         if (!Enum.TryParse<SceneEditMode>(command.EditMode, ignoreCase: true, out var mode))
             return Fail(SceneSessionActionIds.SetEditMode, "editMode required.", "badMode");
@@ -514,7 +571,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetEditMode, $"Edit mode {mode}.");
     }
 
-    private AgentCommandResultDto DoSetDisplayMode(AgentCommandDto command)
+    private AgentCommandResult DoSetDisplayMode(AgentCommand command)
     {
         if (!Enum.TryParse<SceneDisplayMode>(command.DisplayMode, ignoreCase: true, out var mode))
             return Fail(SceneSessionActionIds.SetDisplayMode, "displayMode required.", "badMode");
@@ -523,7 +580,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SetDisplayMode, $"Display {mode}.");
     }
 
-    private AgentCommandResultDto DoMakeEditable(AgentCommandDto command)
+    private AgentCommandResult DoMakeEditable(AgentCommand command)
     {
         var id = ResolveEditTarget(command.NodeId);
         if (id is null)
@@ -534,7 +591,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.MakeEditable, "Made editable.", _document.SelectionId?.ToString());
     }
 
-    private AgentCommandResultDto DoSelectComponents(AgentCommandDto command)
+    private AgentCommandResult DoSelectComponents(AgentCommand command)
     {
         var edit = _document.Edit;
         if (edit.Mode == SceneEditMode.Object)
@@ -577,7 +634,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.SelectComponents, $"Selected {edit.SelectionCount} components.");
     }
 
-    private AgentCommandResultDto DoMoveSelection(AgentCommandDto command)
+    private AgentCommandResult DoMoveSelection(AgentCommand command)
     {
         var delta = new System.Numerics.Vector3(command.X ?? 0, command.Y ?? 0, command.Z ?? 0);
         if (delta == System.Numerics.Vector3.Zero)
@@ -612,7 +669,7 @@ public sealed class SceneSessionService : ISceneSession
         return Ok(SceneSessionActionIds.MoveSelection, "Moved selection.", meshNode.Id.ToString());
     }
 
-    private AgentCommandResultDto DoMeshEdit(AgentCommandDto command)
+    private AgentCommandResult DoMeshEdit(AgentCommand command)
     {
         if (!Enum.TryParse<ModifierKind>(command.ModifierKind, ignoreCase: true, out var kind))
             return Fail(SceneSessionActionIds.MeshEdit, "modifierKind required.", "badKind");
@@ -727,7 +784,7 @@ public sealed class SceneSessionService : ISceneSession
             DocumentChanged?.Invoke();
             if (_subscribed)
             {
-                Changed?.Invoke(new AgentChangedEventDto
+                Changed?.Invoke(new AgentChangedEvent
                 {
                     Reason = reason,
                     DocumentName = _document.Name,
@@ -742,7 +799,7 @@ public sealed class SceneSessionService : ISceneSession
             global::Avalonia.Threading.Dispatcher.UIThread.Post(Raise);
     }
 
-    private static AgentCommandResultDto Ok(string actionId, string message, string? nodeId = null) => new()
+    private static AgentCommandResult Ok(string actionId, string message, string? nodeId = null) => new()
     {
         Ok = true,
         ActionId = actionId,
@@ -750,7 +807,7 @@ public sealed class SceneSessionService : ISceneSession
         NodeId = nodeId,
     };
 
-    private static AgentCommandResultDto Fail(string actionId, string message, string code) => new()
+    private static AgentCommandResult Fail(string actionId, string message, string code) => new()
     {
         Ok = false,
         ActionId = actionId,

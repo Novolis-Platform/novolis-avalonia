@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Import;
@@ -54,7 +55,7 @@ public static class SceneFileActions
         LastDumpDirectory = folder;
         Directory.CreateDirectory(folder);
 
-        var result = session.Execute(new AgentCommandDto
+        var result = session.Execute(new AgentCommand
         {
             ActionId = actionId,
             Path = folder,
@@ -111,7 +112,7 @@ public static class SceneFileActions
             return;
         }
 
-        var result = session.Execute(new AgentCommandDto
+        var result = session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.Open,
             Path = path,
@@ -127,7 +128,7 @@ public static class SceneFileActions
             return;
         }
 
-        var result = session.Execute(new AgentCommandDto
+        var result = session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.Save,
             Path = session.DocumentPath,
@@ -163,7 +164,7 @@ public static class SceneFileActions
         if (!path.EndsWith(".nov3djson", StringComparison.OrdinalIgnoreCase))
             path += ".nov3djson";
 
-        var result = session.Execute(new AgentCommandDto
+        var result = session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.Save,
             Path = path,
@@ -204,7 +205,7 @@ public static class SceneFileActions
         if (!AssimpMeshImporter.IsSupportedExtension(path))
             notice?.Invoke($"Extension may be unsupported by Assimp: {Path.GetExtension(path)}");
 
-        var result = session.Execute(new AgentCommandDto
+        var result = session.Execute(new AgentCommand
         {
             ActionId = SceneSessionActionIds.ImportMesh,
             Path = path,

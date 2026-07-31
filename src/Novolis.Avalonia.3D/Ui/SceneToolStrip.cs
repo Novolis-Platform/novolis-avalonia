@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
 
@@ -39,7 +40,7 @@ public sealed class SceneToolStrip : StackPanel
     }
 
     private void Cmd(string actionId) =>
-        _session.Execute(new AgentCommandDto { ActionId = actionId });
+        _session.Execute(new AgentCommand { ActionId = actionId });
 
     private static Button Btn(string label, Action onClick)
     {

@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
+using Novolis.Avalonia._3D.Services;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Modeling.Scene;
 
@@ -33,6 +35,40 @@ public sealed class PropertyInspectorControl : UserControl
         };
         _session.DocumentChanged += Refresh;
         Refresh();
+    }
+
+    /// <summary>Main viewport camera — used by Match Viewport.</summary>
+    public SceneViewportCamera? ViewportCamera { get; set; }
+
+    private void MatchViewport(CameraNode cam)
+    {
+        if (ViewportCamera is null)
+        {
+            _session.Execute(new AgentCommand
+            {
+                ActionId = SceneSessionActionIds.MatchViewport,
+                NodeId = cam.Id.ToString(),
+            });
+            return;
+        }
+
+        var eye = ViewportCamera.Orbit.BuildEyePosition();
+        var target = ViewportCamera.Orbit.Target;
+        _session.Execute(new AgentCommand
+        {
+            ActionId = SceneSessionActionIds.MatchViewport,
+            NodeId = cam.Id.ToString(),
+            X = eye.X,
+            Y = eye.Y,
+            Z = eye.Z,
+            Rx = target.X,
+            Ry = target.Y,
+            Rz = target.Z,
+            Distance = ViewportCamera.Orbit.FieldOfViewDegrees,
+        });
+
+        // Keep shaded preview in sync with the CAD view we just captured.
+        SceneRenderActions.SyncOpenPreviewFromMain();
     }
 
     public void Refresh()
@@ -65,13 +101,50 @@ public sealed class PropertyInspectorControl : UserControl
         if (node is CameraNode cam)
         {
             _body.Children.Add(Label($"FOV: {cam.FovDeg:0.#}°"));
-            var setActive = new Button { Content = "Set Active Camera", HorizontalAlignment = HorizontalAlignment.Stretch };
-            setActive.Click += (_, _) => _session.Execute(new AgentCommandDto
+            _body.Children.Add(Label(
+                $"Target: {cam.Target[0]:0.###}, {cam.Target[1]:0.###}, {cam.Target[2]:0.###}"));
+
+            var lookThrough = new Button
             {
-                ActionId = SceneSessionActionIds.SetActiveCamera,
-                NodeId = cam.Id.ToString(),
-            });
-            _body.Children.Add(setActive);
+                Content = "Look Through",
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            ToolTip.SetTip(lookThrough, "Snap the main viewport (and open Render preview) to this camera.");
+            lookThrough.Click += (_, _) =>
+            {
+                _session.Execute(new AgentCommand
+                {
+                    ActionId = SceneSessionActionIds.SetActiveCamera,
+                    NodeId = cam.Id.ToString(),
+                });
+                SceneRenderActions.SyncOpenPreviewFromActiveCamera();
+            };
+            _body.Children.Add(lookThrough);
+
+            var match = new Button
+            {
+                Content = "Capture Viewport → Camera",
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            ToolTip.SetTip(match, "Write the current main viewport view into this camera (eye, target, FOV).");
+            match.Click += (_, _) => MatchViewport(cam);
+            _body.Children.Add(match);
+
+            _body.Children.Add(Label("Target"));
+            _body.Children.Add(NumericRow("Tx", (decimal)cam.Target[0], v => SetTarget(0, (float)v)));
+            _body.Children.Add(NumericRow("Ty", (decimal)cam.Target[1], v => SetTarget(1, (float)v)));
+            _body.Children.Add(NumericRow("Tz", (decimal)cam.Target[2], v => SetTarget(2, (float)v)));
+
+            void SetTarget(int axis, float value)
+            {
+                cam.Target[axis] = value;
+                _session.Evaluator.NotifyNodeChanged(cam);
+                _session.Execute(new AgentCommand
+                {
+                    ActionId = SceneSessionActionIds.Select,
+                    NodeId = cam.Id.ToString(),
+                });
+            }
         }
 
         if (node is MeshNode mesh)
@@ -82,9 +155,9 @@ public sealed class PropertyInspectorControl : UserControl
                 mesh.Segments = (int)v;
                 _session.Evaluator.NotifyNodeChanged(mesh);
                 // force refresh via fake select
-                _session.Execute(new AgentCommandDto { ActionId = SceneSessionActionIds.Select, NodeId = mesh.Id.ToString() });
+                _session.Execute(new AgentCommand { ActionId = SceneSessionActionIds.Select, NodeId = mesh.Id.ToString() });
             }));
-            _body.Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommandDto
+            _body.Children.Add(Chrome.Btn("Make Editable", () => _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.MakeEditable,
                 NodeId = mesh.Id.ToString(),
@@ -97,7 +170,7 @@ public sealed class PropertyInspectorControl : UserControl
 
         void SetPos(int axis, float value)
         {
-            var cmd = new AgentCommandDto
+            var cmd = new AgentCommand
             {
                 ActionId = SceneSessionActionIds.SetTransform,
                 NodeId = node.Id.ToString(),
@@ -139,7 +212,7 @@ public sealed class PropertyInspectorControl : UserControl
         {
             if (e.Property != RangeBase.ValueProperty)
                 return;
-            _session.Execute(new AgentCommandDto
+            _session.Execute(new AgentCommand
             {
                 ActionId = SceneSessionActionIds.SetLight,
                 NodeId = light.Id.ToString(),
