@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Novolis.Avalonia.Layout/Novolis.Avalonia.Layout.csproj" />
     <Project Path="src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj" />
+    <Project Path="src/Novolis.Avalonia.Media/Novolis.Avalonia.Media.csproj" />
     <Project Path="src/Novolis.Avalonia.Rendering/Novolis.Avalonia.Rendering.csproj" />
     <Project Path="src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj" />
     <Project Path="src/Novolis.Avalonia.Studio/Novolis.Avalonia.Studio.csproj" />
