@@ -32,6 +32,7 @@ public sealed class SceneWireGlControl : OpenGlControlBase
     private bool _glReady;
     private bool _dirty = true;
     private bool _linesDirty = true;
+    private int _lastMeshGeneration = -1;
     private string? _capturePath;
     private TaskCompletionSource<bool>? _captureTcs;
 
@@ -125,9 +126,14 @@ public sealed class SceneWireGlControl : OpenGlControlBase
             var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             var w = System.Math.Max(1, (int)System.Math.Round(Bounds.Width * scale));
             var h = System.Math.Max(1, (int)System.Math.Round(Bounds.Height * scale));
-            var rebuild = _linesDirty;
+            // CPU skinning / mesh bake advances MeshGeneration without DocumentChanged —
+            // rebuild line VBOs whenever the evaluator mesh gen moves (same as SceneShadedGlControl).
+            var rebuild = _linesDirty || _session.Evaluator.MeshGeneration != _lastMeshGeneration;
             if (rebuild)
+            {
                 _linesDirty = false;
+                _lastMeshGeneration = _session.Evaluator.MeshGeneration;
+            }
 
             _gpu.Render(_session, _camera, framebuffer, w, h, rebuild);
             _glError = null;
