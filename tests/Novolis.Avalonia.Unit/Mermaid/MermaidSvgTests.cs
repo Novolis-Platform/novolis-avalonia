@@ -49,4 +49,41 @@ public class MermaidSvgTests
         await Assert.That(control.Svg).IsNotNull();
         await Assert.That(control.Svg!).Contains("<svg");
     }
+
+    [Test]
+    public async Task TryRenderSvg_NullOrBlank_ReturnsNull()
+    {
+        await Assert.That(MermaidSvg.TryRenderSvg(null)).IsNull();
+        await Assert.That(MermaidSvg.TryRenderSvg("   ")).IsNull();
+    }
+
+    [Test]
+    public async Task TryRenderSvg_InvalidSource_ReturnsNull()
+    {
+        await Assert.That(MermaidSvg.TryRenderSvg("this is not mermaid")).IsNull();
+    }
+
+    [Test]
+    public async Task RenderFallbackPre_EscapesHtml()
+    {
+        var html = MermaidSvg.RenderFallbackPre("<script>alert(1)</script>");
+        await Assert.That(html.Contains("<script>", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(html.Contains("mermaid-source", StringComparison.Ordinal)).IsTrue();
+    }
+
+    [Test]
+    public async Task OptionsFor_GitHubLight_SetsLightPalette()
+    {
+        var opts = MermaidSvg.OptionsFor(MermaidTheme.GitHubLight);
+        await Assert.That(opts.Bg).IsEqualTo("#ffffff");
+        await Assert.That(opts.Accent).IsEqualTo("#0969da");
+    }
+
+    [Test]
+    public async Task OptionsFor_StudioDark_SetsDarkPalette()
+    {
+        var opts = MermaidSvg.OptionsFor(MermaidTheme.StudioDark);
+        await Assert.That(opts.Bg).IsEqualTo("#1e1e1e");
+        await Assert.That(opts.Accent).IsEqualTo("#6eb5ff");
+    }
 }
