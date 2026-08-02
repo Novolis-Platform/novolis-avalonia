@@ -4,9 +4,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Novolis.Media.Rtc;
+using Novolis.Video.Rtc;
 
-namespace Novolis.Avalonia.Media;
+namespace Novolis.Avalonia.Video;
 
 /// <summary>Displays <see cref="VideoFrame"/> samples on a <see cref="WriteableBitmap"/>.</summary>
 public sealed class VideoSurface : Control

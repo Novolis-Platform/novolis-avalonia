@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Novolis.Avalonia.Media</PackageId>
+    <PackageId>Novolis.Avalonia.Video</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Avalonia VideoSurface control for Novolis.Media.Rtc video frames.</Description>
-    <RootNamespace>Novolis.Avalonia.Media</RootNamespace>
+    <Description>Avalonia VideoSurface control for Novolis.Video.Rtc video frames.</Description>
+    <RootNamespace>Novolis.Avalonia.Video</RootNamespace>
     <TargetFramework>net10.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Media.Rtc.Abstractions" />
+    <PackageReference Include="Novolis.Video.Rtc.Abstractions" />
   </ItemGroup>
 </Project>
