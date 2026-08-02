@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Audio.Voice.Abstractions" />
     <PackageReference Include="Novolis.Audio.Voice.Design" />
     <PackageReference Include="Novolis.Audio.Voice.Platform.Abstractions" />
     <PackageReference Include="Novolis.Audio.Voice.Kokoro" />

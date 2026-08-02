@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Timeline.Abstractions" />
     <PackageReference Include="Novolis.Timeline.Presentation" />
   </ItemGroup>
 </Project>
