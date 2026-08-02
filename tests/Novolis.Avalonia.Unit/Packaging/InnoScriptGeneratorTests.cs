@@ -52,7 +52,7 @@ public class InnoScriptGeneratorTests
         await Assert.That(script).Contains("AppUpdatesURL=https://github.com/Novolis-Platform/novolis-apps/releases");
         await Assert.That(script).Contains("VersionInfoVersion=2026.1.0.42");
         await Assert.That(script).Contains("VersionInfoCompany=Novolis");
-        await Assert.That(script).Contains("VersionInfoProduct=Manuscript Studio");
+        await Assert.That(script).Contains("VersionInfoProductName=Manuscript Studio");
         await Assert.That(script).Contains("VersionInfoCopyright=Copyright (c) Novolis");
         await Assert.That(script).Contains("VersionInfoDescription=Manuscript Studio - Novolis");
         await Assert.That(script).Contains(@"SetupIconFile=C:\brand\icon.ico");

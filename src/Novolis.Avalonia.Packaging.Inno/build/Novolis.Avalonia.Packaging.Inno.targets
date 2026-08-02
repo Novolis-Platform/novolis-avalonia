@@ -44,7 +44,7 @@
       <_NovolisInnoScriptLines Include="AppCopyright=$(NovolisInnoAppCopyright)" />
       <_NovolisInnoScriptLines Include="VersionInfoVersion=$(NovolisInnoAppVersion)" />
       <_NovolisInnoScriptLines Include="VersionInfoCompany=$(NovolisInnoVersionInfoCompany)" />
-      <_NovolisInnoScriptLines Include="VersionInfoProduct=$(NovolisInnoAppName)" />
+      <_NovolisInnoScriptLines Include="VersionInfoProductName=$(NovolisInnoAppName)" />
       <_NovolisInnoScriptLines Include="VersionInfoCopyright=$(NovolisInnoAppCopyright)" />
       <_NovolisInnoScriptLines Include="VersionInfoDescription=$(NovolisInnoVersionInfoDescription)" />
       <_NovolisInnoScriptLines Include="DefaultDirName={localappdata}\Programs\$(NovolisInnoInstallDirName)" />

@@ -97,7 +97,7 @@ public sealed class InnoScriptGenerator
         sb.AppendLine($"AppCopyright={AppCopyright}");
         sb.AppendLine($"VersionInfoVersion={AppVersion}");
         sb.AppendLine($"VersionInfoCompany={VersionInfoCompany}");
-        sb.AppendLine($"VersionInfoProduct={AppName}");
+        sb.AppendLine($"VersionInfoProductName={AppName}");
         sb.AppendLine($"VersionInfoCopyright={AppCopyright}");
         sb.AppendLine($"VersionInfoDescription={description}");
         sb.AppendLine($"DefaultDirName={{localappdata}}\\Programs\\{InstallDirName}");
