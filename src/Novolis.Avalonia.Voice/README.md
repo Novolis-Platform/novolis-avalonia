@@ -51,4 +51,4 @@ Set `VoicePreviewController.PlatformPreviewFactory` when using `VoiceSynthesizer
 |---------------|-------|
 | [`Novolis.Avalonia.Studio`](../Novolis.Avalonia.Studio/README.md) | `StudioChrome`, `StudioFeedback` |
 | [`Novolis.Audio.Voice.Design`](../../../novolis-audio/src/Novolis.Audio.Voice.Design/README.md) | `VoicePresetDraft`, validation, code emitter |
-| [NovolisVoiceStudio](../../../novolis-dogfooding/apps/audio/NovolisVoiceStudio) | Full voice preset desk |
+| [NovolisVoiceStudio](../../../novolis-dogfooding/apps/audio/NovolisVoiceStudio) | Full voice preset studio |

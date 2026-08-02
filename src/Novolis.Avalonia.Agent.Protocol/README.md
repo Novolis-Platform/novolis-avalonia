@@ -1,6 +1,6 @@
 # Novolis.Avalonia.Agent.Protocol
 
-MessagePack DTOs, LocalIpc framing helpers, and `UiAgentClient` for the Avalonia UI agent RPC protocol (`ui.hello`, `ui.tree`, `ui.screenshot`, `ui.click`, `ui.type`, `ui.select`, `ui.wait`).
+MessagePack DTOs, LocalIpc framing helpers, and `UiAgentClient` for the Avalonia UI agent RPC protocol (`ui.hello`, `ui.tree`, `ui.screenshot`, `ui.click`, `ui.type`, `ui.select`, `ui.focus`, `ui.scroll`, `ui.wait`, …).
 
 ## Install
 
@@ -35,15 +35,17 @@ var shot = await client.ScreenshotAsync(maxWidth: 1280);
 | `UiAgentClient.HelloAsync()` | Handshake; returns `UiHelloResponseDto` |
 | `UiAgentClient.TreeAsync(interactiveOnly)` | Accessibility/control tree |
 | `UiAgentClient.ScreenshotAsync(controlId?, maxWidth?)` | PNG screenshot |
-| `UiAgentClient.ClickAsync(controlId?, x?, y?)` | Click by id or coordinates |
+| `UiAgentClient.ClickAsync(controlId?, x?, y?, button?, clickCount)` | Click by id or coordinates |
 | `UiAgentClient.TypeAsync(controlId?, text?, keys?, clear)` | Type text or key chords |
 | `UiAgentClient.SelectAsync(controlId, index?, itemText?)` | List/combo selection |
+| `UiAgentClient.FocusAsync(controlId)` | Focus a control |
+| `UiAgentClient.ScrollAsync(controlId?, deltaX?, deltaY?, bringIntoView)` | Scroll / bring into view |
 | `UiAgentClient.WaitAsync(controlId, enabled?, textContains?, timeoutMs)` | Wait for control state |
 | `UiAgentClient.GetAsync(controlIds)` | Batch read control state |
 | `UiAgentClient.ItemsAsync(controlId)` | List items for list/combo controls |
 | `UiTransportEndpoints.CreateDefault()` | Platform default pipe/socket endpoint |
 | `UiProtocolCodec.Serialize<T>` / `Deserialize<T>` | MessagePack codec |
-| `UiProtocolVersion.Current` | Protocol version string (`"1.1"`) |
+| `UiProtocolVersion.Current` | Protocol version string (`"1.2"`) |
 | `UiRpcMethodNames.*` | RPC method constants (`ui.hello`, `ui.tree`, …) |
 | `AgentRoleNames.*` | Semantic roles (`button`, `textbox`, `listbox`, …) |
 | `AgentIdAttribute` | Marks controls with stable agent ids |

@@ -38,7 +38,7 @@ public sealed class InnoScriptGenerator
     /// <summary>Canonical user-facing URL — the GitHub organization.</summary>
     public string AppPublisherUrl { get; init; } = "https://github.com/Novolis-Platform";
 
-    /// <summary>Support URL (issues, help desk).</summary>
+    /// <summary>Support URL (issues, support).</summary>
     public string? AppSupportUrl { get; init; }
 
     /// <summary>Update/download URL for new releases.</summary>

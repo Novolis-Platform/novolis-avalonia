@@ -11,4 +11,6 @@ public static class UiRpcMethodNames
     public const string Wait = "ui.wait";
     public const string Get = "ui.get";
     public const string Items = "ui.items";
+    public const string Focus = "ui.focus";
+    public const string Scroll = "ui.scroll";
 }

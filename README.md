@@ -9,6 +9,7 @@ Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (pa
 | [`Novolis.Avalonia.Layout`](src/Novolis.Avalonia.Layout/README.md) | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
 | [`Novolis.Avalonia.Controls`](src/Novolis.Avalonia.Controls/README.md) | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `SketchControl` |
 | [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
+| [`Novolis.Avalonia.Gaming`](src/Novolis.Avalonia.Gaming/README.md) | Game shell: HUD + modal menus over Silk/TwoD viewport (`HardPause` default) |
 | [`Novolis.Avalonia.Raylib`](src/Novolis.Avalonia.Raylib/README.md) | `RaylibHostControl` (embedded Raylib viewport) |
 | [`Novolis.Avalonia.Live`](src/Novolis.Avalonia.Live/README.md) | Live editor, DSL completion/compiler, visualizers, transport panels |
 | [`Novolis.Avalonia.Markdown`](src/Novolis.Avalonia.Markdown/README.md) | Markdown editor, live HTML preview, split-pane studio controls |

@@ -193,6 +193,19 @@ public sealed class AgentHost : IAsyncDisposable
                         AgentQuery.Items(_window, UiProtocolCodec.Deserialize<UiItemsRequestDto>(frame.Payload)))
                     .ConfigureAwait(false)).ConfigureAwait(false);
                 break;
+            case UiRpcMethodNames.Focus:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        AgentInput.Focus(_window, UiProtocolCodec.Deserialize<UiFocusRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            case UiRpcMethodNames.Scroll:
+                await ReplyAsync(connection, frame, await OnUiAsync(() =>
+                        AgentInput.Scroll(_window, UiProtocolCodec.Deserialize<UiScrollRequestDto>(frame.Payload)))
+                    .ConfigureAwait(false)).ConfigureAwait(false);
+                break;
+            default:
+                await ReplyFaultAsync(connection, frame, $"Unknown method '{frame.Name}'.").ConfigureAwait(false);
+                break;
         }
     }
 
@@ -210,6 +223,8 @@ public sealed class AgentHost : IAsyncDisposable
             UiRpcMethodNames.Wait => new UiWaitResponseDto(0, false, error, true),
             UiRpcMethodNames.Get => new UiGetResponseDto(0, false, error, Array.Empty<UiControlStateDto>(), null, 0),
             UiRpcMethodNames.Items => new UiItemsResponseDto(0, false, error, "", null, null, Array.Empty<UiItemDto>()),
+            UiRpcMethodNames.Focus => new UiFocusResponseDto(0, false, error, null),
+            UiRpcMethodNames.Scroll => new UiScrollResponseDto(0, false, error, null, null),
             _ => new UiHelloResponseDto(0, false, error, UiProtocolVersion.Current, null, 0),
         };
         await ReplyAsync(connection, frame, payload).ConfigureAwait(false);

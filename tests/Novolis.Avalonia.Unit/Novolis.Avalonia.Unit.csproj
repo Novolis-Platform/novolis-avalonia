@@ -7,6 +7,7 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Cad.Primitives" />
+    <PackageReference Include="Novolis.Modeling.Scene" />
     <PackageReference Include="Novolis.Markup.Mermaid" />
     <PackageReference Include="Novolis.Timeline.Abstractions" />
     <PackageReference Include="Novolis.Timeline.Presentation" />
@@ -14,6 +15,7 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Gaming\Novolis.Avalonia.Gaming.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Packaging.Inno\Novolis.Avalonia.Packaging.Inno.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Markdown\Novolis.Avalonia.Markdown.csproj" />

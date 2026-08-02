@@ -54,4 +54,4 @@ map.SetShipMarker(0, 0, visible: true);
 | App | Notes |
 |-----|-------|
 | [StarMapLab](../../../novolis-dogfooding/apps/astro/StarMapLab) | Interactive star-map lab |
-| [SinsOfACapitalismTycoon](../../../novolis-apps/src/SinsOfACapitalismTycoon) | Desk map projection over `StarMapControl` |
+| [SinsOfACapitalismTycoon](../../../novolis-apps/src/SinsOfACapitalismTycoon) | Bridge map projection over `StarMapControl` |

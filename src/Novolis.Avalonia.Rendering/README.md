@@ -14,18 +14,35 @@ dotnet add package Novolis.Avalonia.Rendering
 
 ```csharp
 using Novolis.Avalonia.Rendering;
+using Novolis.Rendering.Presentation;
 using Novolis.Rendering.TwoD;
 
 var view = new TwoDSceneControl { Scene = new TwoDScene() };
-view.FrameUpdating += (_, e) => { /* game logic */ };
+view.FrameUpdating += (_, e) =>
+{
+    // Poll-style (Silk-like): edge-triggered in framebuffer pixels
+    if (view.IsMouseButtonPressed(MouseButton.Left))
+        HitTest(view.MousePixelPosition);
+};
+view.ScenePointerPressed += (_, e) =>
+{
+    // Event-style: e.PixelX/Y already DPI-scaled to the GL framebuffer
+    if (e.Button == MouseButton.Left && e.IsInside)
+        HitTest(new(e.PixelX, e.PixelY));
+};
+
+// OpenGlControlBase needs ICustomHitTest (implemented) or pointer events never arrive.
+// Agents can also inject: view.InjectPointerPressed(px, py);
 ```
 
 ## Controls
 
 | Control | Hosts | Use when |
 |---------|-------|----------|
-| `TwoDSceneControl` | `Novolis.Rendering.TwoD` + Silk OpenGL | Platformers, RTS orthographic UI, HUD/menus |
+| `TwoDSceneControl` | `Novolis.Rendering.TwoD` + Silk OpenGL | World / map / sprite viewport |
 | `Rgba32FrameControl` | CPU `Rgba32` buffer (`IFramePresenter`) | Path tracing preview, software ray trace |
+
+For Avalonia menus and HUD **over** the Silk surface (pause, encyclopedia, status strips), use **`Novolis.Avalonia.Gaming`** (`GameShell`) instead of drawing interactive chrome into `TwoDScene`.
 
 ## TwoD scene (OpenGL)
 
@@ -58,3 +75,4 @@ frame.PresentCpuFrame(pixels, width, height);
 - References **Rendering** packages only — not Simulation, Physics, or Raylib.
 - Apps wire simulation → scene or `PresentCpuFrame` at compose time.
 - For Raylib inside Avalonia, use **`Novolis.Avalonia.Raylib`** (`RaylibHostControl`).
+- For interactive HUD/menus over TwoD, use **`Novolis.Avalonia.Gaming`** (`GameShell`).

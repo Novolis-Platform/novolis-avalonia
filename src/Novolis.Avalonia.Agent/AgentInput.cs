@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Novolis.Avalonia.Agent.Protocol.Dto;
 
 namespace Novolis.Avalonia.Agent;
@@ -35,23 +37,82 @@ internal static class AgentInput
         if (!target.IsEnabled)
             return new UiClickResponseDto(request.RequestId, false, "Control is disabled.", clickedId);
 
-        switch (target)
+        var button = NormalizeButton(request.Button);
+        var clickCount = request.ClickCount <= 0 ? 1 : request.ClickCount;
+
+        if (button == "right")
         {
-            case CheckBox check:
-                check.IsChecked = !(check.IsChecked ?? false);
-                break;
-            case ToggleButton toggle:
-                toggle.IsChecked = !(toggle.IsChecked ?? false);
-                break;
-            case Button button:
-                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                break;
-            default:
-                target.Focus();
-                break;
+            target.Focus();
+            target.RaiseEvent(new ContextRequestedEventArgs());
+            return new UiClickResponseDto(request.RequestId, true, null, clickedId);
         }
 
+        if (button == "middle")
+        {
+            target.Focus();
+            return new UiClickResponseDto(request.RequestId, true, null, clickedId);
+        }
+
+        for (var i = 0; i < clickCount; i++)
+            InvokePrimaryClick(target);
+
         return new UiClickResponseDto(request.RequestId, true, null, clickedId);
+    }
+
+    public static UiFocusResponseDto Focus(Window window, UiFocusRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ControlId))
+            return new UiFocusResponseDto(request.RequestId, false, "ControlId is required.", null);
+
+        var target = AgentTreeWalker.FindById(window, request.ControlId);
+        if (target is null)
+            return new UiFocusResponseDto(request.RequestId, false, $"Control not found: {request.ControlId}", null);
+
+        if (!target.IsEnabled)
+            return new UiFocusResponseDto(request.RequestId, false, "Control is disabled.", request.ControlId);
+
+        var focused = target.Focus();
+        return focused
+            ? new UiFocusResponseDto(request.RequestId, true, null, request.ControlId)
+            : new UiFocusResponseDto(request.RequestId, false, "Focus() returned false.", request.ControlId);
+    }
+
+    public static UiScrollResponseDto Scroll(Window window, UiScrollRequestDto request)
+    {
+        Control? target;
+        if (!string.IsNullOrWhiteSpace(request.ControlId))
+        {
+            target = AgentTreeWalker.FindById(window, request.ControlId);
+            if (target is null)
+                return new UiScrollResponseDto(request.RequestId, false, $"Control not found: {request.ControlId}", null, null);
+        }
+        else
+        {
+            target = window;
+        }
+
+        if (request.BringIntoView)
+        {
+            target.BringIntoView();
+            var viewer = FindScrollViewer(target);
+            return new UiScrollResponseDto(
+                request.RequestId, true, null,
+                viewer?.Offset.X, viewer?.Offset.Y);
+        }
+
+        var scrollViewer = FindScrollViewer(target);
+        if (scrollViewer is null)
+            return new UiScrollResponseDto(request.RequestId, false, "No ScrollViewer found for target.", null, null);
+
+        var dx = request.DeltaX ?? 0;
+        var dy = request.DeltaY ?? 0;
+        if (dx == 0 && dy == 0)
+            return new UiScrollResponseDto(request.RequestId, false, "Provide DeltaX/DeltaY or BringIntoView.", null, null);
+
+        scrollViewer.Offset = new Vector(scrollViewer.Offset.X + dx, scrollViewer.Offset.Y + dy);
+        return new UiScrollResponseDto(
+            request.RequestId, true, null,
+            scrollViewer.Offset.X, scrollViewer.Offset.Y);
     }
 
     public static UiSelectResponseDto Select(Window window, UiSelectRequestDto request)
@@ -138,6 +199,43 @@ internal static class AgentInput
         }
 
         return new UiTypeResponseDto(request.RequestId, true, null);
+    }
+
+    private static void InvokePrimaryClick(Control target)
+    {
+        switch (target)
+        {
+            case CheckBox check:
+                check.IsChecked = !(check.IsChecked ?? false);
+                break;
+            case ToggleButton toggle:
+                toggle.IsChecked = !(toggle.IsChecked ?? false);
+                break;
+            case Button button:
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                break;
+            case MenuItem menu:
+                menu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                break;
+            default:
+                target.Focus();
+                break;
+        }
+    }
+
+    private static ScrollViewer? FindScrollViewer(Control control) =>
+        control as ScrollViewer ?? control.FindAncestorOfType<ScrollViewer>();
+
+    private static string NormalizeButton(string? button)
+    {
+        if (string.IsNullOrWhiteSpace(button))
+            return "left";
+        return button.Trim().ToLowerInvariant() switch
+        {
+            "right" or "context" or "secondary" => "right",
+            "middle" or "center" or "wheel" => "middle",
+            _ => "left",
+        };
     }
 
     private static UiSelectResponseDto SelectSelectingItemsControl(

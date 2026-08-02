@@ -54,10 +54,12 @@ public sealed class UiAgentClient : IAsyncDisposable
         string? controlId = null,
         double? x = null,
         double? y = null,
+        string? button = null,
+        int clickCount = 1,
         CancellationToken cancellationToken = default)
     {
         var connection = EnsureConnection();
-        var request = new UiClickRequestDto(++_sequence, controlId, x, y);
+        var request = new UiClickRequestDto(++_sequence, controlId, x, y, button, clickCount);
         await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Click, request, cancellationToken)
             .ConfigureAwait(false);
         return await ReadResponseAsync<UiClickResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
@@ -124,6 +126,31 @@ public sealed class UiAgentClient : IAsyncDisposable
         await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Items, request, cancellationToken)
             .ConfigureAwait(false);
         return await ReadResponseAsync<UiItemsResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<UiFocusResponseDto> FocusAsync(
+        string controlId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = EnsureConnection();
+        var request = new UiFocusRequestDto(++_sequence, controlId);
+        await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Focus, request, cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadResponseAsync<UiFocusResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<UiScrollResponseDto> ScrollAsync(
+        string? controlId = null,
+        double? deltaX = null,
+        double? deltaY = null,
+        bool bringIntoView = false,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = EnsureConnection();
+        var request = new UiScrollRequestDto(++_sequence, controlId, deltaX, deltaY, bringIntoView);
+        await connection.SendMessageAsync(_sequence, UiRpcMessageKinds.Request, UiRpcMethodNames.Scroll, request, cancellationToken)
+            .ConfigureAwait(false);
+        return await ReadResponseAsync<UiScrollResponseDto>(connection, _sequence, cancellationToken).ConfigureAwait(false);
     }
 
     private ILocalIpcConnection EnsureConnection() =>

@@ -13,4 +13,7 @@
     <PackageReference Include="Novolis.Transports.LocalIpc" />
     <ProjectReference Include="..\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Novolis.Avalonia.Unit" />
+  </ItemGroup>
 </Project>
