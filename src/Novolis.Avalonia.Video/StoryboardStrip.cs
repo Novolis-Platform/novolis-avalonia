@@ -13,18 +13,24 @@ public sealed class StoryboardStrip : Control
     TimeSpan _playhead;
     Guid? _selectedClipId;
 
+    /// <summary>Identifies the <see cref="PixelsPerSecond"/> property.</summary>
     public static readonly StyledProperty<double> PixelsPerSecondProperty =
         AvaloniaProperty.Register<StoryboardStrip, double>(nameof(PixelsPerSecond), 48);
 
+    /// <summary>Horizontal scale of the storyboard.</summary>
     public double PixelsPerSecond
     {
         get => GetValue(PixelsPerSecondProperty);
         set => SetValue(PixelsPerSecondProperty, value);
     }
 
+    /// <summary>Raised when the user clicks a time on the strip.</summary>
     public event Action<TimeSpan>? SeekRequested;
+
+    /// <summary>Raised when a clip under the click is selected.</summary>
     public event Action<Guid>? ClipSelected;
 
+    /// <summary>Binds the strip to a project model.</summary>
     public void Bind(MovieProject project)
     {
         _project = project ?? throw new ArgumentNullException(nameof(project));
@@ -32,26 +38,34 @@ public sealed class StoryboardStrip : Control
         InvalidateMeasure();
     }
 
+    /// <summary>Updates the drawn playhead.</summary>
     public void SetPlayhead(TimeSpan position)
     {
         _playhead = position;
         InvalidateVisual();
     }
 
+    /// <summary>Highlights the selected clip, if any.</summary>
     public void SetSelectedClip(Guid? clipId)
     {
         _selectedClipId = clipId;
         InvalidateVisual();
     }
 
+    /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
     {
+        // ScrollViewer often passes Infinity; never return non-finite sizes to Avalonia.
         var duration = _project is null ? TimeSpan.FromSeconds(10) : StoryboardQuery.TotalDuration(_project);
         var seconds = Math.Max(10, duration.TotalSeconds + 2);
-        var width = Math.Max(availableSize.Width, seconds * PixelsPerSecond);
+        var contentWidth = seconds * PixelsPerSecond;
+        var width = double.IsFinite(availableSize.Width)
+            ? Math.Max(availableSize.Width, contentWidth)
+            : contentWidth;
         return new Size(width, 72);
     }
 
+    /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
@@ -71,6 +85,7 @@ public sealed class StoryboardStrip : Control
         }
     }
 
+    /// <inheritdoc />
     public override void Render(DrawingContext context)
     {
         base.Render(context);

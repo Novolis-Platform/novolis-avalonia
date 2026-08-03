@@ -1,6 +1,6 @@
 # Novolis.Avalonia.Video
 
-Avalonia controls for realtime media frames and a minimal Movie Maker–style preview/storyboard.
+Avalonia controls for realtime media frames and reusable Movie Maker–style edit chrome.
 
 ## Install
 
@@ -15,19 +15,26 @@ var surface = new VideoSurface();
 surface.Present(frame); // Novolis.Video.Rtc.VideoFrame
 ```
 
-## Quick start — storyboard preview
+## Quick start — full edit workspace
 
 ```csharp
 var project = new MovieProject("Demo");
-var transport = new EditTransport();
-var composer = new MoviePreviewComposer();
-var surface = new VideoSurface();
-var strip = new StoryboardStrip();
-strip.Bind(project);
-
-using var session = new MoviePreviewSession(project, transport, composer, surface, strip);
-session.Start();
+using var workspace = new MovieEditWorkspace(project);
+window.Content = workspace;
 ```
+
+## Reusable parts
+
+| Control | Role |
+|---------|------|
+| `MovieEditWorkspace` | Full tasks / collections / monitor / storyboard shell |
+| `MovieEditTasksPane` | Task button column (events) |
+| `MediaCollectionsControl` | Asset collections list |
+| `MovieMonitorControl` | `VideoSurface` + `EditTransportBar` |
+| `StoryboardPane` / `StoryboardStrip` | Scrollable storyboard |
+| `EditTransportBar` | Rewind / play-pause |
+| `MovieEditPane` | Titled panel chrome |
+| `MoviePreviewSession` | Transport → composer → surface loop |
 
 ## Related
 

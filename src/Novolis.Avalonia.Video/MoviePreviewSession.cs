@@ -14,6 +14,7 @@ public sealed class MoviePreviewSession : IDisposable
     readonly DispatcherTimer _timer;
     bool _disposed;
 
+    /// <summary>Creates a preview loop for the given project and surface.</summary>
     public MoviePreviewSession(
         MovieProject project,
         EditTransport transport,
@@ -33,12 +34,16 @@ public sealed class MoviePreviewSession : IDisposable
         Present();
     }
 
+    /// <summary>Gets the bound transport.</summary>
     public EditTransport Transport => _transport;
 
+    /// <summary>Starts the ~30 FPS preview timer.</summary>
     public void Start() => _timer.Start();
 
+    /// <summary>Stops the preview timer.</summary>
     public void Stop() => _timer.Stop();
 
+    /// <summary>Forces a frame present at the current playhead.</summary>
     public void Refresh() => Present();
 
     void OnTick(object? sender, EventArgs e)
@@ -57,6 +62,7 @@ public sealed class MoviePreviewSession : IDisposable
         _storyboard?.SetPlayhead(_transport.Position);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

@@ -8,6 +8,7 @@ namespace Novolis.Avalonia.Video;
 /// <summary>Loads still images into BGRA32 <see cref="VideoFrame"/> for edit preview.</summary>
 public static class AvaloniaStillLoader
 {
+    /// <summary>Decodes <paramref name="path"/> and scales into a BGRA32 frame.</summary>
     public static VideoFrame LoadBgra(string path, int targetWidth, int targetHeight)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
