@@ -36,7 +36,7 @@ public sealed class ScoreStaffControl : Control
             return;
 
         var width = Bounds.Width > 0 ? Bounds.Width : 760;
-        context.FillRectangle(Brushes.WhiteSmoke, new Rect(0, 0, width, Bounds.Height));
+        context.FillRectangle(new SolidColorBrush(Color.FromRgb(28, 32, 38)), new Rect(0, 0, width, Bounds.Height));
 
         const int barsPerSystem = 4;
         for (var bar = 0; bar < _score.BarCount; bar += barsPerSystem)
@@ -56,8 +56,10 @@ public sealed class ScoreStaffControl : Control
         const double spacing = 8;
         var bars = Math.Max(1, barEnd - barStart);
         var beatWidth = (right - left) / (bars * score.BeatsPerBar);
-        var pen = new Pen(Brushes.Black, 1.1);
-        var thick = new Pen(Brushes.Black, 1.5);
+        var lineBrush = new SolidColorBrush(Color.FromRgb(200, 210, 220));
+        var pen = new Pen(lineBrush, 1.1);
+        var thick = new Pen(lineBrush, 1.5);
+        var dim = new SolidColorBrush(Color.FromRgb(140, 150, 165));
 
         void Staff(double top)
         {
@@ -88,17 +90,17 @@ public sealed class ScoreStaffControl : Control
                     FlowDirection.LeftToRight,
                     new Typeface("Segoe UI"),
                     10,
-                    Brushes.DimGray),
+                    dim),
                 new Point(x, yOffset + trebleTop - 14));
         }
 
         context.DrawText(
             new FormattedText("G", System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                new Typeface("Segoe UI Semibold"), 14, Brushes.Black),
+                new Typeface("Segoe UI Semibold"), 14, lineBrush),
             new Point(12, yOffset + trebleTop + 8));
         context.DrawText(
             new FormattedText("F", System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                new Typeface("Segoe UI Semibold"), 14, Brushes.Black),
+                new Typeface("Segoe UI Semibold"), 14, lineBrush),
             new Point(12, yOffset + bassTop + 8));
 
         var startBeat = barStart * score.BeatsPerBar;
@@ -111,9 +113,12 @@ public sealed class ScoreStaffControl : Control
             var staffTop = bass ? bassTop : trebleTop;
             var steps = StaffYSteps(note.MidiNumber, bass);
             var y = yOffset + staffTop + steps * (spacing / 2);
-            context.DrawEllipse(Brushes.Black, null, new Rect(x, y - 3.5, 10, 7));
+            var track = score.FindTrack(note.TrackId);
+            var (r, g, b) = ScoreTrackColors.Rgb(track?.ColorIndex ?? 0);
+            var noteBrush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            context.DrawEllipse(noteBrush, null, new Rect(x, y - 3.5, 10, 7));
             if (ScoreNotation.NoteValue(note.DurationBeats) != ScoreNoteValue.Whole)
-                context.DrawLine(pen, new Point(x + 10, y), new Point(x + 10, y - 18));
+                context.DrawLine(new Pen(noteBrush, 1.2), new Point(x + 10, y), new Point(x + 10, y - 18));
         }
     }
 

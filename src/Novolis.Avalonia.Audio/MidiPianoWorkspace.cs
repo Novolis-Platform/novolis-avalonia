@@ -4,43 +4,82 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Novolis.Audio.Core;
 using Novolis.Audio.Edit;
 using Novolis.Audio.Midi;
+using Novolis.Audio.MusicTheory;
 
 namespace Novolis.Avalonia.Audio;
 
 /// <summary>
-/// MIDI piano + full score workspace: grand staff, piano-roll, instrument bank, QuestPDF export.
+/// Holistic piano-score studio: transport, multi-track roll, BPM, playhead, ZX keyboard.
 /// </summary>
 public sealed class MidiPianoWorkspace : Border, IDisposable
 {
-    static readonly (Key Key, int MidiOffset)[] ComputerKeys =
-    [
-        (Key.A, 0), (Key.W, 1), (Key.S, 2), (Key.E, 3), (Key.D, 4),
-        (Key.F, 5), (Key.T, 6), (Key.G, 7), (Key.Y, 8), (Key.H, 9),
-        (Key.U, 10), (Key.J, 11), (Key.K, 12),
-    ];
-
     readonly TextBlock _title = new()
     {
-        FontSize = 22,
+        FontSize = 20,
         FontFamily = new FontFamily("Segoe UI Semibold"),
         Foreground = Brushes.White,
-        Text = "MIDI Piano",
+        Text = "Piano Score",
     };
-    readonly TextBlock _status = new() { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap };
-    readonly TextBlock _patchLabel = new() { Foreground = AudioEditPalette.Amber };
+    readonly TextBlock _hint = new()
+    {
+        FontSize = 11,
+        Foreground = new SolidColorBrush(Color.FromRgb(160, 170, 185)),
+        Text = "Space play · R record · [ ] octave · ZXCVBNM+SDGHJ · QWERTYU+23567 upper",
+    };
+    readonly StackPanel _meters = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    readonly StackPanel _trackStrip = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+    readonly TextBlock _toast = new()
+    {
+        FontSize = 12,
+        Foreground = AudioEditPalette.Amber,
+        TextWrapping = TextWrapping.NoWrap,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+    readonly NumericUpDown _bpmBox = new()
+    {
+        Minimum = 40,
+        Maximum = 240,
+        Increment = 1,
+        Width = 72,
+        FormatString = "0",
+        Background = AudioEditPalette.Pane,
+        Foreground = Brushes.White,
+        BorderBrush = AudioEditPalette.Border,
+    };
+    readonly NumericUpDown _meterBox = new()
+    {
+        Minimum = 1,
+        Maximum = 16,
+        Increment = 1,
+        Width = 56,
+        FormatString = "0",
+        Background = AudioEditPalette.Pane,
+        Foreground = Brushes.White,
+        BorderBrush = AudioEditPalette.Border,
+    };
+    readonly Button _playBtn;
+    readonly Button _recordBtn;
+    readonly Border _scoreHost;
+    readonly DispatcherTimer _playTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     readonly Lazy<MidiPreviewMixer> _mixer = new(() => new MidiPreviewMixer());
     readonly InstrumentBrowserControl _browser = new();
     readonly PianoKeyboardControl _keyboard = new() { LowestMidi = 48, WhiteKeyCount = 21 };
     readonly PianoRollControl _roll = new();
     readonly ScoreStaffControl _staff = new();
     readonly HashSet<Key> _keysDown = [];
+    DateTimeOffset _playStarted;
+    double _playStartBeat;
+    double _playLengthBeats;
     int _octaveOffset;
+    bool _scoreVisible = true;
     bool _disposed;
+    bool _suppressMeterEvents;
+    ChordQuality _paintQuality = ChordQuality.MajorSeventh;
 
-    /// <summary>Creates a piano workspace. Optional <paramref name="musicProject"/> receives bounced WAV assets.</summary>
     public MidiPianoWorkspace(MidiPianoSession? session = null, MusicProject? musicProject = null)
     {
         MusicProject = musicProject;
@@ -48,11 +87,34 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             format: musicProject?.Format ?? new PcmFormat(44_100, Channels: 1, PcmSampleFormat.Int16));
         Focusable = true;
 
+        _playBtn = MakePrimaryButton("▶  Play", PlayScoreAsync);
+        _recordBtn = MakeToolButton("●  Record", ToggleRecordAsync);
+        _bpmBox.Value = (decimal)Session.Score.TempoBpm;
+        _meterBox.Value = Session.Score.BeatsPerBar;
+        _bpmBox.ValueChanged += (_, e) =>
+        {
+            if (_suppressMeterEvents || e.NewValue is null)
+                return;
+            Session.SetTempoBpm((double)e.NewValue.Value);
+            Toast($"Tempo {Session.Score.TempoBpm:0} BPM");
+        };
+        _meterBox.ValueChanged += (_, e) =>
+        {
+            if (_suppressMeterEvents || e.NewValue is null)
+                return;
+            Session.Score.SetMeter((int)e.NewValue.Value, Session.Score.BeatUnit);
+            _roll.InvalidateMeasure();
+            _roll.InvalidateVisual();
+            RefreshChrome();
+            Toast($"Meter {Session.Score.BeatsPerBar}/{Session.Score.BeatUnit}");
+        };
+        _playTimer.Tick += OnPlayTimerTick;
+
         _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
         _browser.PatchSelected += patch =>
         {
             Session.SelectPatch(patch);
-            RefreshStatus();
+            RefreshChrome();
         };
         _keyboard.NoteOn += OnKeyboardNoteOn;
         _keyboard.NoteOff += OnKeyboardNoteOff;
@@ -62,34 +124,46 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         {
             Session.SelectNote(id);
             _roll.SetSelected(id);
-            RefreshStatus();
+            RefreshChrome();
         };
         _roll.PreviewNote += midi =>
         {
             try { _mixer.Value.Play(MidiSynth.RenderNote(Session.Format, Session.SelectedPatch, midi, TimeSpan.FromMilliseconds(280))); }
-            catch { /* ignore preview failures */ }
+            catch { /* ignore */ }
         };
-        _roll.ScoreEdited += RefreshStatus;
+        _roll.ScoreEdited += RefreshChrome;
         Session.Changed += () =>
         {
             _keyboard.SetPressed(Session.HeldMidiNumbers);
             _roll.SetSelected(Session.SelectedNoteId);
-            RefreshStatus();
+            RefreshChrome();
+        };
+
+        _scoreHost = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(32, 36, 42)),
+            BorderBrush = AudioEditPalette.Border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4),
+            Child = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                MaxHeight = 140,
+                Content = _staff,
+            },
         };
 
         Background = AudioEditPalette.Pane;
         Child = BuildLayout();
-        RefreshStatus();
+        RefreshChrome();
         AttachedToVisualTree += (_, _) => Focus();
     }
 
-    /// <summary>Piano session state.</summary>
     public MidiPianoSession Session { get; }
-
-    /// <summary>Optional arrangement project to receive bounced takes.</summary>
     public MusicProject? MusicProject { get; }
 
-    /// <summary>Header title override.</summary>
     public string HeaderTitle
     {
         get => _title.Text ?? "";
@@ -99,68 +173,69 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Delete || e.Key == Key.Back)
+        if (e.Key == Key.Space)
         {
-            if (Session.SelectedNoteId is { } id && Session.Score.Remove(id))
-            {
-                Session.SelectNote(null);
-                _roll.SetSelected(null);
-                RefreshStatus();
-            }
-
+            _ = PlayScoreAsync();
             e.Handled = true;
             return;
         }
 
-        if (e.Key == Key.Z)
+        if (e.Key == Key.R && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            _ = ToggleRecordAsync();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.Delete or Key.Back)
+        {
+            DeleteSelected();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.OemOpenBrackets)
         {
             _octaveOffset = Math.Max(-24, _octaveOffset - 12);
-            RefreshStatus();
+            RefreshChrome();
             e.Handled = true;
             return;
         }
 
-        if (e.Key == Key.X)
+        if (e.Key == Key.OemCloseBrackets)
         {
             _octaveOffset = Math.Min(36, _octaveOffset + 12);
-            RefreshStatus();
+            RefreshChrome();
             e.Handled = true;
             return;
         }
 
-        foreach (var (key, offset) in ComputerKeys)
+        if (PianoComputerKeyboard.TryMap(e.Key, out _) && _keysDown.Add(e.Key))
         {
-            if (e.Key != key || !_keysDown.Add(key))
-                continue;
-            var midi = 60 + _octaveOffset + offset;
-            if (midi is >= 0 and <= 127)
+            var midi = PianoComputerKeyboard.ToMidi(e.Key, _octaveOffset);
+            if (midi >= 0)
                 OnKeyboardNoteOn(midi);
             e.Handled = true;
-            return;
         }
     }
 
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
-        foreach (var (key, offset) in ComputerKeys)
-        {
-            if (e.Key != key || !_keysDown.Remove(key))
-                continue;
-            var midi = 60 + _octaveOffset + offset;
-            if (midi is >= 0 and <= 127)
-                OnKeyboardNoteOff(midi);
-            e.Handled = true;
+        if (!_keysDown.Remove(e.Key))
             return;
-        }
+        var midi = PianoComputerKeyboard.ToMidi(e.Key, _octaveOffset);
+        if (midi >= 0)
+            OnKeyboardNoteOff(midi);
+        e.Handled = true;
     }
 
-    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)
             return;
         _disposed = true;
+        _playTimer.Stop();
         Session.AllNotesOff();
         if (_mixer.IsValueCreated)
             _mixer.Value.Dispose();
@@ -173,11 +248,11 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             var pcm = Session.NoteOn(midi);
             _mixer.Value.Play(pcm);
             _keyboard.SetPressed(Session.HeldMidiNumbers);
-            RefreshStatus();
+            RefreshChrome();
         }
         catch (Exception ex)
         {
-            _status.Text = $"Preview failed: {ex.Message}";
+            Toast(ex.Message);
         }
     }
 
@@ -185,183 +260,429 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
     {
         Session.NoteOff(midi);
         _keyboard.SetPressed(Session.HeldMidiNumbers);
-        RefreshStatus();
+        RefreshChrome();
     }
 
     Control BuildLayout()
     {
-        var toolbar = new WrapPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 10),
-        };
-        void AddBtn(string label, Func<Task> action) =>
-            toolbar.Children.Add(MakeButton(label, action));
-
-        AddBtn("Record / Stop", async () =>
-        {
-            if (Session.IsRecording)
-                Session.StopRecording();
-            else
-                Session.StartRecording();
-            RefreshStatus();
-            await Task.CompletedTask;
-        });
-        AddBtn("Play score", async () =>
-        {
-            Session.StopRecording();
-            if (Session.Score.Notes.Count == 0)
-            {
-                _status.Text = "Score is empty.";
-                return;
-            }
-
-            _mixer.Value.Play(Session.RenderSequence());
-            await Task.CompletedTask;
-        });
-        AddBtn("Clear score", async () =>
-        {
-            Session.Score.Clear();
-            Session.SelectNote(null);
-            RefreshStatus();
-            await Task.CompletedTask;
-        });
-        AddBtn("+4 bars", async () =>
-        {
-            Session.Score.GrowBars(4);
-            _roll.InvalidateMeasure();
-            _roll.InvalidateVisual();
-            RefreshStatus();
-            await Task.CompletedTask;
-        });
-        AddBtn("Delete note", async () =>
-        {
-            if (Session.SelectedNoteId is { } id)
-                Session.Score.Remove(id);
-            Session.SelectNote(null);
-            _roll.SetSelected(null);
-            RefreshStatus();
-            await Task.CompletedTask;
-        });
-        AddBtn("Save MIDI…", SaveMidiAsync);
-        AddBtn("Load MIDI…", LoadMidiAsync);
-        AddBtn("Export PDF…", ExportPdfAsync);
-        AddBtn("Save patch…", SavePatchAsync);
-        AddBtn("Load patch…", LoadPatchAsync);
-        AddBtn("Save bank…", SaveBankAsync);
-        AddBtn("Import bank…", ImportBankAsync);
-        AddBtn("Bounce WAV to library", BounceToLibraryAsync);
-
-        var scrollKeys = new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            Content = new Border
-            {
-                Background = AudioEditPalette.PaneAlt,
-                BorderBrush = AudioEditPalette.Border,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(8),
-                Child = _keyboard,
-            },
-        };
+        var transport = BuildTransportBar();
+        var writeRow = BuildWriteBar();
+        var fileRow = BuildFileBar();
 
         var rollScroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            MinHeight = 220,
             Content = _roll,
         };
-        var staffScroll = new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            MinHeight = 160,
-            MaxHeight = 220,
-            Content = new Border
-            {
-                Background = Brushes.WhiteSmoke,
-                BorderBrush = AudioEditPalette.Border,
-                BorderThickness = new Thickness(1),
-                Child = _staff,
-            },
-        };
 
-        var center = new Grid
+        var stage = new DockPanel { LastChildFill = true };
+        stage.Children.Add(new Border
         {
-            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
-            RowSpacing = 8,
-        };
-        var staffBlock = new StackPanel
-        {
-            Spacing = 4,
-            Children =
+            [DockPanel.DockProperty] = Dock.Top,
+            Margin = new Thickness(0, 0, 0, 8),
+            Child = new StackPanel
             {
-                new TextBlock { Text = "Full score", Foreground = Brushes.White, FontFamily = new FontFamily("Segoe UI Semibold") },
-                staffScroll,
-            },
-        };
-        var rollBlock = new StackPanel
-        {
-            Spacing = 4,
-            Children =
-            {
-                new TextBlock
+                Spacing = 6,
+                Children =
                 {
-                    Text = "Piano roll — click to place · click note to select · Alt/right-click or Delete to remove",
-                    Foreground = Brushes.White,
+                    SectionLabel("Score preview", "Toggle from transport · matches PDF export"),
+                    _scoreHost,
                 },
+            },
+        });
+        stage.Children.Add(new DockPanel
+        {
+            LastChildFill = true,
+            Children =
+            {
+                SectionLabel("Piano roll", "Drag · resize · Ctrl+chord")
+                    .With(c => { DockPanel.SetDock(c, Dock.Top); }),
                 new Border
                 {
                     Background = AudioEditPalette.PaneAlt,
                     BorderBrush = AudioEditPalette.Border,
                     BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(4),
                     Child = rollScroll,
+                    Margin = new Thickness(0, 6, 0, 0),
+                },
+            },
+        });
+
+        var body = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("220,*"),
+            ColumnSpacing = 12,
+            Margin = new Thickness(0, 10, 0, 0),
+        };
+        _browser.MinWidth = 200;
+        var rail = new Border
+        {
+            Background = AudioEditPalette.PaneAlt,
+            BorderBrush = AudioEditPalette.Border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4),
+            Child = _browser,
+        };
+        Grid.SetColumn(rail, 0);
+        Grid.SetColumn(stage, 1);
+        body.Children.Add(rail);
+        body.Children.Add(stage);
+
+        var performer = new Border
+        {
+            Background = AudioEditPalette.PaneAlt,
+            BorderBrush = AudioEditPalette.Border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 8),
+            Margin = new Thickness(0, 10, 0, 0),
+            Child = new DockPanel
+            {
+                LastChildFill = true,
+                Children =
+                {
+                    new StackPanel
+                    {
+                        [DockPanel.DockProperty] = Dock.Top,
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 12,
+                        Margin = new Thickness(0, 0, 0, 6),
+                        Children =
+                        {
+                            SectionLabel("Perform", "ZXCVBNM + SDGHJ · QWERTYU upper · [ ] octave"),
+                            _toast,
+                        },
+                    },
+                    new ScrollViewer
+                    {
+                        HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                        VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                        Content = _keyboard,
+                    },
                 },
             },
         };
-        Grid.SetRow(staffBlock, 0);
-        Grid.SetRow(rollBlock, 1);
-        Grid.SetRow(_browser, 2);
-        _browser.MaxHeight = 180;
-        center.Children.Add(staffBlock);
-        center.Children.Add(rollBlock);
-        center.Children.Add(_browser);
 
         return new DockPanel
         {
-            Margin = new Thickness(16),
+            Margin = new Thickness(14),
             LastChildFill = true,
             Children =
             {
                 new StackPanel
                 {
-                    Spacing = 4,
                     [DockPanel.DockProperty] = Dock.Top,
-                    Children = { _title, _patchLabel, _status, toolbar },
-                },
-                new Border
-                {
-                    [DockPanel.DockProperty] = Dock.Bottom,
-                    Margin = new Thickness(0, 12, 0, 0),
-                    Child = new StackPanel
+                    Spacing = 8,
+                    Children =
                     {
-                        Spacing = 6,
-                        Children =
-                        {
-                            new TextBlock
-                            {
-                                Text = "Keyboard — click keys, or A–K (W/E/T/Y/U black). Z/X octave. Record appends onto the score.",
-                                Foreground = Brushes.White,
-                            },
-                            scrollKeys,
-                        },
+                        BuildHeader(),
+                        transport,
+                        BuildTrackBar(),
+                        writeRow,
+                        fileRow,
                     },
                 },
-                center,
+                performer.With(c => DockPanel.SetDock(c, Dock.Bottom)),
+                body,
             },
         };
+    }
+
+    Control BuildHeader()
+    {
+        return new DockPanel
+        {
+            LastChildFill = true,
+            Children =
+            {
+                new StackPanel
+                {
+                    Spacing = 2,
+                    Children = { _title, _hint },
+                },
+                new StackPanel
+                {
+                    [DockPanel.DockProperty] = Dock.Right,
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Children = { _meters },
+                },
+            },
+        };
+    }
+
+    Control BuildTransportBar()
+    {
+        var stop = MakeToolButton("■  Stop", async () =>
+        {
+            StopPlayback();
+            Session.StopRecording();
+            Session.AllNotesOff();
+            await Task.CompletedTask;
+        });
+
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                GroupLabel("TRANSPORT"),
+                _recordBtn,
+                _playBtn,
+                stop,
+                VSep(),
+                GroupLabel("BPM"),
+                _bpmBox,
+                GroupLabel("Meter"),
+                _meterBox,
+                new TextBlock
+                {
+                    Text = "/4",
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+                VSep(),
+                MakeToolButton("Zoom +", async () => { _roll.Zoom(1.25, 1.1); await Task.CompletedTask; }),
+                MakeToolButton("Zoom −", async () => { _roll.Zoom(0.8, 0.9); await Task.CompletedTask; }),
+                MakeToolButton("Score on/off", async () =>
+                {
+                    _scoreVisible = !_scoreVisible;
+                    _scoreHost.IsVisible = _scoreVisible;
+                    await Task.CompletedTask;
+                }),
+            },
+        };
+
+        return ToolStrip(row, accent: true);
+    }
+
+    Control BuildWriteBar()
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                GroupLabel("WRITE"),
+                MakeToolButton("Paint maj7", () => SetPaint(ChordQuality.MajorSeventh, "maj7")),
+                MakeToolButton("Paint m7", () => SetPaint(ChordQuality.MinorSeventh, "m7")),
+                MakeToolButton("Paint dom7", () => SetPaint(ChordQuality.DominantSeventh, "dom7")),
+                VSep(),
+                MakeToolButton("+4 bars", async () =>
+                {
+                    Session.Score.GrowBars(4);
+                    _roll.InvalidateMeasure();
+                    _roll.InvalidateVisual();
+                    RefreshChrome();
+                    await Task.CompletedTask;
+                }),
+                MakeToolButton("Delete", async () => { DeleteSelected(); await Task.CompletedTask; }),
+                MakeToolButton("Clear", async () =>
+                {
+                    Session.Score.Clear();
+                    Session.SelectNote(null);
+                    RefreshChrome();
+                    Toast("Score cleared.");
+                    await Task.CompletedTask;
+                }),
+            },
+        };
+        return ToolStrip(row);
+    }
+
+    Control BuildFileBar()
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                GroupLabel("FILE"),
+                MakeToolButton("Save MIDI…", SaveMidiAsync),
+                MakeToolButton("Load MIDI…", LoadMidiAsync),
+                MakePrimaryButton("Export PDF…", ExportPdfAsync, compact: true),
+                VSep(),
+                MakeToolButton("Save patch…", SavePatchAsync),
+                MakeToolButton("Load patch…", LoadPatchAsync),
+                MakeToolButton("Save bank…", SaveBankAsync),
+                MakeToolButton("Import bank…", ImportBankAsync),
+                MakeToolButton("Bounce to Arrangement", BounceToLibraryAsync),
+            },
+        };
+        return ToolStrip(row);
+    }
+
+    Task SetPaint(ChordQuality quality, string label)
+    {
+        _paintQuality = quality;
+        _roll.ChordPaintQuality = quality;
+        Toast($"Ctrl+click paints {label} voicing.");
+        return Task.CompletedTask;
+    }
+
+    async Task ToggleRecordAsync()
+    {
+        if (Session.IsRecording)
+        {
+            Session.StopRecording();
+            Toast("Recording stopped.");
+        }
+        else
+        {
+            Session.StartRecording(clearExisting: false);
+            Toast("Recording — play keys; notes append to the score.");
+        }
+
+        RefreshChrome();
+        await Task.CompletedTask;
+    }
+
+    Control BuildTrackBar()
+    {
+        RebuildTrackStrip();
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                GroupLabel("PARTS"),
+                _trackStrip,
+                MakeToolButton("+ Part", async () =>
+                {
+                    var idx = Session.Score.Tracks.Count;
+                    var colors = ScoreTrackColors.Palette;
+                    var track = Session.Score.AddTrack(new ScoreTrack(
+                        $"Part {idx + 1}",
+                        Session.SelectedPatch.Id,
+                        colorIndex: idx % colors.Length));
+                    Session.SelectTrack(track.Id);
+                    Toast($"Added {track.Name}");
+                    await Task.CompletedTask;
+                }),
+            },
+        };
+        return ToolStrip(row);
+    }
+
+    void RebuildTrackStrip()
+    {
+        _trackStrip.Children.Clear();
+        foreach (var track in Session.Score.Tracks)
+        {
+            var (r, g, b) = ScoreTrackColors.Rgb(track.ColorIndex);
+            var active = track.Id == Session.Score.ActiveTrackId;
+            var btn = new Button
+            {
+                Content = track.Mute ? $"{track.Name} (mute)" : track.Name,
+                Padding = new Thickness(10, 5),
+                Background = new SolidColorBrush(Color.FromRgb(r, g, b)),
+                Foreground = Brushes.White,
+                BorderBrush = active ? Brushes.White : AudioEditPalette.Border,
+                BorderThickness = new Thickness(active ? 2 : 1),
+                FontFamily = new FontFamily("Segoe UI Semibold"),
+                FontSize = 12,
+            };
+            var captured = track;
+            btn.Click += (_, _) =>
+            {
+                Session.SelectTrack(captured.Id);
+                Toast($"Writing on {captured.Name} · {captured.PatchId}");
+                RefreshChrome();
+            };
+            btn.DoubleTapped += (_, _) =>
+            {
+                captured.Mute = !captured.Mute;
+                Session.Score.NotifyChanged();
+                RefreshChrome();
+            };
+            _trackStrip.Children.Add(btn);
+        }
+    }
+
+    async Task PlayScoreAsync()
+    {
+        Session.StopRecording();
+        if (Session.Score.Notes.Count == 0)
+        {
+            Toast("Score is empty.");
+            return;
+        }
+
+        try
+        {
+            StopPlayback(resetHead: false);
+            _playStartBeat = 0;
+            _playLengthBeats = Math.Max(Session.Score.TotalBeats, Session.Score.ContentEndBeat);
+            _playStarted = DateTimeOffset.UtcNow;
+            Session.SetPlayhead(0, playing: true);
+            _roll.SetPlayhead(0);
+            _mixer.Value.Play(Session.RenderSequence());
+            _playTimer.Start();
+            Toast($"Playing “{Session.Score.Title}”…");
+        }
+        catch (Exception ex)
+        {
+            Toast(ex.Message);
+        }
+
+        RefreshChrome();
+        await Task.CompletedTask;
+    }
+
+    void OnPlayTimerTick(object? sender, EventArgs e)
+    {
+        if (!Session.IsPlaying)
+        {
+            _playTimer.Stop();
+            return;
+        }
+
+        var elapsedMin = (DateTimeOffset.UtcNow - _playStarted).TotalMinutes;
+        var beat = _playStartBeat + elapsedMin * Session.Score.TempoBpm;
+        if (beat >= _playLengthBeats)
+        {
+            StopPlayback(resetHead: true);
+            Toast("Playback finished.");
+            return;
+        }
+
+        Session.SetPlayhead(beat, playing: true);
+        _roll.SetPlayhead(beat);
+    }
+
+    void StopPlayback(bool resetHead = true)
+    {
+        _playTimer.Stop();
+        _mixer.Value.Stop();
+        if (resetHead)
+        {
+            Session.SetPlayhead(0, playing: false);
+            _roll.SetPlayhead(null);
+        }
+        else
+        {
+            Session.StopPlaybackUi();
+            _roll.SetPlayhead(Session.PlayheadBeat);
+        }
+
+        RefreshChrome();
+    }
+
+    void DeleteSelected()
+    {
+        if (Session.SelectedNoteId is { } id)
+            Session.Score.Remove(id);
+        Session.SelectNote(null);
+        _roll.SetSelected(null);
+        RefreshChrome();
     }
 
     async Task ExportPdfAsync()
@@ -370,7 +691,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         if (path is null)
             return;
         Session.ExportPdf(path);
-        _status.Text = $"Exported full score PDF → {path}";
+        Toast($"PDF → {path}");
     }
 
     async Task SaveMidiAsync()
@@ -380,7 +701,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         Session.Score.Title = Path.GetFileNameWithoutExtension(path);
         Session.SaveMidi(path);
-        _status.Text = $"Saved MIDI → {path}";
+        Toast($"MIDI → {path}");
     }
 
     async Task LoadMidiAsync()
@@ -392,7 +713,8 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
         _roll.InvalidateMeasure();
         _roll.InvalidateVisual();
-        _status.Text = $"Loaded MIDI ← {path} ({Session.Score.Notes.Count} notes)";
+        Toast($"Loaded {Session.Score.Notes.Count} notes.");
+        RefreshChrome();
     }
 
     async Task SavePatchAsync()
@@ -401,7 +723,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         if (path is null)
             return;
         Session.SaveSelectedPatch(path);
-        _status.Text = $"Saved patch → {path}";
+        Toast($"Patch → {path}");
     }
 
     async Task LoadPatchAsync()
@@ -411,7 +733,8 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         Session.LoadPatchIntoBank(path);
         _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
-        _status.Text = $"Loaded patch ← {path}";
+        Toast($"Patch loaded · {Session.SelectedPatch.Name}");
+        RefreshChrome();
     }
 
     async Task SaveBankAsync()
@@ -420,7 +743,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         if (path is null)
             return;
         Session.SaveBank(path);
-        _status.Text = $"Saved bank ({Session.Bank.Patches.Count} sounds) → {path}";
+        Toast($"Bank ({Session.Bank.Patches.Count}) → {path}");
     }
 
     async Task ImportBankAsync()
@@ -430,33 +753,32 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         Session.ImportBank(path);
         _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
-        _status.Text = $"Imported bank ← {path} (now {Session.Bank.Patches.Count} sounds)";
+        Toast($"Bank now {Session.Bank.Patches.Count} sounds.");
+        RefreshChrome();
     }
 
     async Task BounceToLibraryAsync()
     {
         if (MusicProject is null)
         {
-            _status.Text = "No arrangement project attached — save MIDI/WAV from file buttons instead.";
+            Toast("No Arrangement project attached.");
             return;
         }
 
         if (Session.Score.Notes.Count == 0)
         {
-            // Bounce a short demo chord of the current sound
             var demo = new MidiSequence("Patch Preview");
             demo.Add(new MidiNoteEvent(60, 100, TimeSpan.Zero, TimeSpan.FromMilliseconds(400)));
             demo.Add(new MidiNoteEvent(64, 100, TimeSpan.FromMilliseconds(80), TimeSpan.FromMilliseconds(400)));
             demo.Add(new MidiNoteEvent(67, 100, TimeSpan.FromMilliseconds(160), TimeSpan.FromMilliseconds(400)));
-            var pcm = MidiSynth.RenderSequence(Session.Format, Session.SelectedPatch, demo);
-            AudioEditOps.AddPcm(MusicProject, $"{Session.SelectedPatch.Name} preview", pcm);
-            _status.Text = $"Bounced {Session.SelectedPatch.Name} preview into the sound library.";
+            AudioEditOps.AddPcm(MusicProject, $"{Session.SelectedPatch.Name} preview",
+                MidiSynth.RenderSequence(Session.Format, Session.SelectedPatch, demo));
+            Toast($"Bounced {Session.SelectedPatch.Name} preview → Arrangement.");
             return;
         }
 
-        var take = Session.RenderSequence();
-        AudioEditOps.AddPcm(MusicProject, Session.Score.Title, take);
-        _status.Text = $"Bounced score “{Session.Score.Title}” into the sound library.";
+        AudioEditOps.AddPcm(MusicProject, Session.Score.Title, Session.RenderSequence());
+        Toast($"Bounced “{Session.Score.Title}” → Arrangement library.");
         await Task.CompletedTask;
     }
 
@@ -469,10 +791,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             Title = title,
             DefaultExtension = ext,
             SuggestedFileName = suggested ?? (ext == "mid" ? "score.mid" : ext == "pdf" ? "score.pdf" : "sounds.json"),
-            FileTypeChoices =
-            [
-                new FilePickerFileType(title) { Patterns = [$"*.{ext}"] },
-            ],
+            FileTypeChoices = [new FilePickerFileType(title) { Patterns = [$"*.{ext}"] }],
         });
         return file?.TryGetLocalPath();
     }
@@ -485,43 +804,181 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         {
             Title = title,
             AllowMultiple = false,
-            FileTypeFilter =
-            [
-                new FilePickerFileType(title) { Patterns = [$"*.{ext}"] },
-            ],
+            FileTypeFilter = [new FilePickerFileType(title) { Patterns = [$"*.{ext}"] }],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
-    Button MakeButton(string label, Func<Task> action)
+    void RefreshChrome()
+    {
+        _recordBtn.Content = Session.IsRecording ? "■  Stop rec" : "●  Record";
+        _recordBtn.Background = Session.IsRecording
+            ? new SolidColorBrush(Color.FromRgb(160, 55, 55))
+            : AudioEditPalette.PaneAlt;
+        _roll.ChordPaintQuality = _paintQuality;
+        RebuildTrackStrip();
+
+        _suppressMeterEvents = true;
+        _bpmBox.Value = (decimal)Session.Score.TempoBpm;
+        _meterBox.Value = Session.Score.BeatsPerBar;
+        _suppressMeterEvents = false;
+
+        _meters.Children.Clear();
+        _meters.Children.Add(MeterChip(
+            Session.IsPlaying ? "PLAY" : Session.IsRecording ? "REC" : "READY",
+            Session.IsPlaying ? Color.FromRgb(50, 160, 140)
+                : Session.IsRecording ? Color.FromRgb(200, 70, 70)
+                : Color.FromRgb(55, 65, 78)));
+        _meters.Children.Add(MeterChip($"{Session.Score.Notes.Count} notes"));
+        _meters.Children.Add(MeterChip($"{Session.Score.BarCount} bars"));
+        _meters.Children.Add(MeterChip($"{Session.Score.TempoBpm:0} BPM"));
+        _meters.Children.Add(MeterChip($"{Session.Score.BeatsPerBar}/{Session.Score.BeatUnit}"));
+        var active = Session.Score.ActiveTrack;
+        if (active is not null)
+        {
+            var (r, g, b) = ScoreTrackColors.Rgb(active.ColorIndex);
+            _meters.Children.Add(MeterChip(active.Name, Color.FromRgb(r, g, b)));
+        }
+
+        var oct = 3 + _octaveOffset / 12;
+        _meters.Children.Add(MeterChip($"Z=C{oct}"));
+        if (Session.IsPlaying)
+            _meters.Children.Add(MeterChip($"▶ {Session.PlayheadBeat:0.0}"));
+        if (Session.SelectedNoteId is { } id && Session.Score.Find(id) is { } n)
+            _meters.Children.Add(MeterChip($"{ScoreNotation.Name(n.MidiNumber)} @ {n.StartBeat:0.##}"));
+    }
+
+    void Toast(string message) => _toast.Text = message;
+
+    static Border ToolStrip(Control content, bool accent = false) =>
+        new()
+        {
+            Background = accent
+                ? new SolidColorBrush(Color.FromRgb(30, 42, 48))
+                : AudioEditPalette.PaneAlt,
+            BorderBrush = accent ? AudioEditPalette.Accent : AudioEditPalette.Border,
+            BorderThickness = new Thickness(accent ? 1.5 : 1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10, 8),
+            Child = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                Content = content,
+            },
+        };
+
+    static TextBlock GroupLabel(string text) =>
+        new()
+        {
+            Text = text,
+            FontSize = 10,
+            FontFamily = new FontFamily("Segoe UI Semibold"),
+            Foreground = new SolidColorBrush(Color.FromRgb(140, 155, 170)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 4, 0),
+            MinWidth = 72,
+        };
+
+    static Control SectionLabel(string title, string subtitle)
+    {
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = title,
+                    FontSize = 13,
+                    FontFamily = new FontFamily("Segoe UI Semibold"),
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+                new TextBlock
+                {
+                    Text = subtitle,
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromRgb(140, 150, 165)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            },
+        };
+    }
+
+    static Border MeterChip(string text, Color? accent = null)
+    {
+        var color = accent ?? Color.FromRgb(55, 65, 78);
+        return new Border
+        {
+            Background = new SolidColorBrush(color),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 4),
+            Child = new TextBlock
+            {
+                Text = text,
+                FontSize = 11,
+                FontFamily = new FontFamily("Segoe UI Semibold"),
+                Foreground = Brushes.White,
+            },
+        };
+    }
+
+    static Border VSep() =>
+        new()
+        {
+            Width = 1,
+            Height = 22,
+            Background = AudioEditPalette.Border,
+            Margin = new Thickness(4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+    Button MakePrimaryButton(string label, Func<Task> action, bool compact = false)
     {
         var btn = new Button
         {
             Content = label,
-            Margin = new Thickness(0, 0, 8, 8),
-            Padding = new Thickness(12, 6),
-            Background = AudioEditPalette.PaneAlt,
+            Padding = compact ? new Thickness(12, 6) : new Thickness(16, 8),
+            Background = AudioEditPalette.Accent,
             Foreground = Brushes.White,
-            BorderBrush = AudioEditPalette.Border,
+            BorderBrush = AudioEditPalette.Accent,
+            FontFamily = new FontFamily("Segoe UI Semibold"),
+            FontSize = compact ? 12 : 13,
         };
-        btn.Click += async (_, _) =>
-        {
-            try { await action(); }
-            catch (Exception ex) { _status.Text = ex.Message; }
-        };
+        Wire(btn, action);
         return btn;
     }
 
-    void RefreshStatus()
+    Button MakeToolButton(string label, Func<Task> action)
     {
-        _patchLabel.Text =
-            $"{Session.SelectedPatch.Category} · {Session.SelectedPatch.Name}  ({Session.SelectedPatch.Id})";
-        var rec = Session.IsRecording ? "● REC" : "○ idle";
-        var oct = 4 + _octaveOffset / 12;
-        var sel = Session.SelectedNoteId is { } id && Session.Score.Find(id) is { } n
-            ? $"selected {ScoreNotation.Name(n.MidiNumber)} @{n.StartBeat:0.##}"
-            : "no note selected";
-        _status.Text =
-            $"{rec}  ·  {Session.Score.Notes.Count} notes · {Session.Score.BarCount} bars · {Session.Score.TempoBpm:0} BPM  ·  {sel}  ·  bank {Session.Bank.Patches.Count}  ·  C{oct} (Z/X)";
+        var btn = new Button
+        {
+            Content = label,
+            Padding = new Thickness(10, 6),
+            Background = AudioEditPalette.PaneAlt,
+            Foreground = Brushes.White,
+            BorderBrush = AudioEditPalette.Border,
+            FontSize = 12,
+        };
+        Wire(btn, action);
+        return btn;
+    }
+
+    void Wire(Button btn, Func<Task> action) =>
+        btn.Click += async (_, _) =>
+        {
+            try { await action(); }
+            catch (Exception ex) { Toast(ex.Message); }
+        };
+}
+
+file static class MidiPianoUiExtensions
+{
+    public static T With<T>(this T control, Action<T> configure)
+    {
+        configure(control);
+        return control;
     }
 }
