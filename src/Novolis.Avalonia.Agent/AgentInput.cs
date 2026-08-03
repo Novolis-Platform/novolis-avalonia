@@ -302,10 +302,15 @@ internal static class AgentInput
         return null;
     }
 
-    internal static string? ItemTextAt(ItemsControl control, int index)
-    {
-        var item = control.Items[index];
-        return item switch
+    internal static string? ItemTextAt(ItemsControl control, int index) =>
+        FormatItemText(control.Items[index]);
+
+    internal static string? TabHeaderAt(TabControl tabs, int index) =>
+        FormatTabHeader(tabs.Items[index]);
+
+    /// <summary>Pure item→label mapping (unit-testable without Avalonia UI thread).</summary>
+    internal static string? FormatItemText(object? item) =>
+        item switch
         {
             null => null,
             string s => s,
@@ -313,19 +318,16 @@ internal static class AgentInput
             HeaderedContentControl hc => hc.Header?.ToString(),
             _ => item.ToString()
         };
-    }
 
-    internal static string? TabHeaderAt(TabControl tabs, int index)
-    {
-        var item = tabs.Items[index];
-        return item switch
+    /// <summary>Pure tab item→header mapping (unit-testable without Avalonia UI thread).</summary>
+    internal static string? FormatTabHeader(object? item) =>
+        item switch
         {
             TabItem { Header: string h } => h,
             TabItem ti => ti.Header?.ToString(),
             string s => s,
             _ => item?.ToString()
         };
-    }
 
     private static bool TryParseKey(string name, out Key key)
     {

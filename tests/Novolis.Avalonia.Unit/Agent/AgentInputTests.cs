@@ -1,4 +1,3 @@
-using Avalonia.Controls;
 using MessagePack;
 using Novolis.Avalonia.Agent;
 using Novolis.Avalonia.Agent.Protocol;
@@ -33,21 +32,17 @@ public sealed class AgentInputTests
     }
 
     [Test]
-    public async Task ItemTextAt_ReadsListBoxStrings()
+    public async Task FormatItemText_ReadsStringItems()
     {
-        var list = new ListBox();
-        list.Items.Add("alpha");
-        list.Items.Add("beta");
-        await Assert.That(AgentInput.ItemTextAt(list, 1)).IsEqualTo("beta");
+        await Assert.That(AgentInput.FormatItemText("beta")).IsEqualTo("beta");
+        await Assert.That(AgentInput.FormatItemText(null)).IsNull();
     }
 
     [Test]
-    public async Task TabHeaderAt_ReadsTabItemHeader()
+    public async Task FormatTabHeader_ReadsStringHeaders()
     {
-        var tabs = new TabControl();
-        tabs.Items.Add(new TabItem { Header = "Voyage" });
-        tabs.Items.Add(new TabItem { Header = "Cargo" });
-        await Assert.That(AgentInput.TabHeaderAt(tabs, 0)).IsEqualTo("Voyage");
+        await Assert.That(AgentInput.FormatTabHeader("Voyage")).IsEqualTo("Voyage");
+        await Assert.That(AgentInput.FormatTabHeader(null)).IsNull();
     }
 
     [Test]
