@@ -35,36 +35,31 @@ dotnet build
 dotnet test
 ```
 
-## Samples
+## Dogfood / product hosts
 
-```bash
-dotnet run --project samples/RenderingAvalonia
+Rendering walkthrough (TwoD OpenGL + CPU RGBA):
+
+```powershell
+dotnet run --project d:\novolis\novolis-dogfooding\apps\avalonia\RenderingAvalonia -p:NovolisUseProjectReferences=true
 ```
 
-Side-by-side **TwoD** (OpenGL) and **CPU RGBA** frame hosts.
+Live Studio (product host):
 
-```bash
-dotnet run --project samples/LiveAvalonia
+```powershell
+dotnet run --project d:\novolis\novolis-apps\src\LiveStudio\studio -p:NovolisUseProjectReferences=true
 ```
 
-Launches the live studio dashboard, starts the headless audio host, connects over local IPC, compiles a typed showcase set, and renders timing, diagnostics, and the live program graph together.
+[WireFish Viewer](../novolis-dogfooding/apps/WireFishViewer) — live capture UI for `Novolis.Transports.WireFish`.
 
-## Releases
-
-Windows users can download the shipped live studio installer from the GitHub Release assets. The installer runs in user space, installs under `%LOCALAPPDATA%\Programs\Novolis\Novolis Audio Live`, and does not require administrator privileges.
-
-The release pipeline still publishes NuGet packages for library consumers. The installer is an additional release asset for the end-user app.
-
-## Dogfood app
-
-[WireFish Viewer](../novolis-dogfooding/apps/WireFishViewer) — live capture UI for `Novolis.Transports.WireFish` (WireShark-inspired layout).
-
-```bash
-cd novolis-dogfooding
-dotnet run --project apps/WireFishViewer
+```powershell
+dotnet run --project d:\novolis\novolis-dogfooding\apps\WireFishViewer -p:NovolisUseProjectReferences=true
 ```
 
 On Windows, install [Npcap](https://npcap.com/) for live capture.
+
+## Releases
+
+Windows Live Studio installer ships from **novolis-apps** release assets (`%LOCALAPPDATA%\Programs\Novolis\Novolis Audio Live`). This repo’s release pipeline publishes NuGet packages for library consumers (and may still attach an installer built against the apps checkout).
 
 ## Templates
 

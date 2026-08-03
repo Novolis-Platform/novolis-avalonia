@@ -22,11 +22,6 @@
     <Project Path="src/Novolis.Avalonia.Mobile/Novolis.Avalonia.Mobile.csproj" />
     <Project Path="src/Novolis.Avalonia.Mobile.Desktop/Novolis.Avalonia.Mobile.Desktop.csproj" />
   </Folder>
-  <Folder Name="/samples/">
-    <Project Path="samples/RenderingAvalonia/RenderingAvalonia.csproj" />
-    <Project Path="samples/LiveAvalonia/LiveAvalonia.csproj" />
-    <Project Path="samples/SceneLab/SceneLab.csproj" />
-  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Novolis.Avalonia.Unit/Novolis.Avalonia.Unit.csproj" />
     <Project Path="tests/Novolis.Avalonia.Live.Unit/Novolis.Avalonia.Live.Unit.csproj" />

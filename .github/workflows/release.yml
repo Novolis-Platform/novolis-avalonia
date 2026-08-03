@@ -16,8 +16,8 @@ jobs:
       contents: write
       packages: read
     env:
-      APP_PROJECT: samples/LiveAvalonia/LiveAvalonia.csproj
-      HOST_PROJECT: ../novolis-audio/src/Novolis.Audio.Live.Host/Novolis.Audio.Live.Host.csproj
+      APP_PROJECT: ../novolis-apps/src/LiveStudio/studio/LiveStudio.csproj
+      HOST_PROJECT: ../novolis-apps/src/LiveStudio/host/LiveStudio.Host.csproj
       PACKAGING_PROJECT: src/Novolis.Avalonia.Packaging.Inno/Novolis.Avalonia.Packaging.Inno.csproj
       APP_PUBLISH_DIR: ${{ github.workspace }}\artifacts\live-studio\app
       HOST_PUBLISH_DIR: ${{ github.workspace }}\artifacts\live-studio\host
