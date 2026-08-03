@@ -54,6 +54,7 @@ public sealed class ClipInspectorControl : AudioEditPane
         {
             if (_clip is null)
                 return;
+            EnvelopeApplying?.Invoke();
             AudioEditOps.SetClipEnvelope(
                 _clip,
                 (float)_gain.Value,
@@ -79,6 +80,9 @@ public sealed class ClipInspectorControl : AudioEditPane
         IsEnabled = false;
         _label.Text = "Select a clip on the timeline.";
     }
+
+    /// <summary>Raised before Apply (for undo capture).</summary>
+    public event Action? EnvelopeApplying;
 
     /// <summary>Raised after Apply.</summary>
     public event Action? EnvelopeApplied;

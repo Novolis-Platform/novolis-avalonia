@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -23,10 +24,22 @@ public sealed class AudioEditWorkspace : Border, IDisposable
     readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     readonly NaudioPreviewPlayer _player = new();
     readonly AudioTransportBar _transportBar = new();
+    readonly ArrangementToolBar _toolBar = new();
+    readonly ArrangementEditHistory _history = new();
+    readonly Slider _zoom = new()
+    {
+        Minimum = 30,
+        Maximum = 220,
+        Value = 70,
+        Width = 140,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
     Guid? _selectedClipId;
     Guid? _selectedTrackId;
     int _toneIndex;
     bool _disposed;
+    bool _capturing;
+    bool _wasPlaying;
 
     static readonly (string Name, double Hz)[] DemoTones =
     [
@@ -51,19 +64,48 @@ public sealed class AudioEditWorkspace : Border, IDisposable
             _selectedTrackId = Project.Tracks[0].Id;
 
         _transportBar.Bind(Transport);
+        _transportBar.PlayPauseRequested += TogglePlayback;
+        _transportBar.RewindRequested += Rewind;
+        _toolBar.ToolChanged += tool =>
+        {
+            Timeline.Tool = tool;
+            Timeline.InvalidateVisual();
+            RefreshStatus();
+        };
+        Timeline.Tool = _toolBar.Tool;
         Timeline.Bind(Project);
-        Timeline.SeekRequested += Transport.Seek;
+        Timeline.SeekRequested += OnSeekRequested;
         Timeline.ClipSelected += OnClipSelected;
+        Timeline.TrackSelected += OnTrackSelected;
+        Timeline.BeforeMutation += CaptureHistory;
+        Timeline.ArrangementChanged += Refresh;
+        Timeline.SplitAtRequested += OnSplitAt;
+        Timeline.DeleteClipRequested += OnDeleteClip;
+        Timeline.DrawAtRequested += OnDrawAt;
+        ClipPanel.EnvelopeApplying += CaptureHistory;
         ClipPanel.EnvelopeApplied += Refresh;
         Library.AddToTrackRequested += id => PlaceOnSelectedTrack(id);
         Library.SelectionChanged += RefreshStatus;
         Transport.Changed += OnTransportChanged;
+        Focusable = true;
+        KeyDown += OnKeyDown;
+        _zoom.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Slider.ValueProperty)
+            {
+                Timeline.PixelsPerSecond = _zoom.Value;
+                Timeline.InvalidateMeasure();
+                Timeline.InvalidateVisual();
+            }
+        };
         _timer.Tick += OnTick;
 
         WireTasks();
         Background = AudioEditPalette.Pane;
         _title.Text = Project.Title;
         Child = BuildLayout();
+        if (_selectedTrackId is { } tid)
+            Timeline.SetSelectedTrack(tid);
         Refresh();
         _timer.Start();
     }
@@ -99,10 +141,13 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         Library.Bind(Project);
         Timeline.Bind(Project);
         Timeline.SetSelectedClip(_selectedClipId);
+        Timeline.SetSelectedTrack(_selectedTrackId);
         Timeline.SetPlayhead(Transport.Position);
+        Timeline.Tool = _toolBar.Tool;
         ClipPanel.Bind(Project, _selectedClipId);
         if (_selectedTrackId is null && Project.Tracks.Count > 0)
             _selectedTrackId = Project.Tracks[0].Id;
+        _transportBar.SetPlaying(Transport.IsPlaying);
         RefreshStatus();
     }
 
@@ -175,6 +220,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         };
         Tasks.AddToneRequested += () =>
         {
+            CaptureHistory();
             var tone = DemoTones[_toneIndex % DemoTones.Length];
             _toneIndex++;
             AudioEditOps.AddTone(Project, $"{tone.Name} tone", tone.Hz, TimeSpan.FromSeconds(2));
@@ -182,6 +228,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         };
         Tasks.AddTrackRequested += () =>
         {
+            CaptureHistory();
             var track = AudioEditOps.AddTrack(Project, $"Track {Project.Tracks.Count + 1}");
             _selectedTrackId = track.Id;
             Refresh();
@@ -201,16 +248,78 @@ public sealed class AudioEditWorkspace : Border, IDisposable
                 return;
             }
 
+            CaptureHistory();
             AudioEditOps.SplitAt(Project, id, Transport.Position);
+            Refresh();
+        };
+        Tasks.DuplicateRequested += () =>
+        {
+            if (_selectedClipId is not { } id)
+            {
+                _status.Text = "Select a clip to duplicate.";
+                return;
+            }
+
+            CaptureHistory();
+            var copy = AudioEditOps.DuplicateClip(Project, id);
+            if (copy is not null)
+                _selectedClipId = copy.Id;
             Refresh();
         };
         Tasks.RemoveClipRequested += () =>
         {
             if (_selectedClipId is not { } id)
                 return;
+            CaptureHistory();
             AudioEditOps.RemoveClip(Project, id);
             _selectedClipId = null;
             Refresh();
+        };
+        Tasks.NormalizeRequested += () =>
+        {
+            var assetId = ResolveSelectedAssetId();
+            if (assetId is null)
+            {
+                _status.Text = "Select a clip or library sound to normalize.";
+                return;
+            }
+
+            CaptureHistory();
+            if (AudioEditOps.NormalizeAsset(Project, assetId.Value))
+                _status.Text = "Normalized to −1 dBFS-ish peak.";
+            Refresh();
+        };
+        Tasks.ReverseRequested += () =>
+        {
+            var assetId = ResolveSelectedAssetId();
+            if (assetId is null)
+            {
+                _status.Text = "Select a clip or library sound to reverse.";
+                return;
+            }
+
+            CaptureHistory();
+            if (AudioEditOps.ReverseAsset(Project, assetId.Value))
+                _status.Text = "Reversed asset.";
+            Refresh();
+        };
+        Tasks.UndoRequested += () =>
+        {
+            if (_history.Undo(Project))
+            {
+                _selectedClipId = null;
+                Refresh();
+                _status.Text = "Undo";
+            }
+        };
+        Tasks.RedoRequested += () =>
+        {
+            if (_history.Redo(Project))
+            {
+                _selectedClipId = null;
+                Refresh();
+                _status.Text = "Redo";
+            }
         };
         Tasks.ExportRequested += () =>
         {
@@ -219,11 +328,162 @@ public sealed class AudioEditWorkspace : Border, IDisposable
                 _ = ExportAsync(top);
         };
         Tasks.PlayPauseRequested += TogglePlayback;
-        Tasks.RewindRequested += () =>
+        Tasks.RewindRequested += Rewind;
+    }
+
+    void Rewind()
+    {
+        _player.Stop();
+        Transport.Pause();
+        Transport.Seek(TimeSpan.Zero);
+        _transportBar.SetPlaying(false);
+    }
+
+    void OnSeekRequested(TimeSpan time)
+    {
+        var playing = Transport.IsPlaying;
+        if (playing)
         {
             _player.Stop();
-            Transport.Seek(TimeSpan.Zero);
-        };
+            Transport.Pause();
+        }
+
+        Transport.Seek(time);
+        if (playing)
+            StartPlaybackFromPlayhead();
+    }
+
+    void OnTrackSelected(Guid trackId)
+    {
+        _selectedTrackId = trackId;
+        Timeline.SetSelectedTrack(trackId);
+        RefreshStatus();
+    }
+
+    void OnSplitAt(TimeSpan time)
+    {
+        CaptureHistory();
+        // Prefer the clip under the split time (tool click), not a stale selection.
+        Guid id;
+        ArrangementClip? under = null;
+        foreach (var track in Project.Tracks)
+        {
+            under = track.Clips.FirstOrDefault(c => c.Contains(time));
+            if (under is not null)
+                break;
+        }
+
+        if (under is not null)
+            id = under.Id;
+        else if (_selectedClipId is { } selected)
+            id = selected;
+        else
+        {
+            _status.Text = "Split: click a clip (Split tool).";
+            return;
+        }
+
+        var right = AudioEditOps.SplitAt(Project, id, time);
+        if (right is not null)
+            _selectedClipId = right.Id;
+        Refresh();
+    }
+
+    void OnDeleteClip(Guid clipId)
+    {
+        CaptureHistory();
+        AudioEditOps.RemoveClip(Project, clipId);
+        if (_selectedClipId == clipId)
+            _selectedClipId = null;
+        Refresh();
+    }
+
+    void OnDrawAt(Guid trackId, TimeSpan time)
+    {
+        if (Library.SelectedAssetId is not { } assetId)
+        {
+            _status.Text = "Draw: select a library sound first.";
+            return;
+        }
+
+        var asset = Project.FindAsset(assetId);
+        var track = Project.FindTrack(trackId);
+        if (asset is null || track is null)
+            return;
+
+        CaptureHistory();
+        var clip = AudioEditOps.PlaceClip(Project, track, asset, time);
+        _selectedTrackId = trackId;
+        _selectedClipId = clip.Id;
+        Refresh();
+    }
+
+    void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+        {
+            TogglePlayback();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Delete || e.Key == Key.Back)
+        {
+            if (_selectedClipId is { } id)
+            {
+                OnDeleteClip(id);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.Z)
+        {
+            if (_history.Undo(Project))
+            {
+                _selectedClipId = null;
+                Refresh();
+                _status.Text = "Undo";
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.Y)
+        {
+            if (_history.Redo(Project))
+            {
+                _selectedClipId = null;
+                Refresh();
+                _status.Text = "Redo";
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    Guid? ResolveSelectedAssetId()
+    {
+        if (_selectedClipId is { } cid && Project.FindClip(cid) is { } clip)
+            return clip.AssetId;
+        return Library.SelectedAssetId;
+    }
+
+    void CaptureHistory()
+    {
+        if (_capturing)
+            return;
+        _capturing = true;
+        try
+        {
+            _history.Capture(Project);
+        }
+        finally
+        {
+            _capturing = false;
+        }
     }
 
     void PlaceOnSelectedTrack(Guid assetId)
@@ -245,6 +505,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         if (Transport.Position < start || start == TimeSpan.Zero)
             start = Transport.Position;
 
+        CaptureHistory();
         AudioEditOps.PlaceClip(Project, track, asset, start);
         Refresh();
     }
@@ -255,15 +516,27 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         {
             Transport.Pause();
             _player.Stop();
+            _transportBar.SetPlaying(false);
             return;
         }
 
+        StartPlaybackFromPlayhead();
+    }
+
+    void StartPlaybackFromPlayhead()
+    {
         try
         {
             var mix = ArrangementMixer.Render(Project);
-            // Seek into mix by slicing from playhead
+            if (mix.FrameCount <= 1)
+            {
+                _status.Text = "Nothing to play — add clips to the arrangement.";
+                return;
+            }
+
+            var duration = ArrangementQuery.TotalDuration(Project);
             var startFrame = (int)(Transport.Position.TotalSeconds * Project.Format.SampleRate);
-            if (startFrame >= mix.FrameCount)
+            if (startFrame >= mix.FrameCount - 1 || Transport.Position >= duration)
             {
                 Transport.Seek(TimeSpan.Zero);
                 startFrame = 0;
@@ -277,9 +550,14 @@ public sealed class AudioEditWorkspace : Border, IDisposable
                 mix.FrameCount - startFrame);
             _player.Play(sliced);
             Transport.Play();
+            _transportBar.SetPlaying(true);
+            _status.Text = $"Playing mix ({sliced.Duration:mm\\:ss\\.f} from playhead)…";
         }
         catch (Exception ex)
         {
+            Transport.Pause();
+            _player.Stop();
+            _transportBar.SetPlaying(false);
             _status.Text = $"Playback failed: {ex.Message}";
         }
     }
@@ -297,6 +575,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         }
 
         Timeline.SetSelectedClip(id);
+        Timeline.SetSelectedTrack(_selectedTrackId);
         ClipPanel.Bind(Project, id);
         RefreshStatus();
     }
@@ -304,6 +583,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
     void OnTransportChanged()
     {
         Timeline.SetPlayhead(Transport.Position);
+        _transportBar.SetPlaying(Transport.IsPlaying);
         RefreshStatus();
     }
 
@@ -312,8 +592,16 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         var duration = ArrangementQuery.TotalDuration(Project);
         if (Transport.Tick(TimeSpan.FromMilliseconds(33), duration))
             Timeline.SetPlayhead(Transport.Position);
-        if (!Transport.IsPlaying)
+
+        if (_wasPlaying && !Transport.IsPlaying)
             _player.Stop();
+        _wasPlaying = Transport.IsPlaying;
+
+        if (Transport.IsPlaying && !_player.IsPlaying)
+        {
+            Transport.Pause();
+            _transportBar.SetPlaying(false);
+        }
     }
 
     void RefreshStatus()
@@ -323,9 +611,10 @@ public sealed class AudioEditWorkspace : Border, IDisposable
             ? Project.FindTrack(tid)?.Name ?? "?"
             : "-";
         _status.Text =
-            $"Library {Project.Assets.Count} · Tracks {Project.Tracks.Count} · Target {trackName} · " +
-            $"Playhead {Transport.Position:mm\\:ss\\.f} / {dur:mm\\:ss\\.f}" +
-            (Transport.IsPlaying ? " · Playing" : " · Paused");
+            $"Tool {_toolBar.Tool} · Target track {trackName} · Library {Project.Assets.Count} · " +
+            $"Zoom {_zoom.Value:0} px/s · Playhead {Transport.Position:mm\\:ss\\.f} / {dur:mm\\:ss\\.f}" +
+            (Transport.IsPlaying ? " · Playing" : " · Paused") +
+            " · Space=play  Del=cut  drag vertical=change track";
     }
 
     Control BuildLayout()
@@ -335,7 +624,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
             RowDefinitions =
             [
                 new RowDefinition(GridLength.Star),
-                new RowDefinition(new GridLength(220)),
+                new RowDefinition(new GridLength(200)),
             ],
         };
         var timelineHost = new AudioEditPane
@@ -349,10 +638,28 @@ public sealed class AudioEditWorkspace : Border, IDisposable
                     new StackPanel
                     {
                         [DockPanel.DockProperty] = Dock.Top,
-                        Orientation = Orientation.Horizontal,
                         Spacing = 8,
                         Margin = new Thickness(0, 0, 0, 8),
-                        Children = { _transportBar },
+                        Children =
+                        {
+                            new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 8,
+                                Children =
+                                {
+                                    _transportBar,
+                                    new TextBlock
+                                    {
+                                        Text = "Zoom",
+                                        Foreground = Brushes.White,
+                                        VerticalAlignment = VerticalAlignment.Center,
+                                    },
+                                    _zoom,
+                                },
+                            },
+                            _toolBar,
+                        },
                     },
                     new ScrollViewer
                     {
@@ -419,6 +726,7 @@ public sealed class AudioEditWorkspace : Border, IDisposable
         _timer.Tick -= OnTick;
         Transport.Changed -= OnTransportChanged;
         Library.SelectionChanged -= RefreshStatus;
+        KeyDown -= OnKeyDown;
         _player.Dispose();
     }
 }

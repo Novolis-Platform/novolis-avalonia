@@ -1,14 +1,18 @@
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using Novolis.Audio.Core;
 
 namespace Novolis.Avalonia.Audio;
 
-/// <summary>Lightweight WaveOut preview for arrangement mixdowns.</summary>
+/// <summary>WaveOut preview for arrangement mixdowns (same Int16→float path as piano preview).</summary>
 public sealed class NaudioPreviewPlayer : IDisposable
 {
     WaveOutEvent? _waveOut;
-    BufferedWaveProvider? _provider;
+    WaveStream? _stream;
     bool _disposed;
+
+    /// <summary>True while WaveOut is actively playing.</summary>
+    public bool IsPlaying => _waveOut?.PlaybackState == PlaybackState.Playing;
 
     /// <summary>Starts playing <paramref name="pcm"/> from the beginning.</summary>
     public void Play(PcmBuffer pcm)
@@ -16,6 +20,8 @@ public sealed class NaudioPreviewPlayer : IDisposable
         ArgumentNullException.ThrowIfNull(pcm);
         if (pcm.Format.SampleFormat != PcmSampleFormat.Int16)
             throw new NotSupportedException("Preview supports Int16 only.");
+        if (pcm.FrameCount <= 0 || pcm.Samples.Length == 0)
+            throw new InvalidOperationException("Nothing to play — mix is empty.");
 
         Stop();
         var format = WaveFormat.CreateCustomFormat(
@@ -25,14 +31,10 @@ public sealed class NaudioPreviewPlayer : IDisposable
             pcm.Format.SampleRate * pcm.Format.BytesPerFrame,
             pcm.Format.BytesPerFrame,
             16);
-        _provider = new BufferedWaveProvider(format)
-        {
-            BufferDuration = TimeSpan.FromSeconds(Math.Max(1, pcm.Duration.TotalSeconds + 0.5)),
-            DiscardOnBufferOverflow = true,
-        };
-        _provider.AddSamples(pcm.Samples.ToArray(), 0, pcm.Samples.Length);
-        _waveOut = new WaveOutEvent();
-        _waveOut.Init(_provider);
+        _stream = new RawSourceWaveStream(new MemoryStream(pcm.Samples.ToArray()), format);
+        var samples = new Pcm16BitToSampleProvider(_stream);
+        _waveOut = new WaveOutEvent { DesiredLatency = 80 };
+        _waveOut.Init(samples);
         _waveOut.Play();
     }
 
@@ -42,7 +44,8 @@ public sealed class NaudioPreviewPlayer : IDisposable
         _waveOut?.Stop();
         _waveOut?.Dispose();
         _waveOut = null;
-        _provider = null;
+        _stream?.Dispose();
+        _stream = null;
     }
 
     /// <inheritdoc />

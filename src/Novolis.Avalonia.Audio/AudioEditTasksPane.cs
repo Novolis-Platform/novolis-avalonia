@@ -5,7 +5,7 @@ using Avalonia.Media;
 
 namespace Novolis.Avalonia.Audio;
 
-/// <summary>Task column for the audio editor.</summary>
+/// <summary>Task column for the audio editor (Audacity-lite ops).</summary>
 public sealed class AudioEditTasksPane : AudioEditPane
 {
     /// <summary>Creates standard task buttons.</summary>
@@ -21,7 +21,12 @@ public sealed class AudioEditTasksPane : AudioEditPane
                 Task("Add track", () => AddTrackRequested?.Invoke()),
                 Task("Add to track", () => AddToTrackRequested?.Invoke()),
                 Task("Split at playhead", () => SplitRequested?.Invoke()),
+                Task("Duplicate clip", () => DuplicateRequested?.Invoke()),
                 Task("Remove clip", () => RemoveClipRequested?.Invoke()),
+                Task("Normalize asset", () => NormalizeRequested?.Invoke()),
+                Task("Reverse asset", () => ReverseRequested?.Invoke()),
+                Task("Undo", () => UndoRequested?.Invoke()),
+                Task("Redo", () => RedoRequested?.Invoke()),
                 Task("Export mix WAV…", () => ExportRequested?.Invoke()),
                 Task("Play / Pause", () => PlayPauseRequested?.Invoke()),
                 Task("Rewind", () => RewindRequested?.Invoke()),
@@ -29,31 +34,19 @@ public sealed class AudioEditTasksPane : AudioEditPane
         };
     }
 
-    /// <summary>Import WAV requested.</summary>
     public event Action? ImportRequested;
-
-    /// <summary>Add tone requested.</summary>
     public event Action? AddToneRequested;
-
-    /// <summary>Add track requested.</summary>
     public event Action? AddTrackRequested;
-
-    /// <summary>Place library sound on track.</summary>
     public event Action? AddToTrackRequested;
-
-    /// <summary>Split requested.</summary>
     public event Action? SplitRequested;
-
-    /// <summary>Remove clip requested.</summary>
+    public event Action? DuplicateRequested;
     public event Action? RemoveClipRequested;
-
-    /// <summary>Export requested.</summary>
+    public event Action? NormalizeRequested;
+    public event Action? ReverseRequested;
+    public event Action? UndoRequested;
+    public event Action? RedoRequested;
     public event Action? ExportRequested;
-
-    /// <summary>Play/pause requested.</summary>
     public event Action? PlayPauseRequested;
-
-    /// <summary>Rewind requested.</summary>
     public event Action? RewindRequested;
 
     static Button Task(string label, Action action)

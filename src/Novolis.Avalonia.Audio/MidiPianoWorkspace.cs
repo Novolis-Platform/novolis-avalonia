@@ -22,7 +22,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         FontSize = 20,
         FontFamily = new FontFamily("Segoe UI Semibold"),
         Foreground = Brushes.White,
-        Text = "Piano Score",
+        Text = "Orchestral Score",
     };
     readonly TextBlock _hint = new()
     {
@@ -286,7 +286,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                 Spacing = 6,
                 Children =
                 {
-                    SectionLabel("Score preview", "Toggle from transport · matches PDF export"),
+                    SectionLabel("Orchestral score", "Braced multi-part staves · matches PDF export"),
                     _scoreHost,
                 },
             },
@@ -562,7 +562,8 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                     var track = Session.Score.AddTrack(new ScoreTrack(
                         $"Part {idx + 1}",
                         Session.SelectedPatch.Id,
-                        colorIndex: idx % colors.Length));
+                        colorIndex: idx % colors.Length,
+                        clef: ScoreNotation.InferClef($"Part {idx + 1}", Session.SelectedPatch.Id)));
                     Session.SelectTrack(track.Id);
                     Toast($"Added {track.Name}");
                     await Task.CompletedTask;
@@ -840,6 +841,9 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             _meters.Children.Add(MeterChip(active.Name, Color.FromRgb(r, g, b)));
         }
 
+        _meters.Children.Add(MeterChip(
+            SoundFontEngine.IsAvailable ? "SF2" : "OSC",
+            SoundFontEngine.IsAvailable ? Color.FromRgb(40, 130, 110) : Color.FromRgb(120, 80, 50)));
         var oct = 3 + _octaveOffset / 12;
         _meters.Children.Add(MeterChip($"Z=C{oct}"));
         if (Session.IsPlaying)
