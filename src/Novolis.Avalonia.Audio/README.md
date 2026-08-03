@@ -21,6 +21,9 @@ Lightweight Magix Music Maker / Audacity–style Avalonia editor chrome for `Nov
 | `ClipInspectorControl` | Gain / fade in / fade out |
 | `AudioTransportBar` | Rewind / play-pause |
 | `NaudioPreviewPlayer` | Mix preview via NAudio |
+| `MidiPianoWorkspace` | MIDI piano + instrument bank + save/load |
+| `PianoKeyboardControl` | On-screen piano keys |
+| `InstrumentBrowserControl` | Browse patch categories |
 
 ## Quick start
 
@@ -37,6 +40,6 @@ window.Content = workspace;
 dotnet add package Novolis.Avalonia.Audio
 ```
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (
-et10.0).
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`).
+
 

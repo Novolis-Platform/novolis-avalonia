@@ -12,5 +12,6 @@
     <PackageReference Include="NAudio" />
     <PackageReference Include="Novolis.Audio.Core" />
     <PackageReference Include="Novolis.Audio.Edit" />
+    <PackageReference Include="Novolis.Audio.Midi" />
   </ItemGroup>
 </Project>

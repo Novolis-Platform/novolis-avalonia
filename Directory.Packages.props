@@ -44,6 +44,9 @@
     <PackageVersion Include="Novolis.Raylib.Runtime" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Simulation.View" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Silk" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Core" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Edit" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Midi" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Dsl" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Protocol" Version="2026.1.*" />
@@ -55,6 +58,7 @@
     <PackageVersion Include="Novolis.Audio.Voice.Kokoro" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Platform.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Profiles" Version="2026.1.*" />
+    <PackageVersion Include="NAudio" Version="2.3.0" />
     <PackageVersion Include="Novolis.Video.Rtc.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Video.Rtc" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Video.Capture.Windows" Version="2026.1.*" />
