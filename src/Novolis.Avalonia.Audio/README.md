@@ -21,7 +21,9 @@ Lightweight Magix Music Maker / Audacity–style Avalonia editor chrome for `Nov
 | `ClipInspectorControl` | Gain / fade in / fade out |
 | `AudioTransportBar` | Rewind / play-pause |
 | `NaudioPreviewPlayer` | Mix preview via NAudio |
-| `MidiPianoWorkspace` | MIDI piano + instrument bank + save/load |
+| `MidiPianoWorkspace` | MIDI piano + full score + piano-roll + PDF |
+| `PianoRollControl` | Beat-grid piano-roll editor |
+| `ScoreStaffControl` | Grand-staff score preview |
 | `PianoKeyboardControl` | On-screen piano keys |
 | `InstrumentBrowserControl` | Browse patch categories |
 

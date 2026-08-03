@@ -11,7 +11,7 @@ using Novolis.Audio.Midi;
 namespace Novolis.Avalonia.Audio;
 
 /// <summary>
-/// MIDI piano workspace: instrument browser, keyboard, record, save/load patches and MIDI.
+/// MIDI piano + full score workspace: grand staff, piano-roll, instrument bank, QuestPDF export.
 /// </summary>
 public sealed class MidiPianoWorkspace : Border, IDisposable
 {
@@ -31,9 +31,11 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
     };
     readonly TextBlock _status = new() { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap };
     readonly TextBlock _patchLabel = new() { Foreground = AudioEditPalette.Amber };
-    readonly MidiPreviewMixer _mixer = new();
+    readonly Lazy<MidiPreviewMixer> _mixer = new(() => new MidiPreviewMixer());
     readonly InstrumentBrowserControl _browser = new();
     readonly PianoKeyboardControl _keyboard = new() { LowestMidi = 48, WhiteKeyCount = 21 };
+    readonly PianoRollControl _roll = new();
+    readonly ScoreStaffControl _staff = new();
     readonly HashSet<Key> _keysDown = [];
     int _octaveOffset;
     bool _disposed;
@@ -54,9 +56,24 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         };
         _keyboard.NoteOn += OnKeyboardNoteOn;
         _keyboard.NoteOff += OnKeyboardNoteOff;
+        _roll.Bind(Session.Score);
+        _staff.Bind(Session.Score);
+        _roll.SelectionChanged += id =>
+        {
+            Session.SelectNote(id);
+            _roll.SetSelected(id);
+            RefreshStatus();
+        };
+        _roll.PreviewNote += midi =>
+        {
+            try { _mixer.Value.Play(MidiSynth.RenderNote(Session.Format, Session.SelectedPatch, midi, TimeSpan.FromMilliseconds(280))); }
+            catch { /* ignore preview failures */ }
+        };
+        _roll.ScoreEdited += RefreshStatus;
         Session.Changed += () =>
         {
             _keyboard.SetPressed(Session.HeldMidiNumbers);
+            _roll.SetSelected(Session.SelectedNoteId);
             RefreshStatus();
         };
 
@@ -82,6 +99,19 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (e.Key == Key.Delete || e.Key == Key.Back)
+        {
+            if (Session.SelectedNoteId is { } id && Session.Score.Remove(id))
+            {
+                Session.SelectNote(null);
+                _roll.SetSelected(null);
+                RefreshStatus();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Z)
         {
             _octaveOffset = Math.Max(-24, _octaveOffset - 12);
@@ -132,15 +162,23 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         _disposed = true;
         Session.AllNotesOff();
-        _mixer.Dispose();
+        if (_mixer.IsValueCreated)
+            _mixer.Value.Dispose();
     }
 
     void OnKeyboardNoteOn(int midi)
     {
-        var pcm = Session.NoteOn(midi);
-        _mixer.Play(pcm);
-        _keyboard.SetPressed(Session.HeldMidiNumbers);
-        RefreshStatus();
+        try
+        {
+            var pcm = Session.NoteOn(midi);
+            _mixer.Value.Play(pcm);
+            _keyboard.SetPressed(Session.HeldMidiNumbers);
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"Preview failed: {ex.Message}";
+        }
     }
 
     void OnKeyboardNoteOff(int midi)
@@ -169,26 +207,45 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             RefreshStatus();
             await Task.CompletedTask;
         });
-        AddBtn("Play take", async () =>
+        AddBtn("Play score", async () =>
         {
             Session.StopRecording();
-            if (Session.Sequence.Notes.Count == 0)
+            if (Session.Score.Notes.Count == 0)
             {
-                _status.Text = "Nothing recorded yet.";
+                _status.Text = "Score is empty.";
                 return;
             }
 
-            _mixer.Play(Session.RenderSequence());
+            _mixer.Value.Play(Session.RenderSequence());
             await Task.CompletedTask;
         });
-        AddBtn("Clear take", async () =>
+        AddBtn("Clear score", async () =>
         {
-            Session.Sequence.Clear();
+            Session.Score.Clear();
+            Session.SelectNote(null);
+            RefreshStatus();
+            await Task.CompletedTask;
+        });
+        AddBtn("+4 bars", async () =>
+        {
+            Session.Score.GrowBars(4);
+            _roll.InvalidateMeasure();
+            _roll.InvalidateVisual();
+            RefreshStatus();
+            await Task.CompletedTask;
+        });
+        AddBtn("Delete note", async () =>
+        {
+            if (Session.SelectedNoteId is { } id)
+                Session.Score.Remove(id);
+            Session.SelectNote(null);
+            _roll.SetSelected(null);
             RefreshStatus();
             await Task.CompletedTask;
         });
         AddBtn("Save MIDI…", SaveMidiAsync);
         AddBtn("Load MIDI…", LoadMidiAsync);
+        AddBtn("Export PDF…", ExportPdfAsync);
         AddBtn("Save patch…", SavePatchAsync);
         AddBtn("Load patch…", LoadPatchAsync);
         AddBtn("Save bank…", SaveBankAsync);
@@ -208,6 +265,69 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                 Child = _keyboard,
             },
         };
+
+        var rollScroll = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            MinHeight = 220,
+            Content = _roll,
+        };
+        var staffScroll = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            MinHeight = 160,
+            MaxHeight = 220,
+            Content = new Border
+            {
+                Background = Brushes.WhiteSmoke,
+                BorderBrush = AudioEditPalette.Border,
+                BorderThickness = new Thickness(1),
+                Child = _staff,
+            },
+        };
+
+        var center = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            RowSpacing = 8,
+        };
+        var staffBlock = new StackPanel
+        {
+            Spacing = 4,
+            Children =
+            {
+                new TextBlock { Text = "Full score", Foreground = Brushes.White, FontFamily = new FontFamily("Segoe UI Semibold") },
+                staffScroll,
+            },
+        };
+        var rollBlock = new StackPanel
+        {
+            Spacing = 4,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = "Piano roll — click to place · click note to select · Alt/right-click or Delete to remove",
+                    Foreground = Brushes.White,
+                },
+                new Border
+                {
+                    Background = AudioEditPalette.PaneAlt,
+                    BorderBrush = AudioEditPalette.Border,
+                    BorderThickness = new Thickness(1),
+                    Child = rollScroll,
+                },
+            },
+        };
+        Grid.SetRow(staffBlock, 0);
+        Grid.SetRow(rollBlock, 1);
+        Grid.SetRow(_browser, 2);
+        _browser.MaxHeight = 180;
+        center.Children.Add(staffBlock);
+        center.Children.Add(rollBlock);
+        center.Children.Add(_browser);
 
         return new DockPanel
         {
@@ -232,24 +352,33 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                         {
                             new TextBlock
                             {
-                                Text = "Keyboard — click keys, or A–K (W/E/T/Y/U black). Z/X octave down/up.",
+                                Text = "Keyboard — click keys, or A–K (W/E/T/Y/U black). Z/X octave. Record appends onto the score.",
                                 Foreground = Brushes.White,
                             },
                             scrollKeys,
                         },
                     },
                 },
-                _browser,
+                center,
             },
         };
     }
 
-    async Task SaveMidiAsync()
+    async Task ExportPdfAsync()
     {
-        var path = await PickSaveAsync("MIDI sequence", "mid");
+        var path = await PickSaveAsync("Full score PDF", "pdf", suggested: "score.pdf");
         if (path is null)
             return;
-        Session.Sequence.Title = Path.GetFileNameWithoutExtension(path);
+        Session.ExportPdf(path);
+        _status.Text = $"Exported full score PDF → {path}";
+    }
+
+    async Task SaveMidiAsync()
+    {
+        var path = await PickSaveAsync("MIDI sequence", "mid", suggested: "score.mid");
+        if (path is null)
+            return;
+        Session.Score.Title = Path.GetFileNameWithoutExtension(path);
         Session.SaveMidi(path);
         _status.Text = $"Saved MIDI → {path}";
     }
@@ -261,7 +390,9 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         Session.LoadMidi(path);
         _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
-        _status.Text = $"Loaded MIDI ← {path} ({Session.Sequence.Notes.Count} notes)";
+        _roll.InvalidateMeasure();
+        _roll.InvalidateVisual();
+        _status.Text = $"Loaded MIDI ← {path} ({Session.Score.Notes.Count} notes)";
     }
 
     async Task SavePatchAsync()
@@ -310,7 +441,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             return;
         }
 
-        if (Session.Sequence.Notes.Count == 0)
+        if (Session.Score.Notes.Count == 0)
         {
             // Bounce a short demo chord of the current sound
             var demo = new MidiSequence("Patch Preview");
@@ -324,12 +455,12 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         }
 
         var take = Session.RenderSequence();
-        AudioEditOps.AddPcm(MusicProject, Session.Sequence.Title, take);
-        _status.Text = $"Bounced take “{Session.Sequence.Title}” into the sound library.";
+        AudioEditOps.AddPcm(MusicProject, Session.Score.Title, take);
+        _status.Text = $"Bounced score “{Session.Score.Title}” into the sound library.";
         await Task.CompletedTask;
     }
 
-    async Task<string?> PickSaveAsync(string title, string ext)
+    async Task<string?> PickSaveAsync(string title, string ext, string? suggested = null)
     {
         if (TopLevel.GetTopLevel(this) is not { StorageProvider: { } sp })
             return null;
@@ -337,7 +468,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         {
             Title = title,
             DefaultExtension = ext,
-            SuggestedFileName = ext == "mid" ? "take.mid" : "sounds.json",
+            SuggestedFileName = suggested ?? (ext == "mid" ? "score.mid" : ext == "pdf" ? "score.pdf" : "sounds.json"),
             FileTypeChoices =
             [
                 new FilePickerFileType(title) { Patterns = [$"*.{ext}"] },
@@ -387,7 +518,10 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             $"{Session.SelectedPatch.Category} · {Session.SelectedPatch.Name}  ({Session.SelectedPatch.Id})";
         var rec = Session.IsRecording ? "● REC" : "○ idle";
         var oct = 4 + _octaveOffset / 12;
+        var sel = Session.SelectedNoteId is { } id && Session.Score.Find(id) is { } n
+            ? $"selected {ScoreNotation.Name(n.MidiNumber)} @{n.StartBeat:0.##}"
+            : "no note selected";
         _status.Text =
-            $"{rec}  ·  {Session.Sequence.Notes.Count} notes in take  ·  bank {Session.Bank.Patches.Count} sounds  ·  computer octave C{oct}  ·  Z/X shift octave";
+            $"{rec}  ·  {Session.Score.Notes.Count} notes · {Session.Score.BarCount} bars · {Session.Score.TempoBpm:0} BPM  ·  {sel}  ·  bank {Session.Bank.Patches.Count}  ·  C{oct} (Z/X)";
     }
 }
