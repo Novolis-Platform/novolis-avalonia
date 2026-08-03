@@ -33,7 +33,7 @@ public sealed class MidiPreviewMixer : IDisposable
                     pcm.Format.SampleRate * pcm.Format.BytesPerFrame,
                     pcm.Format.BytesPerFrame,
                     16));
-            var shot = new OneShot(new WaveProviderToSampleProvider(stream));
+            var shot = new OneShot(new WaveToSampleProvider(stream));
             _active.Add(shot);
             _mixer!.AddMixerInput(shot);
             if (_waveOut!.PlaybackState != PlaybackState.Playing)
