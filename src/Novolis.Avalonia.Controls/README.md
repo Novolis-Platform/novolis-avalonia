@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Controls
 
 Reusable Avalonia controls (code-only, no XAML): analyzer views, choice/picker dialogs, marked lists, job queue panels, and an Excalidraw-inspired `SketchControl` (pen/line/spline/box/circle/eraser, meetup vertex snap, gridify).
@@ -82,3 +90,4 @@ Pan with middle mouse or Space+drag; wheel zooms toward the cursor. Select tool 
 ## Support
 
 Pre-release.
+

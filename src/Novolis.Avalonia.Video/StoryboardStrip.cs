@@ -107,6 +107,35 @@ public sealed class StoryboardStrip : Control
             if (_selectedClipId == clip.Id)
                 context.DrawRectangle(null, new Pen(Brushes.White, 1.5), rect);
 
+            if (clip.OutTransition != TransitionKind.None && clip.OutTransitionDuration > TimeSpan.Zero)
+            {
+                var tw = Math.Max(10, clip.OutTransitionDuration.TotalSeconds * PixelsPerSecond);
+                var tx = x + w - tw;
+                var tri = new StreamGeometry();
+                using (var g = tri.Open())
+                {
+                    g.BeginFigure(new Point(tx, 10), true);
+                    g.LineTo(new Point(x + w, 10));
+                    g.LineTo(new Point(x + w, 54));
+                    g.EndFigure(true);
+                }
+
+                context.DrawGeometry(
+                    new SolidColorBrush(Color.FromArgb(160, 255, 180, 60)),
+                    null,
+                    tri);
+
+                var tag = clip.OutTransition == TransitionKind.Wipe ? "W" : "F";
+                var tagText = new FormattedText(
+                    tag,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Segoe UI Semibold"),
+                    10,
+                    Brushes.Black);
+                context.DrawText(tagText, new Point(x + w - 14, 12));
+            }
+
             var label = asset?.Name ?? "?";
             var text = new FormattedText(
                 label,

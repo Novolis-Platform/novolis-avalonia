@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Rendering
 
 Avalonia hosts for Novolis rendering stacks (no XAML).
@@ -76,3 +84,4 @@ frame.PresentCpuFrame(pixels, width, height);
 - Apps wire simulation → scene or `PresentCpuFrame` at compose time.
 - For Raylib inside Avalonia, use **`Novolis.Avalonia.Raylib`** (`RaylibHostControl`).
 - For interactive HUD/menus over TwoD, use **`Novolis.Avalonia.Gaming`** (`GameShell`).
+

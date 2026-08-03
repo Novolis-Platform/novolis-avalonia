@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Briefing
 
 Code-only Avalonia controls for post-run briefing UIs: radio-style feeds, scorecards, dual ledger strips, and metric tables.
@@ -31,3 +39,4 @@ var table = new MetricTableView();
 | `MetricTableView` | Read-only DataGrid for keyed rows |
 
 Domain mapping (campaign vox, registry standing, Ops vs Core) belongs in the app layer.
+

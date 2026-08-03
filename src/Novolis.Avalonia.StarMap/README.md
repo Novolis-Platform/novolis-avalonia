@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.StarMap
 
 Pan/zoom Avalonia control for stellar catalog points, route edges, path highlight, and an optional ship marker. Map from `Novolis.Astro.*` at the app layer — this package is UI-only.
@@ -55,3 +63,4 @@ map.SetShipMarker(0, 0, visible: true);
 |-----|-------|
 | [StarMapLab](../../../novolis-dogfooding/apps/astro/StarMapLab) | Interactive star-map lab |
 | [SinsOfACapitalismTycoon](../../../novolis-apps/src/SinsOfACapitalismTycoon) | Bridge map projection over `StarMapControl` |
+

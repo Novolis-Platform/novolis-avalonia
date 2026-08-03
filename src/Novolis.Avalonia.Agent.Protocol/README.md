@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Agent.Protocol
 
 MessagePack DTOs, LocalIpc framing helpers, and `UiAgentClient` for the Avalonia UI agent RPC protocol (`ui.hello`, `ui.tree`, `ui.screenshot`, `ui.click`, `ui.type`, `ui.select`, `ui.focus`, `ui.scroll`, `ui.wait`, …).
@@ -57,3 +65,4 @@ var shot = await client.ScreenshotAsync(maxWidth: 1280);
 |---------------|-------|
 | [`Novolis.Avalonia.Agent`](../Novolis.Avalonia.Agent/README.md) | Host side — embed agent in Avalonia window |
 | [AvaloniaAgentMcp](../../../novolis-dogfooding/apps/AvaloniaAgentMcp) | MCP bridge over the UI agent protocol |
+

@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Mobile.Desktop
 
 Windows desktop implementations of [`Novolis.Avalonia.Mobile`](../Novolis.Avalonia.Mobile/README.md): Credential Manager token store, `%LocalAppData%\Novolis\{product}\` app-data paths, and system-browser launch for OAuth device flows.
@@ -40,3 +48,4 @@ services.AddNovolisMobileDesktop("BooksMobile");
 | [`Novolis.Avalonia.Mobile`](../Novolis.Avalonia.Mobile/README.md) | Platform abstractions (`ISecureTokenStore`, `IAppDataPaths`, …) |
 | [`Novolis.Avalonia.Mobile.Android`](../Novolis.Avalonia.Mobile.Android/README.md) | Android Keystore + Custom Tabs counterpart |
 | [BooksMobile](../../../novolis-apps/src/BooksMobile) | OAuth device-flow desktop host |
+

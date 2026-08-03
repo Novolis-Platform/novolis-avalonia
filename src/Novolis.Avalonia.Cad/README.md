@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Cad
 
 Shared Avalonia CAD surface for **Draft Studio**, **Novolis CAD Studio 3D**, and preview hosts:
@@ -64,3 +72,4 @@ var result = session.Execute(command);
 | [`Novolis.Cad.SceneBridge`](../../../novolis-cad/src/Novolis.Cad.SceneBridge/README.md) | `exportscene` / `bridgescene` → `.nov3djson` |
 | [`Novolis.Avalonia.3D`](../Novolis.Avalonia.3D/README.md) | OpenGL scene editor surface |
 | [Draft Studio](../../../novolis-apps/src/DraftStudio) | 2D/3D CAD studio |
+

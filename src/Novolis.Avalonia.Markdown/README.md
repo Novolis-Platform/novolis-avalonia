@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Markdown
 
 No-XAML Avalonia controls for Markdown editing and live HTML preview.
@@ -60,3 +68,4 @@ var preview = new MarkdownPreviewPane();
 |---------|-------------|
 | `Novolis.Markup.Markdown.Rendering` | Standalone HTML/PDF file export (QuestPDF) |
 | `Novolis.Avalonia.Studio` | Studio chrome, toolbars, status lines |
+

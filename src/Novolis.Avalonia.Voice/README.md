@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Voice
 
 Avalonia controls for designing Novolis voice presets: preset list, archetype/effect/platform inspectors, debounced TTS preview, and C# code export.
@@ -52,3 +60,4 @@ Set `VoicePreviewController.PlatformPreviewFactory` when using `VoiceSynthesizer
 | [`Novolis.Avalonia.Studio`](../Novolis.Avalonia.Studio/README.md) | `StudioChrome`, `StudioFeedback` |
 | [`Novolis.Audio.Voice.Design`](../../../novolis-audio/src/Novolis.Audio.Voice.Design/README.md) | `VoicePresetDraft`, validation, code emitter |
 | [NovolisVoiceStudio](../../../novolis-dogfooding/apps/audio/NovolisVoiceStudio) | Full voice preset studio |
+

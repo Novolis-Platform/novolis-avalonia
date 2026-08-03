@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.3D
 
 Avalonia CAD 3D editor / renderer surface.
@@ -41,3 +49,4 @@ ensurestudiolights → setactivecamera → matchviewport → saverenderpng → d
 ```
 
 Depends on `Novolis.Modeling.Scene` and `Novolis.Agent.Surface`.
+

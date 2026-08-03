@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Mermaid
 
 Avalonia control that renders Mermaid diagrams to SVG (via [Mermaider](https://www.nuget.org/packages/Mermaider)) without a browser.
@@ -44,3 +52,4 @@ Pair with `Novolis.Markup.Mermaid` for fluent builders, or bind any Mermaid sour
 
 - `Novolis.Avalonia.Markdown` — Markdown preview that also renders fenced `mermaid` blocks
 - `Novolis.Markup.Mermaid` — diagram syntax builders
+

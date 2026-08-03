@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Studio
 
 Studio chrome for Avalonia editor apps: status/flash lines, busy overlay, three-column layout, focus mode, dirty/clean status brushes, and a domain-agnostic command bar.
@@ -45,3 +53,4 @@ SketchLab, CadStudio3D, DraftStudio, Books Writer Studio, SceneLab.
 |---------|------|
 | `Novolis.Avalonia.Controls` | Shared controls used inside studio shells |
 | `Novolis.Avalonia.Markdown` | Markdown preview often hosted in studio center panes |
+

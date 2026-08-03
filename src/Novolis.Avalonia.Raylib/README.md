@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Raylib
 
 Embeds a **Raylib** viewport inside Avalonia via a hidden GLFW window and RGBA framebuffer streaming.
@@ -46,3 +54,4 @@ host.FrameRendering += (_, e) =>
 
 - Avalonia ↔ Raylib glue only — no Simulation or Physics references.
 - Use `Novolis.Avalonia.Rendering` for OpenGL TwoD or CPU path-trace hosts when Raylib is not required.
+

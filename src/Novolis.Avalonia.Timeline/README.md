@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Timeline
 
 Git-graph timeline Avalonia controls for studio apps. Renders `Novolis.Timeline.Presentation.GitGraph` rows with scroll, branch legend, empty state, and restore-on-double-click.
@@ -51,3 +59,4 @@ Row model (`GitGraphTimelineRow`) lives in `Novolis.Timeline.Presentation.GitGra
 |---------------|-------|
 | `Novolis.Timeline.Presentation` | Row builder and graph model (required dependency) |
 | [MeshBench](../../../novolis-dogfooding/apps/rendering/MeshBench) | Git history panel in rendering studio |
+

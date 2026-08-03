@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Audio</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Avalonia multi-track audio editor chrome (Music Maker / Audacity–style lightweight).</Description>
+    <RootNamespace>Novolis.Avalonia.Audio</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="NAudio" />
+    <PackageReference Include="Novolis.Audio.Core" />
+    <PackageReference Include="Novolis.Audio.Edit" />
+  </ItemGroup>
+</Project>

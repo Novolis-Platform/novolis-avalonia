@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Gaming
 
 Avalonia game shell for **menus and HUD over Silk / TwoD rendering** (code-only, no XAML).
@@ -79,3 +87,4 @@ Same as Rendering — prefer WGL so `OpenGlControlBase` initializes:
 appBuilder.UsePlatformDetect()
     .With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Wgl] });
 ```
+

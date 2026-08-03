@@ -8,8 +8,7 @@ using Novolis.Video.Edit;
 namespace Novolis.Avalonia.Video;
 
 /// <summary>
-/// Reusable Movie Maker layout: tasks, collections, monitor, storyboard, status.
-/// Owns transport, still cache, composer, and preview session for the bound project.
+/// Reusable Movie Maker layout: tasks, media library, monitor, transitions, storyboard.
 /// </summary>
 public sealed class MovieEditWorkspace : Border, IDisposable
 {
@@ -44,21 +43,23 @@ public sealed class MovieEditWorkspace : Border, IDisposable
         _composer = new MoviePreviewComposer(Stills);
 
         Tasks = new MovieEditTasksPane();
-        Collections = new MediaCollectionsControl();
+        Library = new MediaLibraryControl();
         Monitor = new MovieMonitorControl();
+        TransitionPanel = new TransitionInspectorControl();
         Storyboard = new StoryboardPane();
 
         Monitor.BindTransport(Transport);
         Storyboard.Bind(Project);
         Storyboard.Strip.SeekRequested += Transport.Seek;
-        Storyboard.Strip.ClipSelected += id =>
-        {
-            _selectedClipId = id;
-            Storyboard.SetSelectedClip(id);
-        };
+        Storyboard.Strip.ClipSelected += OnClipSelected;
 
         WireTasks();
-        Collections.SelectionChanged += RefreshStatus;
+        WireLibrary();
+        TransitionPanel.TransitionApplied += () =>
+        {
+            Storyboard.Bind(Project);
+            RefreshStatus();
+        };
         Transport.Changed += RefreshStatus;
 
         _session = new MoviePreviewSession(Project, Transport, _composer, Monitor.Surface, Storyboard.Strip);
@@ -82,11 +83,14 @@ public sealed class MovieEditWorkspace : Border, IDisposable
     /// <summary>Gets the tasks pane.</summary>
     public MovieEditTasksPane Tasks { get; }
 
-    /// <summary>Gets the collections pane.</summary>
-    public MediaCollectionsControl Collections { get; }
+    /// <summary>Gets the visual media library.</summary>
+    public MediaLibraryControl Library { get; }
 
     /// <summary>Gets the preview monitor.</summary>
     public MovieMonitorControl Monitor { get; }
+
+    /// <summary>Gets the transition inspector panel.</summary>
+    public TransitionInspectorControl TransitionPanel { get; }
 
     /// <summary>Gets the storyboard pane.</summary>
     public StoryboardPane Storyboard { get; }
@@ -101,23 +105,24 @@ public sealed class MovieEditWorkspace : Border, IDisposable
     /// <summary>Gets the selected storyboard clip id, if any.</summary>
     public Guid? SelectedClipId => _selectedClipId;
 
-    /// <summary>Rebuilds collections/storyboard and refreshes the preview frame.</summary>
+    /// <summary>Rebuilds library/storyboard and refreshes the preview frame.</summary>
     public void Refresh()
     {
         Storyboard.Bind(Project);
         Storyboard.SetSelectedClip(_selectedClipId);
-        Collections.Bind(Project);
+        Library.Bind(Project, Stills);
+        TransitionPanel.Bind(Project, _selectedClipId);
         _session.Refresh();
         RefreshStatus();
     }
 
-    /// <summary>Opens a file picker and imports stills onto the storyboard.</summary>
+    /// <summary>Opens a file picker and imports stills into the library (not auto-placed).</summary>
     public async Task ImportPicturesAsync(TopLevel topLevel)
     {
         ArgumentNullException.ThrowIfNull(topLevel);
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import pictures",
+            Title = "Import pictures into library",
             AllowMultiple = true,
             FileTypeFilter =
             [
@@ -133,22 +138,21 @@ public sealed class MovieEditWorkspace : Border, IDisposable
             var path = file.TryGetLocalPath();
             if (path is null)
                 continue;
-            ImportImagePath(path);
+            ImportImagePath(path, appendToStoryboard: false);
         }
 
         Refresh();
     }
 
-    /// <summary>Imports one still path into collections + storyboard.</summary>
-    public MediaAsset? ImportImagePath(string path, TimeSpan? duration = null)
+    /// <summary>Imports one still into the library; optionally appends to the storyboard.</summary>
+    public MediaAsset? ImportImagePath(string path, TimeSpan? duration = null, bool appendToStoryboard = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var name = Path.GetFileNameWithoutExtension(path);
         var asset = MovieEditOps.AddImage(Project, name, path, duration ?? TimeSpan.FromSeconds(3));
         try
         {
-            var frame = AvaloniaStillLoader.LoadBgra(path, Project.Width, Project.Height);
-            Stills.SetStill(asset.Id, frame);
+            Stills.SetStill(asset.Id, LoadStill(path, Project.Width, Project.Height));
         }
         catch (Exception ex)
         {
@@ -156,12 +160,63 @@ public sealed class MovieEditWorkspace : Border, IDisposable
             return null;
         }
 
-        MovieEditOps.AppendToStoryboard(Project, asset);
+        if (appendToStoryboard)
+            MovieEditOps.AppendToStoryboard(Project, asset);
         return asset;
     }
 
-    /// <summary>Adds a solid color card and appends it to the storyboard.</summary>
-    public MediaAsset AddColorCard(Rgba8? color = null, TimeSpan? duration = null)
+    /// <summary>Caches a pre-decoded still for an existing image asset.</summary>
+    public void RegisterStill(Guid assetId, Novolis.Video.Rtc.VideoFrame frame) =>
+        Stills.SetStill(assetId, frame);
+
+    /// <summary>Exports a playable AVI via folder picker.</summary>
+    public async Task ExportAsync(TopLevel topLevel)
+    {
+        ArgumentNullException.ThrowIfNull(topLevel);
+        var folder = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Export movie folder (writes movie.avi)",
+            AllowMultiple = false,
+        });
+        if (folder.Count == 0)
+            return;
+
+        var path = folder[0].TryGetLocalPath();
+        if (path is null)
+        {
+            _status.Text = "Export cancelled — no local folder path.";
+            return;
+        }
+
+        try
+        {
+            var result = ExportTo(path);
+            _status.Text =
+                $"Exported video {result.VideoPath} ({result.FrameCount} frames @ {result.FramesPerSecond:0.#} fps)" +
+                (result.AudioPath is null ? "" : " + audio");
+        }
+        catch (Exception ex)
+        {
+            _status.Text = $"Export failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>Exports <c>movie.avi</c> into <paramref name="outputDirectory"/>.</summary>
+    public MovieExportResult ExportTo(string outputDirectory, double framesPerSecond = 12)
+    {
+        var exporter = new MovieExporter(new MoviePreviewComposer(Stills));
+        return exporter.Export(Project, outputDirectory, framesPerSecond);
+    }
+
+    static Novolis.Video.Rtc.VideoFrame LoadStill(string path, int width, int height)
+    {
+        if (path.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase))
+            return BmpFile.ReadToBgra(path, width, height);
+        return AvaloniaStillLoader.LoadBgra(path, width, height);
+    }
+
+    /// <summary>Adds a solid color card to the library (not auto-placed).</summary>
+    public MediaAsset AddColorCard(Rgba8? color = null, TimeSpan? duration = null, bool appendToStoryboard = false)
     {
         var chosen = color ?? DefaultColors[_colorIndex % DefaultColors.Length];
         _colorIndex++;
@@ -170,20 +225,24 @@ public sealed class MovieEditWorkspace : Border, IDisposable
             $"Color {_colorIndex}",
             chosen,
             duration ?? TimeSpan.FromSeconds(2));
-        MovieEditOps.AppendToStoryboard(Project, asset);
+        if (appendToStoryboard)
+            MovieEditOps.AppendToStoryboard(Project, asset);
         Refresh();
         return asset;
     }
 
-    /// <summary>Appends the selected collections asset to the storyboard.</summary>
-    public void AppendSelectedAsset()
+    /// <summary>Appends a library asset to the storyboard or audio track.</summary>
+    public void AddAssetToTimeline(Guid assetId)
     {
-        if (Collections.SelectedAssetId is not { } id)
-            return;
-        var asset = Project.FindAsset(id);
+        var asset = Project.FindAsset(assetId);
         if (asset is null)
             return;
-        MovieEditOps.AppendToStoryboard(Project, asset);
+
+        if (asset.Kind == MediaKind.Audio)
+            MovieEditOps.AppendAudio(Project, asset);
+        else
+            MovieEditOps.AppendToStoryboard(Project, asset);
+
         Refresh();
     }
 
@@ -202,7 +261,41 @@ public sealed class MovieEditWorkspace : Border, IDisposable
         MovieEditOps.RemoveClip(Project, id);
         _selectedClipId = null;
         Storyboard.SetSelectedClip(null);
+        TransitionPanel.Bind(Project, null);
         Refresh();
+    }
+
+    void OnClipSelected(Guid id)
+    {
+        _selectedClipId = id;
+        Storyboard.SetSelectedClip(id);
+        TransitionPanel.Bind(Project, id);
+        RefreshStatus();
+    }
+
+    void WireLibrary()
+    {
+        Library.SelectionChanged += RefreshStatus;
+        Library.AddToStoryboardRequested += id =>
+        {
+            var asset = Project.FindAsset(id);
+            if (asset is null || asset.Kind == MediaKind.Audio)
+                return;
+            MovieEditOps.AppendToStoryboard(Project, asset);
+            Refresh();
+        };
+        Library.AddToAudioTrackRequested += id =>
+        {
+            var asset = Project.FindAsset(id);
+            if (asset is null || asset.Kind != MediaKind.Audio)
+            {
+                _status.Text = "Select an audio item in the library to add to the audio track.";
+                return;
+            }
+
+            MovieEditOps.AppendAudio(Project, asset);
+            Refresh();
+        };
     }
 
     void WireTasks()
@@ -214,9 +307,21 @@ public sealed class MovieEditWorkspace : Border, IDisposable
                 _ = ImportPicturesAsync(top);
         };
         Tasks.AddColorCardRequested += () => AddColorCard();
-        Tasks.AddToStoryboardRequested += AppendSelectedAsset;
+        Tasks.AddToStoryboardRequested += () =>
+        {
+            if (Library.SelectedAssetId is { } id)
+                AddAssetToTimeline(id);
+            else
+                _status.Text = "Select an item in the media library first.";
+        };
         Tasks.SplitAtPlayheadRequested += SplitAtPlayhead;
         Tasks.RemoveClipRequested += RemoveSelectedClip;
+        Tasks.ExportRequested += () =>
+        {
+            var top = TopLevel.GetTopLevel(this);
+            if (top is not null)
+                _ = ExportAsync(top);
+        };
         Tasks.PlayPauseRequested += Transport.Toggle;
         Tasks.RewindRequested += () => Transport.Seek(TimeSpan.Zero);
     }
@@ -224,31 +329,50 @@ public sealed class MovieEditWorkspace : Border, IDisposable
     void RefreshStatus()
     {
         var dur = StoryboardQuery.TotalDuration(Project);
+        var clip = _selectedClipId is { } id ? Project.FindClip(id) : null;
+        var transition = clip is null || clip.OutTransition == TransitionKind.None
+            ? "none"
+            : $"{clip.OutTransition} {clip.OutTransitionDuration.TotalSeconds:0.0}s";
         _status.Text =
-            $"Clips {Project.Clips.Count} · Assets {Project.Assets.Count} · " +
+            $"Library {Project.Assets.Count} · Storyboard {Project.Clips.Count} · Audio {Project.AudioClips.Count} · " +
+            $"Text {Project.TextOverlays.Count} · Transition {transition} · " +
             $"Playhead {Transport.Position:mm\\:ss\\.f} / {dur:mm\\:ss\\.f}" +
             (Transport.IsPlaying ? " · Playing" : " · Paused");
     }
 
     Control BuildLayout()
     {
+        var right = new Grid
+        {
+            RowDefinitions =
+            [
+                new RowDefinition(GridLength.Star),
+                new RowDefinition(new GridLength(220)),
+            ],
+        };
+        var transitionPanel = TransitionPanel;
+        Grid.SetRow(Monitor, 0);
+        Grid.SetRow(transitionPanel, 1);
+        right.Children.Add(Monitor);
+        right.Children.Add(transitionPanel);
+
         var top = new Grid
         {
             ColumnDefinitions =
             [
-                new ColumnDefinition(new GridLength(220)),
-                new ColumnDefinition(new GridLength(280)),
+                new ColumnDefinition(new GridLength(200)),
+                new ColumnDefinition(new GridLength(360)),
                 new ColumnDefinition(GridLength.Star),
             ],
             RowDefinitions = [new RowDefinition(GridLength.Star)],
             Margin = new Thickness(8),
         };
         Grid.SetColumn(Tasks, 0);
-        Grid.SetColumn(Collections, 1);
-        Grid.SetColumn(Monitor, 2);
+        Grid.SetColumn(Library, 1);
+        Grid.SetColumn(right, 2);
         top.Children.Add(Tasks);
-        top.Children.Add(Collections);
-        top.Children.Add(Monitor);
+        top.Children.Add(Library);
+        top.Children.Add(right);
 
         return new DockPanel
         {
@@ -287,7 +411,7 @@ public sealed class MovieEditWorkspace : Border, IDisposable
             return;
         _disposed = true;
         Transport.Changed -= RefreshStatus;
-        Collections.SelectionChanged -= RefreshStatus;
+        Library.SelectionChanged -= RefreshStatus;
         _session.Dispose();
     }
 }

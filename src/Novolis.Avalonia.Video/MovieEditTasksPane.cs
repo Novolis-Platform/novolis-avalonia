@@ -21,6 +21,7 @@ public sealed class MovieEditTasksPane : MovieEditPane
                 TaskButton("Add to storyboard", () => AddToStoryboardRequested?.Invoke()),
                 TaskButton("Split at playhead", () => SplitAtPlayheadRequested?.Invoke()),
                 TaskButton("Remove clip", () => RemoveClipRequested?.Invoke()),
+                TaskButton("Export movie…", () => ExportRequested?.Invoke()),
                 TaskButton("Play / Pause", () => PlayPauseRequested?.Invoke()),
                 TaskButton("Rewind", () => RewindRequested?.Invoke()),
             },
@@ -41,6 +42,9 @@ public sealed class MovieEditTasksPane : MovieEditPane
 
     /// <summary>Raised when Remove clip is clicked.</summary>
     public event Action? RemoveClipRequested;
+
+    /// <summary>Raised when Export movie is clicked.</summary>
+    public event Action? ExportRequested;
 
     /// <summary>Raised when Play / Pause is clicked.</summary>
     public event Action? PlayPauseRequested;

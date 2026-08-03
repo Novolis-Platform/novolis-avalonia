@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Agent
 
 Embeds a LocalIpc `ui.*` agent host in an Avalonia window so MCP / tooling can dump the visual tree, screenshot, click, type, select list/tab items, focus, and scroll.
@@ -58,3 +66,4 @@ Windows process faults), open **Notepad** once, and mark dispatcher exceptions h
 stays up. Agent IPC faults are logged silently (`ReportSilent`) without killing the host.
 
 Enable with env `NOVOLIS_AVALONIA_AGENT=1`. Optional endpoint override: `NOVOLIS_AVALONIA_AGENT_ENDPOINT`.
+

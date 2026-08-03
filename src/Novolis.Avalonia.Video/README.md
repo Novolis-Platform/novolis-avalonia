@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Video
 
 Avalonia controls for realtime media frames and reusable Movie Maker–style edit chrome.
@@ -27,14 +35,17 @@ window.Content = workspace;
 
 | Control | Role |
 |---------|------|
-| `MovieEditWorkspace` | Full tasks / collections / monitor / storyboard shell |
+| `MovieEditWorkspace` | Full edit shell |
+| `MediaLibraryControl` | Thumbnail library + preview + add-to-timeline |
+| `TransitionInspectorControl` | Fade/Wipe editor for selected clip |
 | `MovieEditTasksPane` | Task button column (events) |
-| `MediaCollectionsControl` | Asset collections list |
 | `MovieMonitorControl` | `VideoSurface` + `EditTransportBar` |
-| `StoryboardPane` / `StoryboardStrip` | Scrollable storyboard |
+| `StoryboardPane` / `StoryboardStrip` | Storyboard (transition wedges) |
 | `EditTransportBar` | Rewind / play-pause |
 | `MovieEditPane` | Titled panel chrome |
 | `MoviePreviewSession` | Transport → composer → surface loop |
+
+`MovieEditWorkspace.ExportTo` / **Export movie…** writes playable `movie.avi` (+ `audio.wav` + `movie.json`).
 
 ## Related
 
@@ -43,3 +54,4 @@ window.Content = workspace;
 | `Novolis.Video.Rtc.Abstractions` | `VideoFrame` |
 | `Novolis.Video.Edit` | Project / storyboard / transport |
 | `Novolis.Video.Rtc` | Mesh session producing frames |
+

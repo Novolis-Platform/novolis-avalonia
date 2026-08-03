@@ -1,3 +1,11 @@
+<!-- novolis-pkg-brand:start -->
+<p align="center">
+  <a href="https://github.com/Novolis-Platform/novolis-avalonia">
+    <img src="https://raw.githubusercontent.com/Novolis-Platform/.github/main/brand/logo-icon.svg" width="72" alt="Novolis"/>
+  </a>
+</p>
+<!-- novolis-pkg-brand:end -->
+
 # Novolis.Avalonia.Packaging.Inno
 
 Generate Inno Setup `.iss` scripts and MSBuild properties for Novolis Avalonia installers.
@@ -37,3 +45,4 @@ var iss = new InnoScriptGenerator
 ```
 
 The package also ships MSBuild targets. Set the `NovolisInno*` properties (see targets file), then invoke `NovolisGenerateInnoScript`.
+
