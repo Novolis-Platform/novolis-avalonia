@@ -63,6 +63,23 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
     };
     readonly Button _playBtn;
     readonly Button _recordBtn;
+    readonly ComboBox _demoBox = new()
+    {
+        MinWidth = 220,
+        MaxWidth = 320,
+        Background = AudioEditPalette.Pane,
+        Foreground = Brushes.White,
+        BorderBrush = AudioEditPalette.Border,
+    };
+    readonly ComboBox _freeMidiBox = new()
+    {
+        MinWidth = 220,
+        MaxWidth = 320,
+        Background = AudioEditPalette.Pane,
+        Foreground = Brushes.White,
+        BorderBrush = AudioEditPalette.Border,
+        IsVisible = false,
+    };
     readonly Border _scoreHost;
     readonly DispatcherTimer _playTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
     readonly Lazy<MidiPreviewMixer> _mixer = new(() => new MidiPreviewMixer());
@@ -155,6 +172,11 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             },
         };
 
+        PopulateDemoBox();
+        // SelectionChanged wired after initial SelectedIndex to avoid reloading default twice.
+        _demoBox.SelectionChanged += OnDemoSelected;
+        _freeMidiBox.SelectionChanged += OnFreeMidiSelected;
+
         Background = AudioEditPalette.Pane;
         Child = BuildLayout();
         RefreshChrome();
@@ -163,6 +185,46 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
 
     public MidiPianoSession Session { get; }
     public MusicProject? MusicProject { get; }
+
+    /// <summary>Optional: host fills free MIDI titles; return score for selected title.</summary>
+    public Func<string, MusicScore?>? ResolveFreeMidi { get; set; }
+
+    /// <summary>Optional: host refreshes free MIDI list (download cache).</summary>
+    public Func<IReadOnlyList<string>>? ListFreeMidiTitles { get; set; }
+
+    /// <summary>Optional: host builds a MIDI sketch from a free audio clip.</summary>
+    public Func<MusicScore?>? CreateFreeAudioSketch { get; set; }
+
+    /// <summary>Optional: host downloads/caches free audio+MIDI library.</summary>
+    public Action? SyncFreeLibrary { get; set; }
+
+    /// <summary>Applies a score document in-place and refreshes chrome.</summary>
+    public void ApplyScore(MusicScore score, string? toast = null)
+    {
+        ArgumentNullException.ThrowIfNull(score);
+        StopPlayback();
+        Session.StopRecording();
+        Session.AllNotesOff();
+        Session.ReplaceScore(score);
+        _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
+        _roll.InvalidateMeasure();
+        _roll.InvalidateVisual();
+        _staff.InvalidateVisual();
+        RefreshChrome();
+        Toast(toast ?? $"Loaded {score.Title}");
+    }
+
+    /// <summary>Rebuilds the free-MIDI combo from <see cref="ListFreeMidiTitles"/>.</summary>
+    public void RefreshFreeMidiList()
+    {
+        _freeMidiBox.SelectionChanged -= OnFreeMidiSelected;
+        _freeMidiBox.Items.Clear();
+        var titles = ListFreeMidiTitles?.Invoke() ?? [];
+        foreach (var t in titles)
+            _freeMidiBox.Items.Add(t);
+        _freeMidiBox.IsVisible = titles.Count > 0;
+        _freeMidiBox.SelectionChanged += OnFreeMidiSelected;
+    }
 
     public string HeaderTitle
     {
@@ -380,6 +442,7 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                     {
                         BuildHeader(),
                         transport,
+                        BuildDemoBar(),
                         BuildTrackBar(),
                         writeRow,
                         fileRow,
@@ -461,6 +524,75 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         return ToolStrip(row, accent: true);
     }
 
+    Control BuildDemoBar()
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                GroupLabel("DEMOS"),
+                _demoBox,
+                GroupLabel("FREE MIDI"),
+                _freeMidiBox,
+                MakeToolButton("Sync free library", async () =>
+                {
+                    Toast("Syncing free MIDI + SFX…");
+                    await Task.Run(() => SyncFreeLibrary?.Invoke());
+                    RefreshFreeMidiList();
+                    Toast($"Free library ready · { _freeMidiBox.Items.Count } MIDI");
+                }),
+                MakeToolButton("Sketch free SFX → MIDI", async () =>
+                {
+                    var sketch = await Task.Run(() => CreateFreeAudioSketch?.Invoke());
+                    if (sketch is null)
+                    {
+                        Toast("No free audio sketch — sync library first.");
+                        return;
+                    }
+
+                    ApplyScore(sketch, $"Sketch: {sketch.Title}");
+                }),
+            },
+        };
+        return ToolStrip(row);
+    }
+
+    void PopulateDemoBox()
+    {
+        _demoBox.Items.Clear();
+        foreach (var demo in OrchestrationDemoCatalog.All)
+            _demoBox.Items.Add(demo.Title);
+
+        var current = Session.Score.Title;
+        var idx = OrchestrationDemoCatalog.All.ToList().FindIndex(d =>
+            string.Equals(d.Title, current, StringComparison.OrdinalIgnoreCase));
+        _demoBox.SelectedIndex = idx >= 0 ? idx : 0;
+    }
+
+    void OnDemoSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_demoBox.SelectedIndex < 0 || _demoBox.SelectedIndex >= OrchestrationDemoCatalog.All.Count)
+            return;
+        var demo = OrchestrationDemoCatalog.All[_demoBox.SelectedIndex];
+        ApplyScore(demo.Create(), $"{demo.Title} — {demo.Blurb}");
+    }
+
+    void OnFreeMidiSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_freeMidiBox.SelectedItem is not string title || ResolveFreeMidi is null)
+            return;
+        var score = ResolveFreeMidi(title);
+        if (score is null)
+        {
+            Toast($"Could not load {title}");
+            return;
+        }
+
+        ApplyScore(score);
+    }
+
     Control BuildWriteBar()
     {
         var row = new StackPanel
@@ -507,6 +639,10 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
                 GroupLabel("FILE"),
                 MakeToolButton("Save MIDI…", SaveMidiAsync),
                 MakeToolButton("Load MIDI…", LoadMidiAsync),
+                MakeToolButton("Save MusicXML…", SaveMusicXmlAsync),
+                MakeToolButton("Load score…", LoadScoreExchangeAsync),
+                MakeToolButton("Save Novolis JSON…", SaveNovolisJsonAsync),
+                MakeToolButton("Save MusicJSON…", SaveMusicJsonAsync),
                 MakePrimaryButton("Export PDF…", ExportPdfAsync, compact: true),
                 VSep(),
                 MakeToolButton("Save patch…", SavePatchAsync),
@@ -718,6 +854,48 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
         RefreshChrome();
     }
 
+    async Task SaveMusicXmlAsync()
+    {
+        var path = await PickSaveAsync("MusicXML score", "musicxml", suggested: "score.musicxml");
+        if (path is null)
+            return;
+        Session.SaveMusicXml(path);
+        Toast($"MusicXML → {path}");
+    }
+
+    async Task SaveNovolisJsonAsync()
+    {
+        var path = await PickSaveAsync("Novolis Score JSON", "json", suggested: "score.novolis.json");
+        if (path is null)
+            return;
+        Session.SaveNovolisJson(path);
+        Toast($"Novolis JSON → {path}");
+    }
+
+    async Task SaveMusicJsonAsync()
+    {
+        var path = await PickSaveAsync("MusicJSON", "json", suggested: "score.musicjson.json");
+        if (path is null)
+            return;
+        Session.SaveMusicJson(path);
+        Toast($"MusicJSON → {path}");
+    }
+
+    async Task LoadScoreExchangeAsync()
+    {
+        var path = await PickOpenScoreAsync();
+        if (path is null)
+            return;
+        StopPlayback();
+        Session.LoadScoreExchange(path);
+        _browser.Bind(Session.Bank, Session.SelectedPatch.Id);
+        _roll.InvalidateMeasure();
+        _roll.InvalidateVisual();
+        _staff.InvalidateVisual();
+        Toast($"Loaded score · {Session.Score.Notes.Count} notes · {Session.Score.Title}");
+        RefreshChrome();
+    }
+
     async Task SavePatchAsync()
     {
         var path = await PickSaveAsync("Instrument patch", "json");
@@ -806,6 +984,25 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             Title = title,
             AllowMultiple = false,
             FileTypeFilter = [new FilePickerFileType(title) { Patterns = [$"*.{ext}"] }],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
+    async Task<string?> PickOpenScoreAsync()
+    {
+        if (TopLevel.GetTopLevel(this) is not { StorageProvider: { } sp })
+            return null;
+        var files = await sp.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "MusicXML / score JSON",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Score exchange")
+                {
+                    Patterns = ["*.musicxml", "*.xml", "*.json", "*.musicjson"],
+                },
+            ],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
