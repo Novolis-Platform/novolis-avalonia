@@ -47,6 +47,7 @@
     <PackageVersion Include="Novolis.Audio.Core" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Edit" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Midi" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Catalog" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Dsl" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Live.Protocol" Version="2026.1.*" />

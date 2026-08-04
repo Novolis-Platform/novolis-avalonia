@@ -11,6 +11,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="NAudio" />
     <PackageReference Include="Novolis.Audio.Core" />
+    <PackageReference Include="Novolis.Audio.Catalog" />
     <PackageReference Include="Novolis.Audio.Edit" />
     <PackageReference Include="Novolis.Audio.Midi" />
     <PackageReference Include="Novolis.Audio.MusicTheory" />

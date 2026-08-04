@@ -26,6 +26,7 @@ Lightweight Magix Music Maker / Audacity–style Avalonia editor chrome for `Nov
 | `ScoreStaffControl` | Grand-staff score preview |
 | `PianoKeyboardControl` | On-screen piano keys |
 | `InstrumentBrowserControl` | Browse patch categories |
+| `MediaCatalogWorkspace` | Browse free collections, map Artlist-style inspiration URLs, download + transformers |
 
 ## Quick start
 
@@ -34,6 +35,14 @@ var project = new MusicProject("Demo");
 AudioEditOps.AddTrack(project, "Lead");
 using var workspace = new AudioEditWorkspace(project);
 window.Content = workspace;
+```
+
+Catalog / explore:
+
+```csharp
+var catalog = new MediaCatalogWorkspace();
+catalog.ScoreProduced += score => piano.ApplyScore(score);
+// Paste https://artlist.io/… → Map inspiration → free cinematic stand-in collection
 ```
 
 ## Install
