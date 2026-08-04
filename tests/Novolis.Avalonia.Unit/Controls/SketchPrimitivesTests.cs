@@ -53,6 +53,20 @@ public sealed class SketchPrimitivesTests
     }
 
     [Test]
+    public async Task SpeechBubble_Is_Closed_And_Has_Tail()
+    {
+        var pts = SketchPrimitives.SpeechBubble(new SketchPoint(0, 0), new SketchPoint(100, 80));
+        await Assert.That(pts.Count).IsGreaterThan(10);
+        await Assert.That(pts[0].X).IsEqualTo(pts[^1].X).Within(1e-9);
+        await Assert.That(pts[0].Y).IsEqualTo(pts[^1].Y).Within(1e-9);
+        var bounds = SketchBounds.FromPoints(pts);
+        await Assert.That(bounds.Width).IsGreaterThan(50);
+        await Assert.That(bounds.Height).IsGreaterThan(50);
+        // Tail tip sits near the bottom of the AABB.
+        await Assert.That(pts.Any(p => global::System.Math.Abs(p.Y - bounds.Bottom) < 1e-6)).IsTrue();
+    }
+
+    [Test]
     public async Task SvgDashArray_Null_For_Solid()
     {
         await Assert.That(SketchStrokeStyles.SvgDashArray(SketchStrokeStyle.Solid, 2)).IsNull();

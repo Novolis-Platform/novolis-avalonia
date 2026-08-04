@@ -43,4 +43,37 @@ public sealed class SketchBoundsTests
         var d = SketchBounds.DistanceToPolyline(points, new SketchPoint(5, 2));
         await Assert.That(d).IsEqualTo(2.0);
     }
+
+    [Test]
+    public async Task RotatePoint_Quarter_Turn()
+    {
+        var rotated = SketchBounds.RotatePoint(new SketchPoint(1, 0), new SketchPoint(0, 0), 90);
+        await Assert.That(rotated.X).IsEqualTo(0.0).Within(1e-9);
+        await Assert.That(rotated.Y).IsEqualTo(1.0).Within(1e-9);
+    }
+
+    [Test]
+    public async Task RotatedAabb_Expands_For_Diamond()
+    {
+        var pts = new[]
+        {
+            new SketchPoint(0, 0),
+            new SketchPoint(10, 0),
+            new SketchPoint(10, 10),
+            new SketchPoint(0, 10)
+        };
+        var aabb = SketchBounds.RotatedAabb(pts, 45);
+        await Assert.That(aabb.Width).IsGreaterThan(10);
+        await Assert.That(aabb.Height).IsGreaterThan(10);
+    }
+
+    [Test]
+    public async Task DistanceToRotatedPolyline_Matches_Inverse()
+    {
+        var pts = new[] { new SketchPoint(0, 0), new SketchPoint(10, 0) };
+        var center = SketchBounds.FromPoints(pts).Center;
+        var world = SketchBounds.RotatePoint(new SketchPoint(5, 2), center, 30);
+        var d = SketchBounds.DistanceToRotatedPolyline(pts, 30, world);
+        await Assert.That(d).IsEqualTo(2.0).Within(1e-9);
+    }
 }

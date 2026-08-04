@@ -78,6 +78,94 @@ public static class SketchBounds
         return best;
     }
 
+    /// <summary>Rotates <paramref name="point"/> around <paramref name="center"/> by <paramref name="degrees"/>.</summary>
+    public static SketchPoint RotatePoint(SketchPoint point, SketchPoint center, double degrees)
+    {
+        if (Math.Abs(degrees) < 1e-12)
+            return point;
+        var rad = degrees * Math.PI / 180.0;
+        var cos = Math.Cos(rad);
+        var sin = Math.Sin(rad);
+        var dx = point.X - center.X;
+        var dy = point.Y - center.Y;
+        return new SketchPoint(center.X + dx * cos - dy * sin, center.Y + dx * sin + dy * cos);
+    }
+
+    /// <summary>Local AABB center of <paramref name="points"/> (or origin if empty).</summary>
+    public static SketchPoint LocalCenter(IReadOnlyList<SketchPoint> points)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count == 0)
+            return default;
+        return FromPoints(points).Center;
+    }
+
+    /// <summary>
+    /// Axis-aligned bounds of local points after rotating around their local center by
+    /// <paramref name="rotationDegrees"/>.
+    /// </summary>
+    public static SketchRect RotatedAabb(IReadOnlyList<SketchPoint> points, double rotationDegrees)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count == 0)
+            return default;
+        if (Math.Abs(rotationDegrees) < 1e-12)
+            return FromPoints(points);
+
+        var center = FromPoints(points).Center;
+        var minX = double.PositiveInfinity;
+        var minY = double.PositiveInfinity;
+        var maxX = double.NegativeInfinity;
+        var maxY = double.NegativeInfinity;
+        foreach (var p in points)
+        {
+            var r = RotatePoint(p, center, rotationDegrees);
+            if (r.X < minX) minX = r.X;
+            if (r.Y < minY) minY = r.Y;
+            if (r.X > maxX) maxX = r.X;
+            if (r.Y > maxY) maxY = r.Y;
+        }
+
+        return new SketchRect(minX, minY, Math.Max(0, maxX - minX), Math.Max(0, maxY - minY));
+    }
+
+    /// <summary>
+    /// Distance from world <paramref name="worldPoint"/> to a rotated polyline
+    /// (inverse-rotates the query into local space).
+    /// </summary>
+    public static double DistanceToRotatedPolyline(
+        IReadOnlyList<SketchPoint> localPoints,
+        double rotationDegrees,
+        SketchPoint worldPoint)
+    {
+        ArgumentNullException.ThrowIfNull(localPoints);
+        if (localPoints.Count == 0)
+            return double.PositiveInfinity;
+        if (Math.Abs(rotationDegrees) < 1e-12)
+            return DistanceToPolyline(localPoints, worldPoint);
+
+        var center = FromPoints(localPoints).Center;
+        var local = RotatePoint(worldPoint, center, -rotationDegrees);
+        return DistanceToPolyline(localPoints, local);
+    }
+
+    /// <summary>Whether <paramref name="worldPoint"/> lies inside the rotated local AABB.</summary>
+    public static bool HitRotatedRect(
+        IReadOnlyList<SketchPoint> localPoints,
+        double rotationDegrees,
+        SketchPoint worldPoint)
+    {
+        ArgumentNullException.ThrowIfNull(localPoints);
+        if (localPoints.Count == 0)
+            return false;
+        var localBounds = FromPoints(localPoints);
+        var center = localBounds.Center;
+        var local = Math.Abs(rotationDegrees) < 1e-12
+            ? worldPoint
+            : RotatePoint(worldPoint, center, -rotationDegrees);
+        return localBounds.Contains(local);
+    }
+
     static double Distance(SketchPoint a, SketchPoint b)
     {
         var dx = a.X - b.X;

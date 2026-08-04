@@ -1,22 +1,28 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 
 namespace Novolis.Avalonia.Controls;
 
 /// <summary>
-/// Paint-light sketch surface: pen, line, spline, box, circle, eraser, select,
-/// grid snap, meetup (vertex snap), Gridify, and multi-select.
+/// Paint-light sketch surface: pen, line, spline, box, circle, speech bubble, text, text box,
+/// eraser, select with rotate, fuse groups, grid snap, meetup, Gridify, and image paste.
 /// </summary>
 public sealed class SketchControl : Control
 {
     const double MinSampleDistance = 2.0;
     const double HitToleranceScreen = 8.0;
     const double GripSizeScreen = 7.0;
+    const double RotateGripOffsetScreen = 28.0;
     const double MarqueeStartSlop = 4.0;
     const double MeetupScreenRadius = 14.0;
+    const double DefaultFontSize = 16;
 
     static readonly IBrush BackgroundBrush = new ImmutableSolidColorBrush(Color.Parse("#f7f7f5"));
     static readonly IPen GridPen = new ImmutablePen(new ImmutableSolidColorBrush(Color.Parse("#d8d8d4")), 1);
@@ -27,6 +33,8 @@ public sealed class SketchControl : Control
     static readonly IPen GripPen = new ImmutablePen(new ImmutableSolidColorBrush(Color.Parse("#4c8bf5")), 1);
     static readonly IPen RubberPen = new ImmutablePen(new ImmutableSolidColorBrush(Color.Parse("#888888")), 1.5, dashStyle: new ImmutableDashStyle([6, 4], 0));
     static readonly IPen MeetupPen = new ImmutablePen(new ImmutableSolidColorBrush(Color.Parse("#e85d04")), 1.5);
+
+    readonly Dictionary<string, Bitmap> _imageCache = new(StringComparer.Ordinal);
 
     SketchDocument _document = new();
     double _offsetX;
@@ -43,6 +51,7 @@ public sealed class SketchControl : Control
     GripKind _activeGrip;
     SketchPoint _dragStartWorld;
     Dictionary<string, List<SketchPoint>>? _dragOriginalPoints;
+    Dictionary<string, double>? _dragOriginalRotations;
     SketchRect? _dragUnionBounds;
     Point _marqueeStartScreen;
     Rect? _marqueeScreen;
@@ -51,6 +60,11 @@ public sealed class SketchControl : Control
     SketchPoint? _lastVertexClickWorld;
     HashSet<string>? _eraserBatch;
     bool _pendingClose;
+    TextBox? _textEditor;
+    Popup? _textPopup;
+    string? _editingElementId;
+    bool _endingTextEdit;
+    string? _lastSelectionKey;
 
     /// <summary>Document shown and edited by this control.</summary>
     public static readonly StyledProperty<SketchDocument?> DocumentProperty =
@@ -103,7 +117,11 @@ public sealed class SketchControl : Control
             MeetupEnabledProperty, StrokeColorProperty, StrokeWidthProperty,
             FillEnabledProperty, FillColorProperty, StrokeStyleProperty);
         DocumentProperty.Changed.AddClassHandler<SketchControl>((c, e) => c.OnDocumentChanged(e));
-        ToolProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.CancelInProgressDrawing());
+        ToolProperty.Changed.AddClassHandler<SketchControl>((c, _) =>
+        {
+            c.EndTextEdit(commit: true);
+            c.CancelInProgressDrawing();
+        });
         GridSizeProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.SyncGridFromProperties());
         GridVisibleProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.SyncGridFromProperties());
         SnapEnabledProperty.Changed.AddClassHandler<SketchControl>((c, _) => c.SyncGridFromProperties());
@@ -206,8 +224,6 @@ public sealed class SketchControl : Control
     /// <summary>Raised when selection changes.</summary>
     public event Action? SelectionChanged;
 
-    string? _lastSelectionKey;
-
     /// <summary>
     /// Finishes the in-progress Line/Spline. When <paramref name="closeShape"/> is true,
     /// closes the path to the first vertex (and fills when <see cref="FillEnabled"/>).
@@ -228,9 +244,104 @@ public sealed class SketchControl : Control
         InvalidateVisual();
     }
 
+    /// <summary>Fuses the current multi-selection into one group.</summary>
+    public bool FuseSelection()
+    {
+        var ok = EnsureDocument().FuseSelection();
+        if (ok)
+            InvalidateVisual();
+        return ok;
+    }
+
+    /// <summary>Ungroups the current selection.</summary>
+    public bool UngroupSelection()
+    {
+        var ok = EnsureDocument().UngroupSelection();
+        if (ok)
+            InvalidateVisual();
+        return ok;
+    }
+
+    /// <summary>
+    /// Pastes a PNG (or other Avalonia-decodable raster) as an image element centered at
+    /// <paramref name="centerWorld"/>, scaled so the longest edge is at most <paramref name="maxEdge"/>.
+    /// </summary>
+    public StrokeShape? PasteImage(byte[] imageBytes, SketchPoint centerWorld, double maxEdge = 320)
+    {
+        ArgumentNullException.ThrowIfNull(imageBytes);
+        if (imageBytes.Length == 0)
+            return null;
+
+        Bitmap bitmap;
+        try
+        {
+            using var ms = new MemoryStream(imageBytes);
+            bitmap = new Bitmap(ms);
+        }
+        catch
+        {
+            return null;
+        }
+
+        maxEdge = Math.Max(16, maxEdge);
+        var pw = Math.Max(1.0, bitmap.PixelSize.Width);
+        var ph = Math.Max(1.0, bitmap.PixelSize.Height);
+        var scale = Math.Min(1.0, maxEdge / Math.Max(pw, ph));
+        var w = pw * scale;
+        var h = ph * scale;
+        var left = centerWorld.X - w * 0.5;
+        var top = centerWorld.Y - h * 0.5;
+
+        string b64;
+        try
+        {
+            using var png = new MemoryStream();
+            bitmap.Save(png);
+            b64 = Convert.ToBase64String(png.ToArray());
+        }
+        catch
+        {
+            bitmap.Dispose();
+            return null;
+        }
+
+        var id = Guid.NewGuid().ToString("N");
+        _imageCache[id] = bitmap;
+
+        var stroke = new StrokeShape
+        {
+            Id = id,
+            Kind = SketchElementKind.Image,
+            ImagePngBase64 = b64,
+            StrokeColor = StrokeColor,
+            StrokeWidth = 0,
+            Closed = true,
+            Points =
+            [
+                new SketchPoint(left, top),
+                new SketchPoint(left + w, top),
+                new SketchPoint(left + w, top + h),
+                new SketchPoint(left, top + h),
+                new SketchPoint(left, top)
+            ]
+        };
+
+        EnsureDocument().AddStroke(stroke);
+        EnsureDocument().Select(stroke.Id);
+        RaiseSelectionIfNeeded();
+        DocumentChanged?.Invoke();
+        InvalidateVisual();
+        return stroke;
+    }
+
+    /// <summary>World-space point at the center of the current viewport.</summary>
+    public SketchPoint ViewportCenterWorld() =>
+        ScreenToWorld(new Point(Bounds.Width * 0.5, Bounds.Height * 0.5));
+
     /// <summary>Undoes the last document mutation.</summary>
     public bool Undo()
     {
+        EndTextEdit(commit: true);
         var ok = EnsureDocument().Undo();
         if (ok)
             InvalidateVisual();
@@ -240,6 +351,7 @@ public sealed class SketchControl : Control
     /// <summary>Redoes the last undone mutation.</summary>
     public bool Redo()
     {
+        EndTextEdit(commit: true);
         var ok = EnsureDocument().Redo();
         if (ok)
             InvalidateVisual();
@@ -249,14 +361,19 @@ public sealed class SketchControl : Control
     /// <summary>Clears all strokes.</summary>
     public void Clear()
     {
+        EndTextEdit(commit: false);
         CancelInProgressDrawing();
         EnsureDocument().Clear();
+        ClearImageCache();
         InvalidateVisual();
     }
 
     /// <inheritdoc />
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (_textEditor is not null)
+            return;
+
         if (e.Key == Key.Space)
         {
             _spaceDown = true;
@@ -275,7 +392,6 @@ public sealed class SketchControl : Control
         if (e.Key == Key.Enter && Tool is SketchTool.Line or SketchTool.Spline
             && (_draft is { Count: > 0 } || _splineControls is { Count: > 0 }))
         {
-            // Enter = finish open; Ctrl/Shift+Enter = close then finish
             CompleteDrawing(closeShape: e.KeyModifiers.HasFlag(KeyModifiers.Control)
                                         || e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             e.Handled = true;
@@ -283,6 +399,8 @@ public sealed class SketchControl : Control
         }
 
         var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+
         if (ctrl && e.Key == Key.Z)
         {
             Undo();
@@ -302,6 +420,16 @@ public sealed class SketchControl : Control
             EnsureDocument().SetSelection(EnsureDocument().Elements.Select(x => x.Id));
             RaiseSelectionIfNeeded();
             InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (ctrl && e.Key == Key.G)
+        {
+            if (shift)
+                UngroupSelection();
+            else
+                FuseSelection();
             e.Handled = true;
             return;
         }
@@ -340,6 +468,12 @@ public sealed class SketchControl : Control
     /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
+        if (_textEditor is not null)
+        {
+            EndTextEdit(commit: true);
+            InvalidateVisual();
+        }
+
         Focus();
         var screen = e.GetPosition(this);
         var props = e.GetCurrentPoint(this).Properties;
@@ -380,12 +514,19 @@ public sealed class SketchControl : Control
 
             case SketchTool.Rect:
             case SketchTool.Ellipse:
+            case SketchTool.SpeechBubble:
+            case SketchTool.TextBox:
                 _draft = [world, world];
                 _dragMode = DragMode.ShapeDrag;
                 _dragStartWorld = world;
                 e.Pointer.Capture(this);
                 e.Handled = true;
                 InvalidateVisual();
+                return;
+
+            case SketchTool.Text:
+                PlaceTextLabel(world);
+                e.Handled = true;
                 return;
 
             case SketchTool.Eraser:
@@ -399,6 +540,14 @@ public sealed class SketchControl : Control
         }
 
         // Select
+        if (TryHitRotateGrip(screen))
+        {
+            BeginGeometryDrag(doc, DragMode.Rotate, world);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
         if (TryHitGrip(screen, out var grip, out _))
         {
             BeginGeometryDrag(doc, DragMode.Resize, world);
@@ -411,6 +560,16 @@ public sealed class SketchControl : Control
         var hit = HitTestStroke(screen);
         if (hit is not null)
         {
+            if (e.ClickCount >= 2 && hit.Kind is SketchElementKind.Text or SketchElementKind.TextBox)
+            {
+                doc.Select(hit.Id);
+                RaiseSelectionIfNeeded();
+                BeginTextEdit(hit);
+                e.Handled = true;
+                InvalidateVisual();
+                return;
+            }
+
             if (shift || ctrl)
                 doc.ToggleSelection(hit.Id);
             else if (!doc.Selection.Contains(hit.Id))
@@ -445,7 +604,9 @@ public sealed class SketchControl : Control
         var raw = ScreenToWorld(screen);
         var world = SnapPointer(raw);
         _hoverWorld = world;
-        _meetupHint = MeetupEnabled
+
+        var skipMeetupHint = _dragMode == DragMode.Draw && Tool == SketchTool.Pen;
+        _meetupHint = !skipMeetupHint && MeetupEnabled
             ? SketchMeetup.FindNearestVertex(EnsureDocument().Elements, raw, MeetupWorldRadius())
             : null;
 
@@ -471,10 +632,7 @@ public sealed class SketchControl : Control
 
         if (_dragMode == DragMode.ShapeDrag && _draft is { Count: >= 2 })
         {
-            var forceCircle = Tool == SketchTool.Ellipse && e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-            _draft = Tool == SketchTool.Rect
-                ? SketchPrimitives.Rect(_dragStartWorld, world)
-                : SketchPrimitives.Ellipse(_dragStartWorld, world, forceCircle);
+            _draft = BuildShapeDraft(_dragStartWorld, world, e.KeyModifiers);
             _lastScreen = screen;
             InvalidateVisual();
             e.Handled = true;
@@ -501,7 +659,8 @@ public sealed class SketchControl : Control
             return;
         }
 
-        if (_dragMode is DragMode.Move or DragMode.Resize && _dragOriginalPoints is not null)
+        if ((_dragMode is DragMode.Move or DragMode.Resize or DragMode.Rotate)
+            && _dragOriginalPoints is not null)
         {
             ApplyLiveDrag(world);
             _lastScreen = screen;
@@ -525,7 +684,10 @@ public sealed class SketchControl : Control
         }
         else if (_dragMode == DragMode.ShapeDrag && _draft is { Count: >= 2 })
         {
-            CommitPolyline(_draft);
+            if (Tool == SketchTool.TextBox)
+                CommitTextBox(_draft);
+            else
+                CommitPolyline(_draft);
         }
         else if (_dragMode == DragMode.Erase)
         {
@@ -535,13 +697,14 @@ public sealed class SketchControl : Control
         {
             FinishMarquee();
         }
-        else if (_dragMode is DragMode.Move or DragMode.Resize)
+        else if (_dragMode is DragMode.Move or DragMode.Resize or DragMode.Rotate)
         {
             DocumentChanged?.Invoke();
         }
 
         _dragMode = DragMode.None;
         _dragOriginalPoints = null;
+        _dragOriginalRotations = null;
         _dragUnionBounds = null;
         _marqueeScreen = null;
         _eraserBatch = null;
@@ -563,15 +726,23 @@ public sealed class SketchControl : Control
             DrawGrid(context, doc.Grid.Size);
 
         foreach (var stroke in doc.Elements)
-            DrawStroke(context, stroke);
+            DrawElement(context, stroke);
 
         var draftPen = CreateStrokePen(
             new ImmutableSolidColorBrush(ParseColor(StrokeColor)),
             Math.Max(0.15, StrokeWidth * _scale),
             StrokeStyle);
 
-        if (_draft is { Count: > 0 })
+        if (_draft is { Count: > 0 } && Tool != SketchTool.TextBox)
             DrawPolyline(context, _draft, draftPen);
+        else if (_draft is { Count: >= 2 } && Tool == SketchTool.TextBox)
+        {
+            var b = SketchBounds.FromPoints(_draft);
+            var tl = WorldToScreen(new SketchPoint(b.X, b.Y));
+            var br = WorldToScreen(new SketchPoint(b.Right, b.Bottom));
+            context.DrawRectangle(null, draftPen,
+                new Rect(Math.Min(tl.X, br.X), Math.Min(tl.Y, br.Y), Math.Abs(br.X - tl.X), Math.Abs(br.Y - tl.Y)));
+        }
 
         if (Tool == SketchTool.Spline && _splineControls is { Count: > 0 })
         {
@@ -599,6 +770,207 @@ public sealed class SketchControl : Control
             DrawSnapMarker(context, snapPt);
     }
 
+    List<SketchPoint> BuildShapeDraft(SketchPoint start, SketchPoint end, KeyModifiers modifiers)
+    {
+        var forceCircle = Tool == SketchTool.Ellipse && modifiers.HasFlag(KeyModifiers.Shift);
+        return Tool switch
+        {
+            SketchTool.Ellipse => SketchPrimitives.Ellipse(start, end, forceCircle),
+            SketchTool.SpeechBubble => SketchPrimitives.SpeechBubble(start, end),
+            SketchTool.TextBox => SketchPrimitives.Rect(start, end),
+            _ => SketchPrimitives.Rect(start, end)
+        };
+    }
+
+    void PlaceTextLabel(SketchPoint world)
+    {
+        var strokeColor = string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor;
+        var stroke = new StrokeShape
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Kind = SketchElementKind.Text,
+            Text = "Text",
+            FontSize = DefaultFontSize,
+            StrokeColor = strokeColor,
+            StrokeWidth = 0,
+            Points = [world, new SketchPoint(world.X + DefaultFontSize * 4, world.Y + DefaultFontSize)]
+        };
+        EnsureDocument().AddStroke(stroke);
+        EnsureDocument().Select(stroke.Id);
+        RaiseSelectionIfNeeded();
+        DocumentChanged?.Invoke();
+        BeginTextEdit(stroke);
+        InvalidateVisual();
+    }
+
+    void CommitTextBox(IReadOnlyList<SketchPoint> points)
+    {
+        var b = SketchBounds.FromPoints(points);
+        if (b.Width < 4 && b.Height < 4)
+        {
+            _draft = null;
+            return;
+        }
+
+        var strokeColor = string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor;
+        string? fill = null;
+        if (FillEnabled)
+            fill = string.IsNullOrWhiteSpace(FillColor) ? "#ffffff" : FillColor;
+
+        var stroke = new StrokeShape
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Kind = SketchElementKind.TextBox,
+            Text = "Text",
+            FontSize = DefaultFontSize,
+            StrokeColor = strokeColor,
+            StrokeWidth = StrokeWidth < 0.05 ? 2 : StrokeWidth,
+            FillColor = fill,
+            Closed = true,
+            Points =
+            [
+                new SketchPoint(b.X, b.Y),
+                new SketchPoint(b.Right, b.Y),
+                new SketchPoint(b.Right, b.Bottom),
+                new SketchPoint(b.X, b.Bottom),
+                new SketchPoint(b.X, b.Y)
+            ]
+        };
+        EnsureDocument().AddStroke(stroke);
+        EnsureDocument().Select(stroke.Id);
+        RaiseSelectionIfNeeded();
+        DocumentChanged?.Invoke();
+        _draft = null;
+        BeginTextEdit(stroke);
+        InvalidateVisual();
+    }
+
+    void BeginTextEdit(StrokeShape element)
+    {
+        EndTextEdit(commit: true);
+        if (element.Kind is not (SketchElementKind.Text or SketchElementKind.TextBox))
+            return;
+
+        var bounds = SketchBounds.FromPoints(element.Points);
+        var tl = WorldToScreen(new SketchPoint(bounds.X, bounds.Y));
+        var br = WorldToScreen(new SketchPoint(bounds.Right, bounds.Bottom));
+        var width = Math.Max(80, Math.Abs(br.X - tl.X));
+        var height = Math.Max(28, Math.Abs(br.Y - tl.Y));
+        var left = Math.Min(tl.X, br.X);
+        var top = Math.Min(tl.Y, br.Y);
+
+        _editingElementId = element.Id;
+        _textEditor = new TextBox
+        {
+            Text = element.Text ?? "",
+            FontSize = Math.Max(10, element.FontSize * _scale),
+            Width = width,
+            Height = height,
+            AcceptsReturn = element.Kind == SketchElementKind.TextBox,
+            Background = Brushes.White,
+            BorderBrush = Brushes.DodgerBlue,
+            BorderThickness = new Thickness(1)
+        };
+        _textEditor.KeyDown += OnTextEditorKeyDown;
+        _textEditor.LostFocus += OnTextEditorLostFocus;
+
+        _textPopup = new Popup
+        {
+            Placement = PlacementMode.AnchorAndGravity,
+            PlacementTarget = this,
+            PlacementRect = new Rect(left, top, width, height),
+            PlacementAnchor = global::Avalonia.Controls.Primitives.PopupPositioning.PopupAnchor.TopLeft,
+            PlacementGravity = global::Avalonia.Controls.Primitives.PopupPositioning.PopupGravity.BottomRight,
+            Child = _textEditor,
+            IsLightDismissEnabled = true,
+            IsOpen = true
+        };
+        _textPopup.Closed += OnTextPopupClosed;
+        LogicalChildren.Add(_textPopup);
+        VisualChildren.Add(_textPopup);
+        _textEditor.Focus();
+        _textEditor.SelectAll();
+    }
+
+    void OnTextPopupClosed(object? sender, EventArgs e) => EndTextEdit(commit: true);
+
+    void OnTextEditorKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            EndTextEdit(commit: false);
+            e.Handled = true;
+            InvalidateVisual();
+            return;
+        }
+
+        if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            && _editingElementId is not null
+            && EnsureDocument().Find(_editingElementId)?.Kind == SketchElementKind.Text)
+        {
+            EndTextEdit(commit: true);
+            e.Handled = true;
+            InvalidateVisual();
+        }
+    }
+
+    void OnTextEditorLostFocus(object? sender, RoutedEventArgs e) =>
+        EndTextEdit(commit: true);
+
+    void EndTextEdit(bool commit)
+    {
+        if (_endingTextEdit)
+            return;
+        if (_textEditor is null && _textPopup is null)
+            return;
+
+        _endingTextEdit = true;
+        try
+        {
+            var editor = _textEditor;
+            var popup = _textPopup;
+            var id = _editingElementId;
+
+            if (editor is not null)
+            {
+                editor.KeyDown -= OnTextEditorKeyDown;
+                editor.LostFocus -= OnTextEditorLostFocus;
+            }
+
+            if (popup is not null)
+            {
+                popup.Closed -= OnTextPopupClosed;
+                popup.IsOpen = false;
+                LogicalChildren.Remove(popup);
+                VisualChildren.Remove(popup);
+            }
+
+            _textEditor = null;
+            _textPopup = null;
+            _editingElementId = null;
+
+            if (!commit || id is null || editor is null)
+                return;
+
+            var text = editor.Text ?? "";
+            var doc = EnsureDocument();
+            var el = doc.Find(id);
+            if (el is null)
+                return;
+
+            if (string.Equals(el.Text, text, StringComparison.Ordinal))
+                return;
+
+            doc.Mutate(() => el.Text = text);
+            DocumentChanged?.Invoke();
+            InvalidateVisual();
+        }
+        finally
+        {
+            _endingTextEdit = false;
+        }
+    }
+
     void HandleVertexClick(SketchPoint world, int clickCount)
     {
         var now = DateTime.UtcNow;
@@ -611,7 +983,6 @@ public sealed class SketchControl : Control
 
         if (isDouble)
         {
-            // Double-click closes when we have enough vertices; otherwise finishes open.
             var count = Tool == SketchTool.Spline
                 ? _splineControls?.Count ?? 0
                 : _draft?.Count ?? 0;
@@ -633,7 +1004,6 @@ public sealed class SketchControl : Control
             return;
         }
 
-        // Spline
         _splineControls ??= [];
         if (_splineControls.Count >= 3 && Distance(_splineControls[0], world) <= CloseRadiusWorld())
         {
@@ -675,7 +1045,7 @@ public sealed class SketchControl : Control
             : points.ToList();
 
         var closed = _pendingClose
-                     || Tool is SketchTool.Rect or SketchTool.Ellipse
+                     || Tool is SketchTool.Rect or SketchTool.Ellipse or SketchTool.SpeechBubble
                      || IsNearlyClosed(pts);
         _pendingClose = false;
 
@@ -690,6 +1060,7 @@ public sealed class SketchControl : Control
         var stroke = new StrokeShape
         {
             Id = Guid.NewGuid().ToString("N"),
+            Kind = SketchElementKind.Stroke,
             Points = pts,
             StrokeColor = strokeColor,
             StrokeWidth = StrokeWidth < 0.05 ? 2 : StrokeWidth,
@@ -735,7 +1106,7 @@ public sealed class SketchControl : Control
         for (var i = doc.Elements.Count - 1; i >= 0; i--)
         {
             var stroke = doc.Elements[i];
-            if (SketchBounds.DistanceToPolyline(stroke.Points, world) <= tol + stroke.StrokeWidth)
+            if (HitDistance(stroke, world) <= tol + stroke.StrokeWidth)
                 _eraserBatch?.Add(stroke.Id);
         }
     }
@@ -776,7 +1147,7 @@ public sealed class SketchControl : Control
         {
             if (stroke.Points.Count == 0)
                 continue;
-            if (RectsIntersect(worldBox, SketchBounds.FromPoints(stroke.Points)))
+            if (RectsIntersect(worldBox, ElementWorldBounds(stroke)))
                 hits.Add(stroke.Id);
         }
 
@@ -796,6 +1167,7 @@ public sealed class SketchControl : Control
         _dragMode = mode;
         _dragStartWorld = world;
         _dragOriginalPoints = new Dictionary<string, List<SketchPoint>>(StringComparer.Ordinal);
+        _dragOriginalRotations = new Dictionary<string, double>(StringComparer.Ordinal);
 
         var targets = doc.Elements.Where(e => doc.Selection.Contains(e.Id)).ToList();
         if (targets.Count == 0)
@@ -803,19 +1175,19 @@ public sealed class SketchControl : Control
 
         doc.Checkpoint();
         foreach (var t in targets)
-            _dragOriginalPoints[t.Id] = [.. t.Points];
-
-        if (mode == DragMode.Resize)
         {
-            SketchRect? union = null;
-            foreach (var t in targets)
-            {
-                var b = SketchBounds.FromPoints(t.Points);
-                union = union is null ? b : Union(union.Value, b);
-            }
-
-            _dragUnionBounds = union;
+            _dragOriginalPoints[t.Id] = [.. t.Points];
+            _dragOriginalRotations[t.Id] = t.RotationDegrees;
         }
+
+        SketchRect? union = null;
+        foreach (var t in targets)
+        {
+            var b = ElementWorldBounds(t);
+            union = union is null ? b : Union(union.Value, b);
+        }
+
+        _dragUnionBounds = union;
     }
 
     void ApplyLiveDrag(SketchPoint world)
@@ -841,6 +1213,23 @@ public sealed class SketchControl : Control
                 if (stroke is null)
                     continue;
                 stroke.Points = original.Select(p => new SketchPoint(p.X + dx, p.Y + dy)).ToList();
+            }
+
+            return;
+        }
+
+        if (_dragMode == DragMode.Rotate && _dragUnionBounds is { } rotUnion && _dragOriginalRotations is not null)
+        {
+            var center = rotUnion.Center;
+            var startAngle = Math.Atan2(_dragStartWorld.Y - center.Y, _dragStartWorld.X - center.X);
+            var curAngle = Math.Atan2(world.Y - center.Y, world.X - center.X);
+            var deltaDeg = (curAngle - startAngle) * 180.0 / Math.PI;
+            foreach (var (id, _) in _dragOriginalPoints)
+            {
+                var stroke = doc.Find(id);
+                if (stroke is null)
+                    continue;
+                stroke.RotationDegrees = _dragOriginalRotations[id] + deltaDeg;
             }
 
             return;
@@ -894,6 +1283,15 @@ public sealed class SketchControl : Control
         return new SketchRect(tl.X, tl.Y, Math.Max(GridSize, br.X - tl.X), Math.Max(GridSize, br.Y - tl.Y));
     }
 
+    bool TryHitRotateGrip(Point screen)
+    {
+        var union = SelectionUnion(EnsureDocument());
+        if (union is null)
+            return false;
+        var gp = RotateGripScreen(union.Value);
+        return Distance(gp, screen) <= GripSizeScreen + 4;
+    }
+
     bool TryHitGrip(Point screen, out GripKind grip, out StrokeShape? stroke)
     {
         grip = default;
@@ -925,12 +1323,28 @@ public sealed class SketchControl : Control
         for (var i = doc.Elements.Count - 1; i >= 0; i--)
         {
             var stroke = doc.Elements[i];
-            if (SketchBounds.DistanceToPolyline(stroke.Points, world) <= tol)
+            if (HitDistance(stroke, world) <= tol)
                 return stroke;
         }
 
         return null;
     }
+
+    static double HitDistance(StrokeShape stroke, SketchPoint world)
+    {
+        if (stroke.Points.Count == 0)
+            return double.PositiveInfinity;
+
+        if (stroke.Kind is SketchElementKind.Text or SketchElementKind.TextBox or SketchElementKind.Image)
+            return SketchBounds.HitRotatedRect(stroke.Points, stroke.RotationDegrees, world)
+                ? 0
+                : double.PositiveInfinity;
+
+        return SketchBounds.DistanceToRotatedPolyline(stroke.Points, stroke.RotationDegrees, world);
+    }
+
+    static SketchRect ElementWorldBounds(StrokeShape stroke) =>
+        SketchBounds.RotatedAabb(stroke.Points, stroke.RotationDegrees);
 
     void DrawGrid(DrawingContext context, double step)
     {
@@ -959,10 +1373,23 @@ public sealed class SketchControl : Control
         }
     }
 
-    void DrawStroke(DrawingContext context, StrokeShape stroke)
+    void DrawElement(DrawingContext context, StrokeShape stroke)
     {
         if (stroke.Points.Count == 0)
             return;
+
+        if (stroke.Kind == SketchElementKind.Image)
+        {
+            DrawImageElement(context, stroke);
+            return;
+        }
+
+        if (stroke.Kind is SketchElementKind.Text or SketchElementKind.TextBox)
+        {
+            DrawTextElement(context, stroke);
+            return;
+        }
+
         var thickness = Math.Max(0.15, stroke.StrokeWidth * _scale);
         var pen = CreateStrokePen(
             new ImmutableSolidColorBrush(ParseColor(stroke.StrokeColor)),
@@ -971,13 +1398,108 @@ public sealed class SketchControl : Control
         IBrush? fill = null;
         if (!string.IsNullOrWhiteSpace(stroke.FillColor) && (stroke.Closed || IsNearlyClosed(stroke.Points)))
             fill = new ImmutableSolidColorBrush(ParseColor(stroke.FillColor));
-        DrawPolyline(context, stroke.Points, pen, fill, stroke.Closed || IsNearlyClosed(stroke.Points));
+
+        var center = SketchBounds.LocalCenter(stroke.Points);
+        using (context.PushTransform(BuildWorldRotation(center, stroke.RotationDegrees)))
+            DrawPolyline(context, stroke.Points, pen, fill, stroke.Closed || IsNearlyClosed(stroke.Points));
     }
 
-    /// <summary>
-    /// Continuous polyline stroke (round caps/joins). Avoids per-segment DrawLine,
-    /// which renders as disjoint rectangular slabs at corners.
-    /// </summary>
+    void DrawTextElement(DrawingContext context, StrokeShape stroke)
+    {
+        var bounds = SketchBounds.FromPoints(stroke.Points);
+        var center = bounds.Center;
+        using (context.PushTransform(BuildWorldRotation(center, stroke.RotationDegrees)))
+        {
+            if (stroke.Kind == SketchElementKind.TextBox)
+            {
+                var thickness = Math.Max(0.15, stroke.StrokeWidth * _scale);
+                var pen = CreateStrokePen(
+                    new ImmutableSolidColorBrush(ParseColor(stroke.StrokeColor)),
+                    thickness,
+                    stroke.StrokeStyle);
+                IBrush? fill = null;
+                if (!string.IsNullOrWhiteSpace(stroke.FillColor))
+                    fill = new ImmutableSolidColorBrush(ParseColor(stroke.FillColor));
+                var tl = WorldToScreen(new SketchPoint(bounds.X, bounds.Y));
+                var br = WorldToScreen(new SketchPoint(bounds.Right, bounds.Bottom));
+                var rect = new Rect(Math.Min(tl.X, br.X), Math.Min(tl.Y, br.Y), Math.Abs(br.X - tl.X), Math.Abs(br.Y - tl.Y));
+                context.DrawRectangle(fill, pen, rect);
+            }
+
+            if (_editingElementId == stroke.Id)
+                return;
+
+            var text = string.IsNullOrEmpty(stroke.Text) ? " " : stroke.Text;
+            var fontSize = Math.Max(8, stroke.FontSize * _scale);
+            var ft = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"),
+                fontSize,
+                new ImmutableSolidColorBrush(ParseColor(stroke.StrokeColor)));
+
+            var origin = stroke.Kind == SketchElementKind.Text
+                ? WorldToScreen(stroke.Points[0])
+                : WorldToScreen(new SketchPoint(bounds.X + 4, bounds.Y + 4));
+            context.DrawText(ft, origin);
+        }
+    }
+
+    void DrawImageElement(DrawingContext context, StrokeShape stroke)
+    {
+        var bitmap = GetOrLoadBitmap(stroke);
+        if (bitmap is null)
+            return;
+
+        var bounds = SketchBounds.FromPoints(stroke.Points);
+        var center = bounds.Center;
+        using (context.PushTransform(BuildWorldRotation(center, stroke.RotationDegrees)))
+        {
+            var tl = WorldToScreen(new SketchPoint(bounds.X, bounds.Y));
+            var br = WorldToScreen(new SketchPoint(bounds.Right, bounds.Bottom));
+            var rect = new Rect(Math.Min(tl.X, br.X), Math.Min(tl.Y, br.Y), Math.Abs(br.X - tl.X), Math.Abs(br.Y - tl.Y));
+            context.DrawImage(bitmap, rect);
+        }
+    }
+
+    Matrix BuildWorldRotation(SketchPoint worldCenter, double degrees)
+    {
+        if (Math.Abs(degrees) < 1e-12)
+            return Matrix.Identity;
+        var c = WorldToScreen(worldCenter);
+        return Matrix.CreateTranslation(-c.X, -c.Y)
+               * Matrix.CreateRotation(degrees * Math.PI / 180.0)
+               * Matrix.CreateTranslation(c.X, c.Y);
+    }
+
+    Bitmap? GetOrLoadBitmap(StrokeShape stroke)
+    {
+        if (_imageCache.TryGetValue(stroke.Id, out var cached))
+            return cached;
+        if (string.IsNullOrWhiteSpace(stroke.ImagePngBase64))
+            return null;
+        try
+        {
+            var bytes = Convert.FromBase64String(stroke.ImagePngBase64);
+            using var ms = new MemoryStream(bytes);
+            var bmp = new Bitmap(ms);
+            _imageCache[stroke.Id] = bmp;
+            return bmp;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    void ClearImageCache()
+    {
+        foreach (var bmp in _imageCache.Values)
+            bmp.Dispose();
+        _imageCache.Clear();
+    }
+
     void DrawPolyline(
         DrawingContext context,
         IReadOnlyList<SketchPoint> points,
@@ -1028,10 +1550,15 @@ public sealed class SketchControl : Control
             var stroke = doc.Find(id);
             if (stroke is null || stroke.Points.Count == 0)
                 continue;
-            DrawSelectionRect(context, SketchBounds.FromPoints(stroke.Points), withGrips: false);
+            DrawSelectionRect(context, ElementWorldBounds(stroke), withGrips: false);
         }
 
         DrawSelectionRect(context, union.Value, withGrips: true);
+        var rot = RotateGripScreen(union.Value);
+        context.DrawLine(SelectionPen,
+            WorldToScreen(new SketchPoint(union.Value.X + union.Value.Width * 0.5, union.Value.Y)),
+            rot);
+        context.DrawEllipse(GripBrush, GripPen, rot, 5, 5);
     }
 
     void DrawSelectionRect(DrawingContext context, SketchRect bounds, bool withGrips)
@@ -1047,6 +1574,12 @@ public sealed class SketchControl : Control
             var g = WorldToScreen(GripWorld(bounds, kind));
             context.DrawRectangle(GripBrush, GripPen, new Rect(g.X - 3.5, g.Y - 3.5, 7, 7));
         }
+    }
+
+    Point RotateGripScreen(SketchRect union)
+    {
+        var topMid = WorldToScreen(new SketchPoint(union.X + union.Width * 0.5, union.Y));
+        return new Point(topMid.X, topMid.Y - RotateGripOffsetScreen);
     }
 
     void DrawSnapMarker(DrawingContext context, SketchPoint world)
@@ -1072,7 +1605,7 @@ public sealed class SketchControl : Control
             var stroke = doc.Find(id);
             if (stroke is null || stroke.Points.Count == 0)
                 continue;
-            var b = SketchBounds.FromPoints(stroke.Points);
+            var b = ElementWorldBounds(stroke);
             union = union is null ? b : Union(union.Value, b);
         }
 
@@ -1110,6 +1643,9 @@ public sealed class SketchControl : Control
     SketchPoint SnapPointer(SketchPoint raw)
     {
         var p = SnapEnabled ? SketchSnap.Snap(raw, GridSize) : raw;
+        // Freehand pen must not be yanked onto existing vertices mid-stroke.
+        if (_dragMode == DragMode.Draw && Tool == SketchTool.Pen)
+            return p;
         if (!MeetupEnabled)
             return p;
         var meet = SketchMeetup.FindNearestVertex(EnsureDocument().Elements, raw, MeetupWorldRadius());
@@ -1150,6 +1686,8 @@ public sealed class SketchControl : Control
 
     void OnDocumentChanged(AvaloniaPropertyChangedEventArgs e)
     {
+        EndTextEdit(commit: false);
+        ClearImageCache();
         if (e.OldValue is SketchDocument oldDoc)
             oldDoc.Changed -= OnDocumentMutated;
         if (e.NewValue is SketchDocument newDoc)
@@ -1222,6 +1760,7 @@ public sealed class SketchControl : Control
         ShapeDrag,
         Move,
         Resize,
+        Rotate,
         Marquee,
         Erase
     }

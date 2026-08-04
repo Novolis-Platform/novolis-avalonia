@@ -8,7 +8,7 @@ public sealed class SketchDocument
     readonly SketchHistory _history = new();
 
     /// <summary>Document format version.</summary>
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
     /// <summary>Grid configuration.</summary>
     public GridSettings Grid { get; } = new();
@@ -104,44 +104,131 @@ public sealed class SketchDocument
         _selection.Clear();
         if (ids is not null)
         {
+            var expanded = new HashSet<string>(StringComparer.Ordinal);
             foreach (var id in ids)
             {
-                if (Find(id) is not null)
-                    _selection.Add(id);
+                if (Find(id) is null)
+                    continue;
+                foreach (var member in GroupMemberIds(id))
+                    expanded.Add(member);
             }
+
+            foreach (var id in expanded)
+                _selection.Add(id);
         }
 
         Notify();
     }
 
-    /// <summary>Selects a single element (or clears if null).</summary>
+    /// <summary>Selects a single element (or clears if null). Expands to full group.</summary>
     public void Select(string? id)
     {
         _selection.Clear();
         if (id is not null && Find(id) is not null)
-            _selection.Add(id);
+        {
+            foreach (var member in GroupMemberIds(id))
+                _selection.Add(member);
+        }
+
         Notify();
     }
 
-    /// <summary>Adds <paramref name="id"/> to the selection if it exists.</summary>
+    /// <summary>Adds <paramref name="id"/> (and its group) to the selection if it exists.</summary>
     public void AddToSelection(string id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         if (Find(id) is null)
             return;
-        if (_selection.Add(id))
+        var changed = false;
+        foreach (var member in GroupMemberIds(id))
+            changed |= _selection.Add(member);
+        if (changed)
             Notify();
     }
 
-    /// <summary>Toggles <paramref name="id"/> in the selection.</summary>
+    /// <summary>Toggles <paramref name="id"/> (and its group) in the selection.</summary>
     public void ToggleSelection(string id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         if (Find(id) is null)
             return;
-        if (!_selection.Remove(id))
-            _selection.Add(id);
+        var members = GroupMemberIds(id).ToList();
+        var allSelected = members.All(_selection.Contains);
+        if (allSelected)
+        {
+            foreach (var m in members)
+                _selection.Remove(m);
+        }
+        else
+        {
+            foreach (var m in members)
+                _selection.Add(m);
+        }
+
         Notify();
+    }
+
+    /// <summary>
+    /// Fuses the current selection into one group (≥2 elements). Returns true when a group was created.
+    /// </summary>
+    public bool FuseSelection()
+    {
+        if (_selection.Count < 2)
+            return false;
+
+        var groupId = Guid.NewGuid().ToString("N");
+        Mutate(() =>
+        {
+            foreach (var stroke in _elements)
+            {
+                if (_selection.Contains(stroke.Id))
+                    stroke.GroupId = groupId;
+            }
+        });
+        return true;
+    }
+
+    /// <summary>Clears <see cref="StrokeShape.GroupId"/> on the selection (full groups expanded).</summary>
+    public bool UngroupSelection()
+    {
+        if (_selection.Count == 0)
+            return false;
+
+        var any = _selection.Any(id => Find(id)?.GroupId is not null);
+        if (!any)
+            return false;
+
+        Mutate(() =>
+        {
+            foreach (var stroke in _elements)
+            {
+                if (_selection.Contains(stroke.Id))
+                    stroke.GroupId = null;
+            }
+        });
+        return true;
+    }
+
+    /// <summary>All element ids in the same group as <paramref name="id"/> (or just <paramref name="id"/>).</summary>
+    public IEnumerable<string> GroupMemberIds(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        var stroke = Find(id);
+        if (stroke is null)
+            yield break;
+
+        if (string.IsNullOrWhiteSpace(stroke.GroupId))
+        {
+            yield return id;
+            yield break;
+        }
+
+        var gid = stroke.GroupId;
+        foreach (var e in _elements)
+        {
+            if (string.Equals(e.GroupId, gid, StringComparison.Ordinal))
+                yield return e.Id;
+        }
     }
 
     /// <summary>

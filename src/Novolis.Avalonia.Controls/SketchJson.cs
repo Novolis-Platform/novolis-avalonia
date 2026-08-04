@@ -57,22 +57,36 @@ public static class SketchJson
     static StrokeShapeDto ToDto(StrokeShape s) => new()
     {
         Id = s.Id,
+        Kind = s.Kind == SketchElementKind.Stroke ? null : s.Kind,
         StrokeColor = s.StrokeColor,
         StrokeWidth = s.StrokeWidth,
         FillColor = string.IsNullOrWhiteSpace(s.FillColor) ? null : s.FillColor,
         StrokeStyle = s.StrokeStyle == SketchStrokeStyle.Solid ? null : s.StrokeStyle,
         Closed = s.Closed ? true : null,
+        RotationDegrees = Math.Abs(s.RotationDegrees) < 1e-9 ? null : s.RotationDegrees,
+        GroupId = string.IsNullOrWhiteSpace(s.GroupId) ? null : s.GroupId,
+        Text = string.IsNullOrEmpty(s.Text) ? null : s.Text,
+        FontSize = s.Kind is SketchElementKind.Text or SketchElementKind.TextBox && Math.Abs(s.FontSize - 16) > 1e-9
+            ? s.FontSize
+            : null,
+        ImagePngBase64 = string.IsNullOrWhiteSpace(s.ImagePngBase64) ? null : s.ImagePngBase64,
         Points = s.Points.Select(p => new SketchPointDto { X = p.X, Y = p.Y }).ToList()
     };
 
     static StrokeShape FromDto(StrokeShapeDto d) => new()
     {
         Id = string.IsNullOrWhiteSpace(d.Id) ? Guid.NewGuid().ToString("N") : d.Id,
+        Kind = d.Kind ?? SketchElementKind.Stroke,
         StrokeColor = string.IsNullOrWhiteSpace(d.StrokeColor) ? "#1e1e1e" : d.StrokeColor!,
         StrokeWidth = d.StrokeWidth <= 0 ? 2 : d.StrokeWidth,
         FillColor = string.IsNullOrWhiteSpace(d.FillColor) ? null : d.FillColor,
         StrokeStyle = d.StrokeStyle ?? SketchStrokeStyle.Solid,
         Closed = d.Closed == true,
+        RotationDegrees = d.RotationDegrees ?? 0,
+        GroupId = string.IsNullOrWhiteSpace(d.GroupId) ? null : d.GroupId,
+        Text = d.Text,
+        FontSize = d.FontSize is > 0 ? d.FontSize.Value : 16,
+        ImagePngBase64 = string.IsNullOrWhiteSpace(d.ImagePngBase64) ? null : d.ImagePngBase64,
         Points = d.Points?.Select(p => new SketchPoint(p.X, p.Y)).ToList() ?? []
     };
 
@@ -93,11 +107,17 @@ public static class SketchJson
     sealed class StrokeShapeDto
     {
         public string? Id { get; set; }
+        public SketchElementKind? Kind { get; set; }
         public string? StrokeColor { get; set; }
         public double StrokeWidth { get; set; } = 2;
         public string? FillColor { get; set; }
         public SketchStrokeStyle? StrokeStyle { get; set; }
         public bool? Closed { get; set; }
+        public double? RotationDegrees { get; set; }
+        public string? GroupId { get; set; }
+        public string? Text { get; set; }
+        public double? FontSize { get; set; }
+        public string? ImagePngBase64 { get; set; }
         public List<SketchPointDto>? Points { get; set; }
     }
 

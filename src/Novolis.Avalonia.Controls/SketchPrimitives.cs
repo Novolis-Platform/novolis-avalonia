@@ -124,4 +124,53 @@ public static class SketchPrimitives
 
         return current;
     }
+
+    /// <summary>
+    /// Speech bubble: rounded rectangle body with a triangular tail near the bottom-left.
+    /// Closed polyline starting/ending at the first body point.
+    /// </summary>
+    public static List<SketchPoint> SpeechBubble(SketchPoint a, SketchPoint b, int cornerSegments = 4)
+    {
+        cornerSegments = Math.Clamp(cornerSegments, 2, 12);
+        var left = Math.Min(a.X, b.X);
+        var top = Math.Min(a.Y, b.Y);
+        var right = Math.Max(a.X, b.X);
+        var bottom = Math.Max(a.Y, b.Y);
+        var w = Math.Max(1e-6, right - left);
+        var h = Math.Max(1e-6, bottom - top);
+        var r = Math.Min(w, h) * 0.18;
+        var bodyBottom = bottom - Math.Min(h * 0.22, Math.Max(8, h * 0.15));
+        if (bodyBottom <= top + r * 2)
+            bodyBottom = top + (bottom - top) * 0.75;
+
+        var pts = new List<SketchPoint>(cornerSegments * 4 + 8);
+        void Arc(double cx, double cy, double startDeg, double endDeg)
+        {
+            for (var i = 0; i <= cornerSegments; i++)
+            {
+                var t = startDeg + (endDeg - startDeg) * (i / (double)cornerSegments);
+                var rad = t * Math.PI / 180.0;
+                pts.Add(new SketchPoint(cx + r * Math.Cos(rad), cy + r * Math.Sin(rad)));
+            }
+        }
+
+        // Top-left → top-right → bottom-right → tail → bottom-left → close
+        Arc(left + r, top + r, 180, 270);
+        Arc(right - r, top + r, 270, 360);
+        Arc(right - r, bodyBottom - r, 0, 90);
+
+        var tailBaseL = left + w * 0.18;
+        var tailBaseR = left + w * 0.32;
+        var tipX = left + w * 0.12;
+        var tipY = bottom;
+        pts.Add(new SketchPoint(tailBaseR, bodyBottom));
+        pts.Add(new SketchPoint(tipX, tipY));
+        pts.Add(new SketchPoint(tailBaseL, bodyBottom));
+
+        Arc(left + r, bodyBottom - r, 90, 180);
+
+        if (pts.Count > 0)
+            pts.Add(pts[0]);
+        return pts;
+    }
 }

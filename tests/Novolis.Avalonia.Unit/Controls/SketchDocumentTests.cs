@@ -114,4 +114,89 @@ public sealed class SketchDocumentTests
         await Assert.That(doc.Undo()).IsTrue();
         await Assert.That(doc.Elements.Count).IsEqualTo(1);
     }
+
+    [Test]
+    public async Task Fuse_And_Ungroup_Share_GroupId()
+    {
+        var doc = new SketchDocument();
+        doc.AddStroke(new StrokeShape { Id = "a", Points = [new SketchPoint(0, 0), new SketchPoint(1, 0)] });
+        doc.AddStroke(new StrokeShape { Id = "b", Points = [new SketchPoint(2, 0), new SketchPoint(3, 0)] });
+        doc.SetSelection(["a", "b"]);
+        await Assert.That(doc.FuseSelection()).IsTrue();
+        var ga = doc.Find("a")!.GroupId;
+        var gb = doc.Find("b")!.GroupId;
+        await Assert.That(ga).IsNotNull();
+        await Assert.That(ga).IsEqualTo(gb);
+
+        doc.Select("a");
+        await Assert.That(doc.Selection.Count).IsEqualTo(2);
+        await Assert.That(doc.UngroupSelection()).IsTrue();
+        await Assert.That(doc.Find("a")!.GroupId).IsNull();
+        await Assert.That(doc.Find("b")!.GroupId).IsNull();
+    }
+
+    [Test]
+    public async Task Json_RoundTrips_V2_Fields()
+    {
+        var doc = new SketchDocument { Version = 2 };
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "t1",
+            Kind = SketchElementKind.Text,
+            Text = "Hello",
+            FontSize = 22,
+            RotationDegrees = 15,
+            GroupId = "g1",
+            StrokeColor = "#112233",
+            Points = [new SketchPoint(5, 6), new SketchPoint(40, 30)]
+        });
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "img",
+            Kind = SketchElementKind.Image,
+            ImagePngBase64 = "AQID",
+            Points =
+            [
+                new SketchPoint(0, 0),
+                new SketchPoint(10, 0),
+                new SketchPoint(10, 10),
+                new SketchPoint(0, 10),
+                new SketchPoint(0, 0)
+            ]
+        });
+
+        var loaded = SketchJson.Deserialize(SketchJson.Serialize(doc));
+        await Assert.That(loaded.Version).IsEqualTo(2);
+        var text = loaded.Elements.First(e => e.Id == "t1");
+        await Assert.That(text.Kind).IsEqualTo(SketchElementKind.Text);
+        await Assert.That(text.Text).IsEqualTo("Hello");
+        await Assert.That(text.FontSize).IsEqualTo(22.0);
+        await Assert.That(text.RotationDegrees).IsEqualTo(15.0);
+        await Assert.That(text.GroupId).IsEqualTo("g1");
+        var img = loaded.Elements.First(e => e.Id == "img");
+        await Assert.That(img.Kind).IsEqualTo(SketchElementKind.Image);
+        await Assert.That(img.ImagePngBase64).IsEqualTo("AQID");
+    }
+
+    [Test]
+    public async Task Json_Loads_Legacy_V1_Without_Kind()
+    {
+        const string json = """
+            {
+              "version": 1,
+              "grid": { "size": 20, "visible": true, "snapEnabled": false },
+              "elements": [
+                {
+                  "id": "legacy",
+                  "strokeColor": "#000000",
+                  "strokeWidth": 2,
+                  "points": [ { "x": 1, "y": 2 }, { "x": 3, "y": 4 } ]
+                }
+              ]
+            }
+            """;
+        var loaded = SketchJson.Deserialize(json);
+        await Assert.That(loaded.Elements[0].Kind).IsEqualTo(SketchElementKind.Stroke);
+        await Assert.That(loaded.Elements[0].RotationDegrees).IsEqualTo(0.0);
+    }
 }
