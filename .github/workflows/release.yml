@@ -46,37 +46,10 @@ jobs:
         with:
           token: ${{ github.token }}
 
-      - name: Resolve release version
+      - uses: Novolis-Platform/novolis-workflows/actions/resolve-release-version@main
+
+      - uses: Novolis-Platform/novolis-workflows/actions/read-version@main
         id: ver
-        shell: pwsh
-        env:
-          VERSION_FILE: build/version.json
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          BUILD_NUMBER: ${{ github.run_number }}
-        run: |
-          $versionFile = $env:VERSION_FILE
-          if (-not (Test-Path $versionFile)) {
-            throw "Missing $versionFile"
-          }
-
-          $version = Get-Content $versionFile -Raw | ConvertFrom-Json
-          $year = [int]($version.year ?? $version.sdkYear)
-          $major = [int]($version.major ?? $version.apiBreak)
-          $minor = [int]($version.minor ?? $version.feature)
-          $platform = "$year.$major.$minor"
-          $build = [int]$env:BUILD_NUMBER
-          $package = "$platform.$build"
-          $assembly = "$year.$major.0.0"
-          $file = $package
-          $tag = $env:RELEASE_TAG.TrimStart('v')
-          if ($tag -ne $platform -and $tag -ne $package) {
-            throw "Release tag v$tag must be v$platform or v$package."
-          }
-
-          "platform-version=$platform" >> $env:GITHUB_OUTPUT
-          "package-version=$package" >> $env:GITHUB_OUTPUT
-          "assembly-version=$assembly" >> $env:GITHUB_OUTPUT
-          "file-version=$file" >> $env:GITHUB_OUTPUT
 
       - name: Publish app and host payloads
         shell: pwsh
@@ -133,28 +106,15 @@ jobs:
             -p:NovolisInnoInstallDirName='Novolis\Novolis Audio Live'
           if ($LASTEXITCODE -ne 0) { throw "Generating the Inno script failed with exit code $LASTEXITCODE." }
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          choco install innosetup -y --no-progress
-          if ($LASTEXITCODE -ne 0) { throw "Chocolatey failed to install Inno Setup." }
-          $iscc = @(
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
-          ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-          if (-not $iscc) {
-            $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1)
-          }
-          if (-not $iscc) {
-            throw "Unable to locate ISCC.exe after installing Inno Setup."
-          }
-          "ISCC_PATH=$iscc" >> $env:GITHUB_ENV
+      - uses: Novolis-Platform/novolis-workflows/actions/install-inno-setup@main
+        id: inno
 
       - name: Build installer
+        id: build-installer
         shell: pwsh
         env:
           PACKAGE_VERSION: ${{ steps.ver.outputs.package-version }}
+          ISCC_PATH: ${{ steps.inno.outputs.iscc-path }}
         run: |
           $ErrorActionPreference = 'Stop'
           $scriptPath = Join-Path $env:INSTALLER_DIR 'novolis-audio-live.iss'
@@ -166,14 +126,11 @@ jobs:
           if (-not (Test-Path $installer)) {
             throw "Expected installer not found: $installer"
           }
+          "installer-path=$installer" | Add-Content -Path $env:GITHUB_OUTPUT -Encoding utf8NoBOM
 
-      - name: Upload installer to release
-        shell: pwsh
-        env:
-          PACKAGE_VERSION: ${{ steps.ver.outputs.package-version }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $installer = Join-Path $env:INSTALLER_DIR "NovolisAudioLiveSetup-$env:PACKAGE_VERSION-win-x64.exe"
-          gh release upload $env:RELEASE_TAG $installer --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Uploading the installer release asset failed with exit code $LASTEXITCODE." }
+      - uses: Novolis-Platform/novolis-workflows/actions/ensure-github-release@main
+        with:
+          tag: ${{ github.event.release.tag_name }}
+          title: ${{ github.event.release.tag_name }}
+          assets: ${{ steps.build-installer.outputs.installer-path }}
+          generate-notes: 'false'
