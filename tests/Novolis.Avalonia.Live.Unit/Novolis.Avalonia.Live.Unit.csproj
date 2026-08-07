@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
+    <PackageReference Include="Novolis.Audio.Live" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Live\Novolis.Avalonia.Live.csproj" />
   </ItemGroup>
 </Project>

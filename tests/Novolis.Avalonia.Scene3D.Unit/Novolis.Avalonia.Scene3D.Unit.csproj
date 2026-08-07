@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
+    <PackageReference Include="MessagePack" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Modeling.Scene" />
     <PackageReference Include="Novolis.Agent.Core" />
