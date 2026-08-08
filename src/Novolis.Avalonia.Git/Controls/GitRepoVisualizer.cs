@@ -28,6 +28,15 @@ public sealed class GitRepoVisualizer : UserControl
     {
         _list.SelectionChanged += (_, _) => RaiseSelection();
         _list.DoubleTapped += OnDoubleTapped;
+        // Enter also opens — Windows Avalonia sometimes eats DoubleTapped on ListBox items.
+        _list.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter && _list.SelectedItem is RepoRow row)
+            {
+                RepoOpenRequested?.Invoke(this, new RepoOpenEventArgs(row.Row.Repo));
+                e.Handled = true;
+            }
+        };
         _list.HorizontalAlignment = HorizontalAlignment.Stretch;
         _list.VerticalAlignment = VerticalAlignment.Stretch;
         HorizontalAlignment = HorizontalAlignment.Stretch;
