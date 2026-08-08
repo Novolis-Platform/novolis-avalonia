@@ -85,7 +85,7 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Raylib`](src/Novolis.Avalonia.Raylib/README.md) | `RaylibHostControl` (embedded Raylib viewport) |
 | [`Novolis.Avalonia.Live`](src/Novolis.Avalonia.Live/README.md) | Live editor, DSL completion/compiler, visualizers, transport panels |
 | [`Novolis.Avalonia.Markdown`](src/Novolis.Avalonia.Markdown/README.md) | Markdown editor, live HTML preview, split-pane studio controls |
-| [`Novolis.Avalonia.Mermaid`](src/Novolis.Avalonia.Mermaid/README.md) | Mermaid diagram control (SVG via Mermaider) |
+| [`Novolis.Avalonia.Mermaid`](src/Novolis.Avalonia.Mermaid/README.md) | Mermaid diagram control (SVG via Markup.Mermaid.Rendering) |
 | [`Novolis.Avalonia.StarMap`](src/Novolis.Avalonia.StarMap/README.md) | Pan/zoom star map for catalog points and route edges |
 | [`Novolis.Avalonia.Studio`](src/Novolis.Avalonia.Studio/README.md) | Studio chrome: status, flash, busy overlay |
 | [`Novolis.Avalonia.Briefing`](src/Novolis.Avalonia.Briefing/README.md) | Briefing primitives: feed, scorecard, dual metric strip, metric table |

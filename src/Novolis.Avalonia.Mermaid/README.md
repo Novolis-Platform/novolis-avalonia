@@ -8,7 +8,7 @@
 
 # Novolis.Avalonia.Mermaid
 
-Avalonia control that renders Mermaid diagrams to SVG (via [Mermaider](https://www.nuget.org/packages/Mermaider)) without a browser.
+Avalonia control that renders Mermaid diagrams to SVG via [`Novolis.Markup.Mermaid.Rendering`](https://www.nuget.org/packages/Novolis.Markup.Mermaid.Rendering) (Mermaider under the hood) without a browser.
 
 ## Install
 
@@ -46,10 +46,11 @@ control.Source = """
 | `MermaidSvg` | Static SVG / HTML helpers for custom hosts |
 | `MermaidTheme` | `StudioDark` or `GitHubLight` |
 
-Pair with `Novolis.Markup.Mermaid` for fluent builders, or bind any Mermaid source string.
+Pair with `Novolis.Markup.Mermaid` for fluent builders, or bind any Mermaid source string. Headless SVG/PNG export lives in `Novolis.Markup.Mermaid.Rendering`.
 
 ## Related
 
 - `Novolis.Avalonia.Markdown` — Markdown preview that also renders fenced `mermaid` blocks
 - `Novolis.Markup.Mermaid` — diagram syntax builders
+- `Novolis.Markup.Mermaid.Rendering` — headless SVG/PNG export
 

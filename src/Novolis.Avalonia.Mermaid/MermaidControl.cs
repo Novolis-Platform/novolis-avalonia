@@ -10,7 +10,7 @@ namespace Novolis.Avalonia.Mermaid;
 
 /// <summary>
 /// Avalonia control that renders Mermaid diagram source (or an <see cref="IMermaidable"/> builder)
-/// to SVG via Mermaider and displays it in an HTML panel.
+/// to SVG via <c>Novolis.Markup.Mermaid.Rendering</c> and displays it in an HTML panel.
 /// </summary>
 public sealed class MermaidControl : Border
 {

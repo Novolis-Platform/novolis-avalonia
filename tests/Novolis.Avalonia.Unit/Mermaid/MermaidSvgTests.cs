@@ -72,18 +72,15 @@ public class MermaidSvgTests
     }
 
     [Test]
-    public async Task OptionsFor_GitHubLight_SetsLightPalette()
+    public async Task TryRenderSvg_GitHubLight_ReturnsSvg()
     {
-        var opts = MermaidSvg.OptionsFor(MermaidTheme.GitHubLight);
-        await Assert.That(opts.Bg).IsEqualTo("#ffffff");
-        await Assert.That(opts.Accent).IsEqualTo("#0969da");
-    }
+        const string source = """
+                              flowchart TD
+                                A --> B
+                              """;
 
-    [Test]
-    public async Task OptionsFor_StudioDark_SetsDarkPalette()
-    {
-        var opts = MermaidSvg.OptionsFor(MermaidTheme.StudioDark);
-        await Assert.That(opts.Bg).IsEqualTo("#1e1e1e");
-        await Assert.That(opts.Accent).IsEqualTo("#6eb5ff");
+        var svg = MermaidSvg.TryRenderSvg(source, MermaidTheme.GitHubLight);
+        await Assert.That(svg).IsNotNull();
+        await Assert.That(svg!).Contains("<svg");
     }
 }

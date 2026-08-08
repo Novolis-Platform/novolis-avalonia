@@ -15,6 +15,7 @@
     <PackageVersion Include="Markdig" Version="0.41.3" />
     <PackageVersion Include="Mermaider" Version="0.12.1" />
     <PackageVersion Include="Novolis.Markup.Mermaid" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Markup.Mermaid.Rendering" Version="2026.1.*" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
