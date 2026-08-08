@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Controls.Sketch</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Excalidraw-inspired SketchControl and document model for Avalonia (code-only, no XAML).</Description>
+    <RootNamespace>Novolis.Avalonia.Controls.Sketch</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Torrent</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Avalonia torrent session chrome bound to Novolis.Transports.Torrent — not a product host.</Description>
+    <RootNamespace>Novolis.Avalonia.Torrent</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Transports.Torrent" />
+  </ItemGroup>
+</Project>

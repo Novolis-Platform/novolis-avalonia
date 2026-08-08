@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
+using Novolis.Avalonia.Cad.Ship.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
 using Novolis.Cad.Primitives;

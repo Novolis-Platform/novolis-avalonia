@@ -19,6 +19,25 @@
       ],
       "project": "src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj"
     },
+    "Novolis.Avalonia.Controls.Sketch": {
+      "paths": [
+        "src/Novolis.Avalonia.Controls.Sketch/**",
+        "tests/Novolis.Avalonia.Unit/Sketch/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Controls.Sketch/Novolis.Avalonia.Controls.Sketch.csproj"
+    },
+    "Novolis.Avalonia.Torrent": {
+      "paths": [
+        "src/Novolis.Avalonia.Torrent/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Torrent/Novolis.Avalonia.Torrent.csproj"
+    },
     "Novolis.Avalonia.Cad": {
       "paths": [
         "src/Novolis.Avalonia.Cad/**",
@@ -28,6 +47,16 @@
         "global.json"
       ],
       "project": "src/Novolis.Avalonia.Cad/Novolis.Avalonia.Cad.csproj"
+    },
+    "Novolis.Avalonia.Cad.Ship": {
+      "paths": [
+        "src/Novolis.Avalonia.Cad.Ship/**",
+        "tests/Novolis.Avalonia.Unit/Cad/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Cad.Ship/Novolis.Avalonia.Cad.Ship.csproj"
     },
     "Novolis.Avalonia.3D": {
       "paths": [

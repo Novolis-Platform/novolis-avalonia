@@ -156,7 +156,7 @@ public sealed class JobQueuePanel : Border
             root.Children.Add(overallBar);
         }
 
-        if (row.ChapterProgress is { Count: > 0 } chapters)
+        if (row.StepProgress is { Count: > 0 } chapters)
         {
             var chapterHost = new StackPanel { Spacing = 3, Margin = new Thickness(0, 2, 0, 0) };
             foreach (var chapter in chapters)

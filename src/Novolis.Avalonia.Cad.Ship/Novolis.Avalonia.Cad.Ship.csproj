@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Cad.Ship</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Ship/freighter CAD chrome (exterior silhouette, ship workspace import) for Avalonia.Cad hosts.</Description>
+    <RootNamespace>Novolis.Avalonia.Cad.Ship</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.Cad.Primitives" />
+    <PackageReference Include="Novolis.Raylib.Abstractions" />
+    <PackageReference Include="Novolis.Raylib.Bindings" />
+    <PackageReference Include="Novolis.Raylib.Runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
+  </ItemGroup>
+</Project>

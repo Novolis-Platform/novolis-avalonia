@@ -45,6 +45,9 @@
 | `Novolis.Avalonia.Briefing` | `dotnet add package Novolis.Avalonia.Briefing` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Briefing/README.md) |
 | `Novolis.Avalonia.Cad` | `dotnet add package Novolis.Avalonia.Cad` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad/README.md) |
 | `Novolis.Avalonia.Controls` | `dotnet add package Novolis.Avalonia.Controls` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Controls/README.md) |
+| `Novolis.Avalonia.Controls.Sketch` | `dotnet add package Novolis.Avalonia.Controls.Sketch` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Controls.Sketch/README.md) |
+| `Novolis.Avalonia.Torrent` | `dotnet add package Novolis.Avalonia.Torrent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Torrent/README.md) |
+| `Novolis.Avalonia.Cad.Ship` | `dotnet add package Novolis.Avalonia.Cad.Ship` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad.Ship/README.md) |
 | `Novolis.Avalonia.Gaming` | `dotnet add package Novolis.Avalonia.Gaming` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Gaming/README.md) |
 | `Novolis.Avalonia.Layout` | `dotnet add package Novolis.Avalonia.Layout` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Layout/README.md) |
 | `Novolis.Avalonia.Live` | `dotnet add package Novolis.Avalonia.Live` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Live/README.md) |
@@ -58,7 +61,6 @@
 | `Novolis.Avalonia.Rendering` | `dotnet add package Novolis.Avalonia.Rendering` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Rendering/README.md) |
 | `Novolis.Avalonia.StarMap` | `dotnet add package Novolis.Avalonia.StarMap` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.StarMap/README.md) |
 | `Novolis.Avalonia.Studio` | `dotnet add package Novolis.Avalonia.Studio` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Studio/README.md) |
-| `Novolis.Avalonia.Timeline` | `dotnet add package Novolis.Avalonia.Timeline` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Timeline/README.md) |
 | `Novolis.Avalonia.Video` | `dotnet add package Novolis.Avalonia.Video` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Video/README.md) |
 | `Novolis.Avalonia.Voice` | `dotnet add package Novolis.Avalonia.Voice` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Voice/README.md) |
 
@@ -79,7 +81,10 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | Package | Description |
 |---------|-------------|
 | [`Novolis.Avalonia.Layout`](src/Novolis.Avalonia.Layout/README.md) | `AnalyzerWorkspace`, `AuthoringWorkspace` (Wide/Narrow), `ToolbarRow`, `FilterBar` |
-| [`Novolis.Avalonia.Controls`](src/Novolis.Avalonia.Controls/README.md) | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `SketchControl` |
+| [`Novolis.Avalonia.Controls`](src/Novolis.Avalonia.Controls/README.md) | Dialogs, marked lists, job queue, `SortableDataGrid`, hex dump, detail tree |
+| [`Novolis.Avalonia.Controls.Sketch`](src/Novolis.Avalonia.Controls.Sketch/README.md) | `SketchControl` + document/json |
+| [`Novolis.Avalonia.Torrent`](src/Novolis.Avalonia.Torrent/README.md) | `TorrentSessionPanel` |
+| [`Novolis.Avalonia.Cad.Ship`](src/Novolis.Avalonia.Cad.Ship/README.md) | Freighter exterior + `importship` |
 | [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
 | [`Novolis.Avalonia.Gaming`](src/Novolis.Avalonia.Gaming/README.md) | Game shell: HUD + modal menus over Silk/TwoD viewport (`HardPause` default) |
 | [`Novolis.Avalonia.Raylib`](src/Novolis.Avalonia.Raylib/README.md) | `RaylibHostControl` (embedded Raylib viewport) |
@@ -92,7 +97,6 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Mobile`](src/Novolis.Avalonia.Mobile/README.md) | Secure token store, app-data paths, browser launcher, device-flow helpers |
 | [`Novolis.Avalonia.Mobile.Desktop`](src/Novolis.Avalonia.Mobile.Desktop/README.md) | Windows Credential Manager + LocalAppData + system browser |
 | [`Novolis.Avalonia.Mobile.Android`](src/Novolis.Avalonia.Mobile.Android/README.md) | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
-| [`Novolis.Avalonia.Timeline`](src/Novolis.Avalonia.Timeline/README.md) | Git-graph timeline panels |
 | [`Novolis.Avalonia.Voice`](src/Novolis.Avalonia.Voice/README.md) | Voice preset studio UI |
 | [`Novolis.Avalonia.3D`](src/Novolis.Avalonia.3D/README.md) | Scene editor / OpenGL 3D renderer surface |
 | [`Novolis.Avalonia.Cad`](src/Novolis.Avalonia.Cad/README.md) | Shared CAD surface: Draft Studio, CAD Studio 3D, preview hosts |

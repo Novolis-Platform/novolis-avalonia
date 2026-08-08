@@ -97,11 +97,12 @@ public sealed class CadModelRenderer
         World.DrawGrid((int)System.Math.Clamp(gridExtent, 16, 128), 1f);
         DrawGrid(gridExtent);
 
-        var shipExterior = CadShipExterior.ShouldUseExterior(_session.Document)
-                           && !_settings.Settings.IsolateLevel;
-        if (shipExterior)
+        var useExterior = CadExteriorHooks.ShouldUse?.Invoke(_session.Document) == true
+                          && !_settings.Settings.IsolateLevel
+                          && CadExteriorHooks.Draw is not null;
+        if (useExterior)
         {
-            CadShipExterior.Draw(_session.Document);
+            CadExteriorHooks.Draw!(_session.Document);
         }
         else
         {
@@ -135,20 +136,18 @@ public sealed class CadModelRenderer
             CadWorkspace.Cad => "CAD",
             _ => "Preview",
         };
-        if (shipExterior)
+        if (useExterior)
         {
+            var hud = CadExteriorHooks.HudLines?.Invoke(_session.Document);
+            var title = hud?.Title ?? "exterior";
+            var hint = hud?.Hint ?? "Isolate ON = deck CAD · Isolate OFF = exterior · MMB orbit";
             Graphics.DrawText(
-                $"{label} — {_session.Document.Name} · transport exterior",
+                $"{label} — {_session.Document.Name} · {title}",
                 8,
                 8,
                 14,
                 Hud);
-            Graphics.DrawText(
-                "Isolate ON = deck CAD · Isolate OFF = sealed freighter · MMB orbit",
-                8,
-                26,
-                12,
-                Hud);
+            Graphics.DrawText(hint, 8, 26, 12, Hud);
         }
         else
         {

@@ -27,17 +27,17 @@ public interface IJobQueueRow
     /// <summary>Optional label beside the overall progress bar.</summary>
     string? ProgressLabel { get; }
 
-    /// <summary>Optional per-item progress rows (e.g. chapters).</summary>
-    IReadOnlyList<IJobChapterProgress>? ChapterProgress { get; }
+    /// <summary>Optional per-item progress rows (e.g. chapters, packages, pipeline steps).</summary>
+    IReadOnlyList<IJobStepProgress>? StepProgress { get; }
 
     /// <summary>Optional consumer payload.</summary>
     object? Tag { get; }
 }
 
-/// <summary>One chapter/item progress line under a job row.</summary>
-public interface IJobChapterProgress
+/// <summary>One step/item progress line under a job row.</summary>
+public interface IJobStepProgress
 {
-    /// <summary>Display label (chapter title).</summary>
+    /// <summary>Display label (step label).</summary>
     string Label { get; }
 
     /// <summary>0–1 progress.</summary>
@@ -47,8 +47,8 @@ public interface IJobChapterProgress
     string? StatusLabel { get; }
 }
 
-/// <summary>Simple mutable <see cref="IJobChapterProgress"/>.</summary>
-public sealed class JobChapterProgress : IJobChapterProgress
+/// <summary>Simple mutable <see cref="IJobStepProgress"/>.</summary>
+public sealed class JobStepProgress : IJobStepProgress
 {
     /// <inheritdoc />
     public required string Label { get; init; }
@@ -88,7 +88,7 @@ public sealed class JobQueueRow : IJobQueueRow
     public string? ProgressLabel { get; set; }
 
     /// <inheritdoc />
-    public IReadOnlyList<IJobChapterProgress>? ChapterProgress { get; set; }
+    public IReadOnlyList<IJobStepProgress>? StepProgress { get; set; }
 
     /// <inheritdoc />
     public object? Tag { get; init; }

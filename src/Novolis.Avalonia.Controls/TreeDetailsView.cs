@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Novolis.Avalonia.Layout;
 
 namespace Novolis.Avalonia.Controls;
 

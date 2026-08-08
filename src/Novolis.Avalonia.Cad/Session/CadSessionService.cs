@@ -219,7 +219,6 @@ public sealed class CadSessionService : ICadSession
             CadSessionActionIds.ExportModelPng or CadSessionActionIds.ExportPreviewPng => ExportModel(command),
             CadSessionActionIds.ExportViewTour => ExportTour(command),
             CadSessionActionIds.ExportPhys => ExportPhys(command),
-            CadSessionActionIds.ImportShip => ImportShip(command),
             CadSessionActionIds.Boolean => ActBoolean(command),
             CadSessionActionIds.Symmetry => ActSymmetry(command),
             CadSessionActionIds.Clone => ActClone(command),
@@ -285,25 +284,6 @@ public sealed class CadSessionService : ICadSession
         }
 
         return result;
-    }
-
-    private CadCommandResultDto ImportShip(CadCommandDto command)
-    {
-        try
-        {
-            var path = CadShipImport.ImportIntoWorkspace(_settings.DataRoot, command.Path);
-            _document.OpenFromPath(path);
-            _settings.Save();
-            FitHandler?.Invoke();
-            return Ok(
-                CadSessionActionIds.ImportShip,
-                $"Imported ship ({_document.Document.Entities.Count} entities).",
-                [path]);
-        }
-        catch (Exception ex)
-        {
-            return Fail(CadSessionActionIds.ImportShip, ex.Message, "importFailed");
-        }
     }
 
     private CadCommandResultDto Open(CadCommandDto command)
@@ -685,7 +665,6 @@ public sealed class CadSessionService : ICadSession
         A(CadSessionActionIds.ExportPreviewPng, "Export preview PNG", ModelHost is not null, "No preview host"),
         A(CadSessionActionIds.ExportViewTour, "Export view tour", AsyncExportHook is not null || ModelHost is not null, "No tour"),
         A(CadSessionActionIds.ExportPhys, "Export phys", true),
-        A(CadSessionActionIds.ImportShip, "Import ship", true),
         A(CadSessionActionIds.Boolean, "Boolean", true),
         A(CadSessionActionIds.Symmetry, "Symmetry", true),
         A(CadSessionActionIds.Clone, "Cloner", true),

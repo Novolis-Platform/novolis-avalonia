@@ -71,5 +71,6 @@ var result = session.Execute(command);
 | [`Novolis.Cad.Primitives`](../../../novolis-cad/src/Novolis.Cad.Primitives/README.md) | `.cadjson` / `.cadphys` DTOs |
 | [`Novolis.Cad.SceneBridge`](../../../novolis-cad/src/Novolis.Cad.SceneBridge/README.md) | `exportscene` / `bridgescene` → `.nov3djson` |
 | [`Novolis.Avalonia.3D`](../Novolis.Avalonia.3D/README.md) | OpenGL scene editor surface |
+| [`Novolis.Avalonia.Cad.Ship`](../Novolis.Avalonia.Cad.Ship/README.md) | Freighter exterior + `importship` (`CadShipChrome.Attach`) |
 | [Draft Studio](../../../novolis-apps/src/DraftStudio) | 2D/3D CAD studio |
 

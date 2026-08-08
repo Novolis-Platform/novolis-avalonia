@@ -10,9 +10,9 @@
     <PackageReference Include="Novolis.Cad.Primitives" />
     <PackageReference Include="Novolis.Modeling.Scene" />
     <PackageReference Include="Novolis.Markup.Mermaid" />
-    <PackageReference Include="Novolis.Timeline.Abstractions" />
-    <PackageReference Include="Novolis.Timeline.Presentation" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls.Sketch\Novolis.Avalonia.Controls.Sketch.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Torrent\Novolis.Avalonia.Torrent.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
@@ -24,9 +24,9 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.StarMap\Novolis.Avalonia.StarMap.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Briefing\Novolis.Avalonia.Briefing.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Cad.Ship\Novolis.Avalonia.Cad.Ship.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Agent\Novolis.Avalonia.Agent.csproj" />
-    <ProjectReference Include="..\..\src\Novolis.Avalonia.Timeline\Novolis.Avalonia.Timeline.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Voice\Novolis.Avalonia.Voice.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Git\Novolis.Avalonia.Git.csproj" />

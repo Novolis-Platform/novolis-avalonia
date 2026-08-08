@@ -8,7 +8,7 @@
 
 # Novolis.Avalonia.StarMap
 
-Pan/zoom Avalonia control for stellar catalog points, route edges, path highlight, and an optional ship marker. Map from `Novolis.Astro.*` at the app layer — this package is UI-only.
+Pan/zoom Avalonia control for catalog points, route edges, path highlight, labels, band-styled edges, and an optional marker. Map from `Novolis.Astro.*` at the app layer — this package is UI-only.
 
 ## Install
 
@@ -16,14 +16,12 @@ Pan/zoom Avalonia control for stellar catalog points, route edges, path highligh
 dotnet add package Novolis.Avalonia.StarMap
 ```
 
-**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia.
-
 ## Quick start
 
 ```csharp
 using Novolis.Avalonia.StarMap;
 
-var map = new StarMapControl { ShowChartGrid = true };
+var map = new StarMapControl { ShowChartGrid = true, ShowLabels = true };
 map.StarSelected += id => { /* user picked a star */ };
 
 var points = new List<StarMapPoint>
@@ -33,11 +31,12 @@ var points = new List<StarMapPoint>
 };
 var edges = new List<StarMapEdge>
 {
-    new() { FromId = "sol", ToId = "alpha" },
+    new() { FromId = "sol", ToId = "alpha", BandTag = "primary" },
 };
 
 map.SetMap(points, edges);
-map.SetRoute(edges); // highlighted path overlay
+map.FitToPoints();
+map.SetRoute(edges);
 map.SetShipMarker(0, 0, visible: true);
 ```
 
@@ -45,22 +44,20 @@ map.SetShipMarker(0, 0, visible: true);
 
 | API | Purpose |
 |-----|---------|
-| `StarMapPoint` | Model: `Id`, `Label`, `X`, `Y` |
-| `StarMapEdge` | Model: `FromId`, `ToId`, optional `BandTag` |
-| `StarMapControl` | Pan/zoom `Control` with wheel zoom and drag pan |
-| `StarMapControl.Points` / `Edges` / `HighlightedEdges` | Stars, full network, path overlay |
-| `StarMapControl.SelectedId` | Currently selected star id |
-| `StarMapControl.ShipWorldX` / `ShipWorldY` / `ShipVisible` | “You are here” marker |
-| `StarMapControl.FieldBrush` / `ShowChartGrid` | Visual tuning |
-| `StarMapControl.SetMap(points, edges?)` | Bind points + optional edges |
-| `StarMapControl.SetRoute(routeEdges?)` | Set or clear highlighted path |
-| `StarMapControl.SetShipMarker(worldX, worldY, visible)` | Position ship marker |
-| `StarMapControl.StarSelected` | `Action<string>` when user clicks a star |
+| `StarMapPoint` | `Id`, `Label`, `X`, `Y`, optional `Radius` |
+| `StarMapEdge` | `FromId`, `ToId`, optional `BandTag` (styled stroke) |
+| `ShowLabels` | Draw point labels (default on) |
+| `BandPens` | Optional BandTag → pen map |
+| `StarBrush` / `EdgePen` / `RoutePen` / … | Visual overrides |
+| `FitToPoints` / `SetCamera` | Camera helpers |
+| `WorldSpaceGrid` / `WorldGridStep` | World-unit grid |
+| `HitRadius` | Hit-test radius (screen px) |
+| `SetMap` / `SetRoute` / `SetShipMarker` | Bind helpers |
+| `StarSelected` | Click selection |
 
 ## Related / dogfood
 
 | App | Notes |
 |-----|-------|
-| [StarMapLab](../../../novolis-dogfooding/apps/astro/StarMapLab) | Interactive star-map lab |
-| [SinsOfACapitalismTycoon](../../../novolis-apps/src/SinsOfACapitalismTycoon) | Bridge map projection over `StarMapControl` |
-
+| StarMapLab | Interactive star-map lab |
+| GeoPolity / SinsOfACapitalismTycoon | Theatre / bridge map projection |

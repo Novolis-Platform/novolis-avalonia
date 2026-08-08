@@ -67,7 +67,7 @@ workspace.FilterBar.ApplyRequested += (_, expr) => { /* apply BPF */ };
 
 | Package | When to use |
 |---------|-------------|
-| `Novolis.Avalonia.Controls` | Packet table, hex dump, detail tree, writer atoms |
+| `Novolis.Avalonia.Controls` | Sortable data grid, hex dump, detail tree, writer atoms |
 | `Novolis.Avalonia.Studio` | Status/flash/busy chrome; `StudioWorkspace` façades Wide `AuthoringWorkspace` |
 
 ## More documentation
