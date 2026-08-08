@@ -85,7 +85,7 @@ public sealed class GitDiffView : UserControl
         var titleBar = new Border
         {
             Background = HeaderBg,
-            ChromeBorder = ChromeBorder,
+            BorderBrush = ChromeBorder,
             BorderThickness = new Thickness(0, 0, 0, 1),
             Padding = new Thickness(12, 8),
             Child = new DockPanel
@@ -113,7 +113,7 @@ public sealed class GitDiffView : UserControl
         var leftBorder = new Border
         {
             Background = PaneBg,
-            ChromeBorder = ChromeBorder,
+            BorderBrush = ChromeBorder,
             BorderThickness = new Thickness(0, 0, 1, 0),
             Child = filePane,
         };
