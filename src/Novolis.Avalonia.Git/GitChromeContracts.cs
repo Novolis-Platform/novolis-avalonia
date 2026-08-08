@@ -40,11 +40,16 @@ public enum GitChromeCommand
 public sealed class GitChromeCommandEventArgs : EventArgs
 {
     /// <summary>Creates args.</summary>
-    public GitChromeCommandEventArgs(GitChromeCommand command, string? repoPath = null, int? stashIndex = null)
+    public GitChromeCommandEventArgs(
+        GitChromeCommand command,
+        string? repoPath = null,
+        int? stashIndex = null,
+        string? detail = null)
     {
         Command = command;
         RepoPath = repoPath;
         StashIndex = stashIndex;
+        Detail = detail;
     }
 
     /// <summary>Command.</summary>
@@ -55,6 +60,9 @@ public sealed class GitChromeCommandEventArgs : EventArgs
 
     /// <summary>Optional stash index.</summary>
     public int? StashIndex { get; }
+
+    /// <summary>Optional human detail (e.g. stash message).</summary>
+    public string? Detail { get; }
 }
 
 /// <summary>Repo selection changed.</summary>

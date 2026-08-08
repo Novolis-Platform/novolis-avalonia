@@ -27,5 +27,6 @@ dotnet add package Novolis.Avalonia.Git
 | `GitCommitDetailView` / `GitDiffView` / `GitWorkingTreeView` | Detail panes |
 | `GitActionBar` | Fetch / pull / push / branch / stash |
 | `GitCreateBranchDialog` / `GitBranchCutDialog` | Dialog bodies |
+| `GitConfirmDialog` | Safety confirms (info / warning / danger + type-to-confirm) |
 
-Hosts wire events (`CommandRequested`, `RepoOpenRequested`, …) to `Novolis.IO.Git` APIs.
+Hosts wire events (`CommandRequested`, `RepoOpenRequested`, …) to `Novolis.IO.Git` APIs. Destructive actions (stash drop/pop, dirty checkout, push/pull, branch-cut apply) should go through `GitConfirmDialog` — force push is never offered from chrome.

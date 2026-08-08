@@ -73,9 +73,15 @@ public sealed class GitBranchNavigator : UserControl
 public sealed class GitStashPanel : UserControl
 {
     readonly ListBox _list = new() { SelectionMode = SelectionMode.Single };
-    readonly Button _apply = new() { Content = "Apply" };
-    readonly Button _pop = new() { Content = "Pop" };
-    readonly Button _drop = new() { Content = "Drop" };
+    readonly Button _apply = new() { Content = "Apply", IsEnabled = false };
+    readonly Button _pop = new() { Content = "Pop", IsEnabled = false };
+    readonly Button _drop = new()
+    {
+        Content = "Drop",
+        IsEnabled = false,
+        Foreground = Brushes.White,
+        Background = new SolidColorBrush(Color.FromRgb(140, 48, 56)),
+    };
 
     /// <summary>Stash command.</summary>
     public event EventHandler<GitChromeCommandEventArgs>? CommandRequested;
@@ -83,9 +89,13 @@ public sealed class GitStashPanel : UserControl
     /// <summary>Creates panel.</summary>
     public GitStashPanel()
     {
+        ToolTip.SetTip(_apply, "Apply stash to the working tree (keeps the stash entry).");
+        ToolTip.SetTip(_pop, "Apply stash, then remove it from the stash list.");
+        ToolTip.SetTip(_drop, "Permanently delete the selected stash. Requires confirmation.");
         _apply.Click += (_, _) => Raise(GitChromeCommand.StashApply);
         _pop.Click += (_, _) => Raise(GitChromeCommand.StashPop);
         _drop.Click += (_, _) => Raise(GitChromeCommand.StashDrop);
+        _list.SelectionChanged += (_, _) => UpdateButtons();
         var bar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -111,17 +121,33 @@ public sealed class GitStashPanel : UserControl
         {
             GitChromeUi.BindTextList(_list, static (string s) => s);
             _list.ItemsSource = new[] { "(no stashes)" };
+            UpdateButtons();
             return;
         }
 
         GitChromeUi.BindTextList(_list, static (StashRow r) => r.ToString());
         _list.ItemsSource = stashes.Select(s => new StashRow(s)).ToList();
+        UpdateButtons();
+    }
+
+    void UpdateButtons()
+    {
+        var has = _list.SelectedItem is StashRow;
+        _apply.IsEnabled = has;
+        _pop.IsEnabled = has;
+        _drop.IsEnabled = has;
     }
 
     void Raise(GitChromeCommand cmd)
     {
-        var idx = (_list.SelectedItem as StashRow)?.Entry.Index;
-        CommandRequested?.Invoke(this, new GitChromeCommandEventArgs(cmd, stashIndex: idx));
+        if (_list.SelectedItem is not StashRow row)
+            return;
+        CommandRequested?.Invoke(
+            this,
+            new GitChromeCommandEventArgs(
+                cmd,
+                stashIndex: row.Entry.Index,
+                detail: row.Entry.Message));
     }
 
     sealed class StashRow
@@ -205,19 +231,20 @@ public sealed class GitActionBar : UserControl
     public GitActionBar()
     {
         var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4) };
-        foreach (var (label, cmd) in new (string, GitChromeCommand)[]
+        foreach (var (label, cmd, tip) in new (string, GitChromeCommand, string)[]
                  {
-                     ("Refresh", GitChromeCommand.Refresh),
-                     ("Fetch", GitChromeCommand.Fetch),
-                     ("Pull", GitChromeCommand.Pull),
-                     ("Push", GitChromeCommand.Push),
-                     ("Branch", GitChromeCommand.CreateBranch),
-                     ("Branch cut", GitChromeCommand.BranchCut),
-                     ("Stash", GitChromeCommand.StashPush),
+                     ("Refresh", GitChromeCommand.Refresh, "Reload workspace status and the open repo."),
+                     ("Fetch", GitChromeCommand.Fetch, "Fetch remotes (safe — does not change local branches)."),
+                     ("Pull", GitChromeCommand.Pull, "Fast-forward pull only on selected repos. Confirms first."),
+                     ("Push", GitChromeCommand.Push, "Push the open repo (never force). Confirms first."),
+                     ("Branch", GitChromeCommand.CreateBranch, "Create a branch in the open repo."),
+                     ("Branch cut", GitChromeCommand.BranchCut, "Plan a feature branch across selected repos. Dry-run + typed confirm."),
+                     ("Stash", GitChromeCommand.StashPush, "Stash local changes in the open repo."),
                  })
         {
             var b = new Button { Content = label, MinWidth = 72 };
             var c = cmd;
+            ToolTip.SetTip(b, tip);
             b.Click += (_, _) => CommandRequested?.Invoke(this, new GitChromeCommandEventArgs(c));
             panel.Children.Add(b);
         }

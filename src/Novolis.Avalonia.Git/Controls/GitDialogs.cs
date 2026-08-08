@@ -69,6 +69,12 @@ public sealed class GitBranchCutDialog : UserControl
             Children =
             {
                 new TextBlock { Text = "Feature branch cut (multi-repo)" },
+                new TextBlock
+                {
+                    Text = "Plans only — nothing is applied until you confirm the dry-run and type the branch name.",
+                    Opacity = 0.75,
+                    TextWrapping = TextWrapping.Wrap,
+                },
                 _name,
                 _base,
                 new TextBlock { Text = "Dry-run preview" },

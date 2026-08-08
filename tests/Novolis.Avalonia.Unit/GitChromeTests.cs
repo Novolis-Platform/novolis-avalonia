@@ -8,10 +8,28 @@ public sealed class GitChromeTests
     [Test]
     public async Task Chrome_command_args_carry_stash_index()
     {
-        var args = new GitChromeCommandEventArgs(GitChromeCommand.StashPop, @"d:\novolis\novolis-io", 2);
-        await Assert.That(args.Command).IsEqualTo(GitChromeCommand.StashPop);
+        var args = new GitChromeCommandEventArgs(
+            GitChromeCommand.StashDrop,
+            @"d:\novolis\novolis-io",
+            stashIndex: 2,
+            detail: "WIP on main");
+        await Assert.That(args.Command).IsEqualTo(GitChromeCommand.StashDrop);
         await Assert.That(args.StashIndex).IsEqualTo(2);
         await Assert.That(args.RepoPath).IsEqualTo(@"d:\novolis\novolis-io");
+        await Assert.That(args.Detail).IsEqualTo("WIP on main");
+    }
+
+    [Test]
+    public async Task Confirm_request_defaults_to_warning()
+    {
+        var req = new GitConfirmRequest
+        {
+            Title = "Drop stash",
+            Summary = "Permanently delete stash@{0}.",
+            RequireTypedPhrase = "drop",
+        };
+        await Assert.That(req.Severity).IsEqualTo(GitConfirmSeverity.Warning);
+        await Assert.That(req.RequireTypedPhrase).IsEqualTo("drop");
     }
 
     [Test]
