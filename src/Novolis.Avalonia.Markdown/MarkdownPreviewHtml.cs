@@ -1,5 +1,3 @@
-using Markdig;
-
 namespace Novolis.Avalonia.Markdown;
 
 /// <summary>Builds themed HTML documents for live preview.</summary>

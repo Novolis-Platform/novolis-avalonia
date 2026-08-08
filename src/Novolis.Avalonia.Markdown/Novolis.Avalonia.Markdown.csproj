@@ -10,7 +10,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.AvaloniaEdit" />
     <PackageReference Include="Avalonia.HtmlRenderer" />
-    <PackageReference Include="Markdig" />
+    <PackageReference Include="Novolis.Markup.Markdown" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Mermaid\Novolis.Avalonia.Mermaid.csproj" />

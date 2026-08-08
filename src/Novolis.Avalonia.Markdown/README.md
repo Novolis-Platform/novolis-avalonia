@@ -56,7 +56,7 @@ var preview = new MarkdownPreviewPane();
 |------|---------|
 | `MarkdownEditorPreview` | Split editor + live preview |
 | `MarkdownSourceEditor` | AvaloniaEdit source surface with syntax highlighting |
-| `MarkdownPreviewPane` | Markdig GFM HTML preview with Mermaid |
+| `MarkdownPreviewPane` | Novolis Markdown HTML preview with Mermaid |
 | `MarkdownSpanAnalyzer` | Portable span analysis without AvaloniaEdit |
 
 **Editor features:** syntax highlighting (dialogue, `[!metadata]`, TK/TODO/FIXME in BookAuthoring profile), line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
@@ -66,6 +66,6 @@ var preview = new MarkdownPreviewPane();
 
 | Package | When to use |
 |---------|-------------|
-| `Novolis.Markup.Markdown.Rendering` | Standalone HTML/PDF file export (QuestPDF) |
+| `Novolis.Markup.Markdown` | Markdown parse + HTML convert used by preview |
 | `Novolis.Avalonia.Studio` | Studio chrome, toolbars, status lines |
 
