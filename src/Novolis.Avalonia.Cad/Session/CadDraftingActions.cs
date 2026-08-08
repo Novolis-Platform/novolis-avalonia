@@ -173,6 +173,14 @@ internal static class CadDraftingActions
                 Center = [cx, height * 0.5f, cz],
                 HalfExtents = [(maxX - minX) * 0.5f, height * 0.5f, (maxZ - minZ) * 0.5f],
             };
+            if (CadVec.LooksLikeShipDocument(bus.Session.Document))
+            {
+                box.Properties = new Dictionary<string, JsonElement>
+                {
+                    ["exterior"] = JsonSerializer.SerializeToElement(true),
+                };
+            }
+
             bus.Execute(new AddEntityCommand(box));
             return Ok(CadSessionActionIds.ExtrudeProfile, $"Box {box.Id}", [box.Id.ToString()]);
         }
@@ -294,6 +302,15 @@ internal static class CadDraftingActions
             Center = center,
             HalfExtents = he,
         };
+        // Ship docs: boxes drawn in the app are exterior massing unless marked otherwise.
+        if (CadVec.LooksLikeShipDocument(bus.Session.Document))
+        {
+            entity.Properties = new Dictionary<string, JsonElement>
+            {
+                ["exterior"] = JsonSerializer.SerializeToElement(true),
+            };
+        }
+
         bus.Execute(new AddEntityCommand(entity));
         return Ok(CadSessionActionIds.AddBox, $"Box {entity.Id}", [entity.Id.ToString()]);
     }

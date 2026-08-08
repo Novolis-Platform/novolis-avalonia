@@ -20,6 +20,8 @@ public sealed class CadCommandBus
 
     public CadCommandBus(CadDocumentSession session) => _session = session;
 
+    public CadDocumentSession Session => _session;
+
     public bool CanUndo => _undo.Count > 0;
 
     public bool CanRedo => _redo.Count > 0;

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Text.Json;
 using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Session;
@@ -634,25 +635,25 @@ public sealed class CadCommandDispatcher
         {
             if (!RequireNumbers(call, 3, out var n, out var err))
                 return err;
-            _bus.Execute(new AddEntityCommand(new CadEntity
+            _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
             {
                 Name = NextName("Box"),
                 Kind = "box",
                 Center = CadVec.Xyz(0, (float)n[1] * 0.5f, 0),
                 HalfExtents = [(float)n[0] * 0.5f, (float)n[1] * 0.5f, (float)n[2] * 0.5f],
-            }));
+            })));
             return null;
         }
 
         if (!RequireNumbers(call, 6, out var m, out var err6))
             return err6;
-        _bus.Execute(new AddEntityCommand(new CadEntity
+        _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
         {
             Name = NextName("Box"),
             Kind = "box",
             Center = CadVec.Xyz((float)m[0], (float)m[1], (float)m[2]),
             HalfExtents = [(float)m[3] * 0.5f, (float)m[4] * 0.5f, (float)m[5] * 0.5f],
-        }));
+        })));
         return null;
     }
 
@@ -813,6 +814,15 @@ public sealed class CadCommandDispatcher
 
         error = null;
         return true;
+    }
+
+    private CadEntity TagShipExterior(CadEntity entity)
+    {
+        if (!CadVec.LooksLikeShipDocument(_session.Document))
+            return entity;
+        entity.Properties ??= new Dictionary<string, JsonElement>();
+        entity.Properties["exterior"] = JsonSerializer.SerializeToElement(true);
+        return entity;
     }
 
     private static string Fmt(double value) =>

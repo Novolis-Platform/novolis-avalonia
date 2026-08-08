@@ -335,6 +335,21 @@ public sealed class CadModelRenderer
             case "sphere" when entity.Center is not null:
                 World.DrawSphere(CadVec.To(entity.Center), entity.Radius, baseColor);
                 break;
+            case "mesh" when entity.MeshVertices is { Count: > 0 } && entity.MeshIndices is { Count: > 0 }:
+            {
+                var mesh = CadSolidTessellator.FromStored(entity);
+                for (var i = 0; i < mesh.Indices.Count; i += 3)
+                {
+                    var a = mesh.Vertices[mesh.Indices[i]];
+                    var b = mesh.Vertices[mesh.Indices[i + 1]];
+                    var c = mesh.Vertices[mesh.Indices[i + 2]];
+                    World.DrawLine(a, b, baseColor);
+                    World.DrawLine(b, c, baseColor);
+                    World.DrawLine(c, a, baseColor);
+                }
+
+                break;
+            }
         }
     }
 
