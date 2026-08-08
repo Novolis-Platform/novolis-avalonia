@@ -17,7 +17,14 @@ public sealed class GitCommitGraphView : UserControl
 
     readonly Canvas _canvas = new() { Width = 120 };
     readonly ListBox _list = new() { SelectionMode = SelectionMode.Single };
-    CommitGraphModel? _model;
+    readonly TextBlock _empty = new()
+    {
+        Text = "Select a repository.",
+        Margin = new Thickness(16),
+        Opacity = 0.75,
+        Foreground = Brushes.WhiteSmoke,
+    };
+    readonly Grid _root = new();
 
     /// <summary>Commit selected.</summary>
     public event EventHandler<CommitSelectedEventArgs>? CommitSelected;
@@ -25,6 +32,7 @@ public sealed class GitCommitGraphView : UserControl
     /// <summary>Creates the view.</summary>
     public GitCommitGraphView()
     {
+        GitChromeUi.BindTextList(_list, static (CommitRow r) => r.ToString());
         _list.SelectionChanged += (_, _) =>
         {
             var node = (_list.SelectedItem as CommitRow)?.Node;
@@ -35,7 +43,7 @@ public sealed class GitCommitGraphView : UserControl
         VerticalAlignment = VerticalAlignment.Stretch;
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("80,*"),
+            ColumnDefinitions = new ColumnDefinitions("88,*"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
         };
@@ -53,16 +61,34 @@ public sealed class GitCommitGraphView : UserControl
         Grid.SetColumn(_list, 1);
         grid.Children.Add(scrollCanvas);
         grid.Children.Add(_list);
-        Content = grid;
+
+        _root.Children.Add(_empty);
+        _root.Children.Add(grid);
+        grid.IsVisible = false;
+        Content = _root;
     }
 
     /// <summary>Binds graph model.</summary>
     public void SetGraph(CommitGraphModel model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        _model = model;
+        _empty.IsVisible = false;
+        var grid = (Grid)_root.Children[1];
+        grid.IsVisible = true;
         _list.ItemsSource = model.Nodes.Select(n => new CommitRow(n, TipLabels(n, model))).ToList();
         Paint(model);
+        if (_list.ItemCount > 0)
+            _list.SelectedIndex = 0;
+    }
+
+    /// <summary>Shows placeholder instead of graph.</summary>
+    public void ShowPlaceholder(string message)
+    {
+        _empty.Text = message;
+        _empty.IsVisible = true;
+        ((Grid)_root.Children[1]).IsVisible = false;
+        _list.ItemsSource = null;
+        _canvas.Children.Clear();
     }
 
     static string TipLabels(CommitNode n, CommitGraphModel model)
@@ -104,7 +130,6 @@ public sealed class GitCommitGraphView : UserControl
             var x2 = Pad + to.Lane * LaneW + LaneW / 2;
             var y2 = Pad + to.Row * RowH + RowH / 2;
             var brush = new SolidColorBrush(colors[from.Lane % colors.Length]);
-            // Polyline approximates lane-change / merge curves without StreamGeometry API variance.
             var midY = (y1 + y2) / 2;
             _canvas.Children.Add(new Polyline
             {

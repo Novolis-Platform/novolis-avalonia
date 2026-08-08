@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.IO.Git;
@@ -19,48 +20,52 @@ public sealed class GitBranchNavigator : UserControl
     {
         _tree.DoubleTapped += (_, _) =>
         {
-            if (_tree.SelectedItem is TipNode n)
-                RefActivated?.Invoke(this, new GitRefActivatedEventArgs(n.Tip));
+            if (_tree.SelectedItem is TreeViewItem { Tag: TipRef tip })
+                RefActivated?.Invoke(this, new GitRefActivatedEventArgs(tip));
         };
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
+        _tree.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _tree.VerticalAlignment = VerticalAlignment.Stretch;
         Content = _tree;
+        ShowPlaceholder("Select a repository.");
     }
 
     /// <summary>Binds branch list.</summary>
     public void SetBranches(BranchList branches)
     {
         ArgumentNullException.ThrowIfNull(branches);
-        var local = new TreeViewItem
+        // TreeView must own TreeViewItem instances via Items — ItemsSource of TreeViewItem
+        // (or nested TipNode) leaves the pane blank under Avalonia 11.
+        var local = new TreeViewItem { Header = $"LOCAL ({branches.Local.Count})", IsExpanded = true };
+        foreach (var t in branches.Local)
         {
-            Header = $"LOCAL ({branches.Local.Count})",
-            IsExpanded = true,
-            ItemsSource = branches.Local.Select(t => new TipNode(t, t.Name == branches.Current)).ToList(),
-        };
-        var remote = new TreeViewItem
-        {
-            Header = $"REMOTE ({branches.Remote.Count})",
-            IsExpanded = false,
-            ItemsSource = branches.Remote.Select(t => new TipNode(t, false)).ToList(),
-        };
-        var tags = new TreeViewItem
-        {
-            Header = $"TAGS ({branches.Tags.Count})",
-            IsExpanded = false,
-            ItemsSource = branches.Tags.Select(t => new TipNode(t, false)).ToList(),
-        };
-        _tree.ItemsSource = new[] { local, remote, tags };
-    }
-
-    sealed class TipNode
-    {
-        public TipNode(TipRef tip, bool current)
-        {
-            Tip = tip;
-            Current = current;
+            local.Items.Add(new TreeViewItem
+            {
+                Header = t.Name == branches.Current ? $"● {t.Name}" : t.Name,
+                Tag = t,
+            });
         }
 
-        public TipRef Tip { get; }
-        public bool Current { get; }
-        public override string ToString() => Current ? $"● {Tip.Name}" : Tip.Name;
+        var remote = new TreeViewItem { Header = $"REMOTE ({branches.Remote.Count})", IsExpanded = false };
+        foreach (var t in branches.Remote)
+            remote.Items.Add(new TreeViewItem { Header = t.Name, Tag = t });
+
+        var tags = new TreeViewItem { Header = $"TAGS ({branches.Tags.Count})", IsExpanded = false };
+        foreach (var t in branches.Tags)
+            tags.Items.Add(new TreeViewItem { Header = t.Name, Tag = t });
+
+        _tree.Items.Clear();
+        _tree.Items.Add(local);
+        _tree.Items.Add(remote);
+        _tree.Items.Add(tags);
+    }
+
+    /// <summary>Shows a single placeholder row.</summary>
+    public void ShowPlaceholder(string message)
+    {
+        _tree.Items.Clear();
+        _tree.Items.Add(new TreeViewItem { Header = message, IsEnabled = false });
     }
 }
 
@@ -81,6 +86,7 @@ public sealed class GitStashPanel : UserControl
         _apply.Click += (_, _) => Raise(GitChromeCommand.StashApply);
         _pop.Click += (_, _) => Raise(GitChromeCommand.StashPop);
         _drop.Click += (_, _) => Raise(GitChromeCommand.StashDrop);
+        GitChromeUi.BindTextList(_list, static (StashRow r) => r.ToString());
         var bar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -88,20 +94,28 @@ public sealed class GitStashPanel : UserControl
             Margin = new Thickness(4),
             Children = { _apply, _pop, _drop },
         };
-        Content = new DockPanel
-        {
-            Children =
-            {
-                new TextBlock { Text = "Stashes", FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, 8, 8, 4), [DockPanel.DockProperty] = Dock.Top },
-                new Border { Child = bar, [DockPanel.DockProperty] = Dock.Bottom },
-                _list,
-            },
-        };
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
+        var host = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(bar, Dock.Bottom);
+        host.Children.Add(bar);
+        host.Children.Add(_list);
+        Content = host;
+        GitChromeUi.BindTextList(_list, static (string s) => s);
+        _list.ItemsSource = new[] { "(no stashes)" };
     }
 
     /// <summary>Binds stashes.</summary>
     public void SetStashes(IReadOnlyList<StashEntry> stashes)
     {
+        if (stashes.Count == 0)
+        {
+            GitChromeUi.BindTextList(_list, static (string s) => s);
+            _list.ItemsSource = new[] { "(no stashes)" };
+            return;
+        }
+
+        GitChromeUi.BindTextList(_list, static (StashRow r) => r.ToString());
         _list.ItemsSource = stashes.Select(s => new StashRow(s)).ToList();
     }
 
@@ -122,7 +136,11 @@ public sealed class GitStashPanel : UserControl
 /// <summary>Commit metadata pane.</summary>
 public sealed class GitCommitDetailView : UserControl
 {
-    readonly TextBlock _body = new() { TextWrapping = TextWrapping.Wrap };
+    readonly TextBlock _body = new()
+    {
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = Brushes.WhiteSmoke,
+    };
 
     /// <summary>Creates view.</summary>
     public GitCommitDetailView()
@@ -158,13 +176,12 @@ public sealed class GitDiffView : UserControl
         TextWrapping = TextWrapping.NoWrap,
         FontFamily = new FontFamily("Cascadia Mono, Consolas, monospace"),
         FontSize = 12,
+        Foreground = Brushes.WhiteSmoke,
+        Background = new SolidColorBrush(Color.FromRgb(22, 24, 28)),
     };
 
     /// <summary>Creates view.</summary>
-    public GitDiffView()
-    {
-        Content = _box;
-    }
+    public GitDiffView() => Content = _box;
 
     /// <summary>Binds diff document.</summary>
     public void SetDiff(DiffDocument? doc)
@@ -206,16 +223,26 @@ public sealed class GitWorkingTreeView : UserControl
     readonly ListBox _list = new();
 
     /// <summary>Creates view.</summary>
-    public GitWorkingTreeView() => Content = _list;
+    public GitWorkingTreeView()
+    {
+        GitChromeUi.BindTextList(_list, static (string s) => s);
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
+        Content = _list;
+        ShowPlaceholder("Select a repository.");
+    }
+
+    /// <summary>Shows a placeholder row.</summary>
+    public void ShowPlaceholder(string message) => _list.ItemsSource = new[] { message };
 
     /// <summary>Binds working tree.</summary>
     public void SetWorkingTree(WorkingTreeStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
         var items = new List<string>();
-        items.AddRange(status.Staged.Select(e => $"staged  {e.StatusCode}  {e.Path}"));
+        items.AddRange(status.Staged.Select(e => $"staged   {e.StatusCode}  {e.Path}"));
         items.AddRange(status.Unstaged.Select(e => $"unstaged {e.StatusCode}  {e.Path}"));
-        items.AddRange(status.Untracked.Select(e => $"untracked {e.Path}"));
+        items.AddRange(status.Untracked.Select(e => $"untracked     {e.Path}"));
         _list.ItemsSource = items.Count == 0 ? ["(clean)"] : items;
     }
 }
@@ -241,12 +268,29 @@ public sealed class GitActionBar : UserControl
                      ("Stash", GitChromeCommand.StashPush),
                  })
         {
-            var b = new Button { Content = label };
+            var b = new Button { Content = label, MinWidth = 72 };
             var c = cmd;
             b.Click += (_, _) => CommandRequested?.Invoke(this, new GitChromeCommandEventArgs(c));
             panel.Children.Add(b);
         }
 
         Content = panel;
+    }
+}
+
+/// <summary>Shared chrome list styling so rows stay readable on dark shells.</summary>
+internal static class GitChromeUi
+{
+    public static void BindTextList<T>(ListBox list, Func<T, string> text)
+    {
+        list.ItemTemplate = new FuncDataTemplate<T>((item, _) =>
+            new TextBlock
+            {
+                Text = text(item),
+                Foreground = Brushes.WhiteSmoke,
+                Margin = new Thickness(6, 2),
+                TextWrapping = TextWrapping.NoWrap,
+            },
+            supportsRecycling: true);
     }
 }

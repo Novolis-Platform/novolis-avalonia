@@ -16,19 +16,20 @@ public sealed class GitRepoVisualizer : UserControl
     };
 
     WorkspaceStatusMatrix? _matrix;
+    bool _suppressOpen;
 
     /// <summary>Selection changed.</summary>
     public event EventHandler<RepoSelectionChangedEventArgs>? SelectionChanged;
 
-    /// <summary>Open repo (double-click / Enter).</summary>
+    /// <summary>Open repo (single-select / double-click / Enter).</summary>
     public event EventHandler<RepoOpenEventArgs>? RepoOpenRequested;
 
     /// <summary>Creates the visualizer.</summary>
     public GitRepoVisualizer()
     {
-        _list.SelectionChanged += (_, _) => RaiseSelection();
+        GitChromeUi.BindTextList(_list, static (RepoRow r) => r.ToString());
+        _list.SelectionChanged += OnSelectionChanged;
         _list.DoubleTapped += OnDoubleTapped;
-        // Enter also opens — Windows Avalonia sometimes eats DoubleTapped on ListBox items.
         _list.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Enter && _list.SelectedItem is RepoRow row)
@@ -41,21 +42,7 @@ public sealed class GitRepoVisualizer : UserControl
         _list.VerticalAlignment = VerticalAlignment.Stretch;
         HorizontalAlignment = HorizontalAlignment.Stretch;
         VerticalAlignment = VerticalAlignment.Stretch;
-        Content = new DockPanel
-        {
-            LastChildFill = true,
-            Children =
-            {
-                new TextBlock
-                {
-                    Text = "Repositories (double-click to open)",
-                    FontWeight = FontWeight.SemiBold,
-                    Margin = new Thickness(8, 8, 8, 4),
-                    [DockPanel.DockProperty] = Dock.Top,
-                },
-                _list,
-            },
-        };
+        Content = _list;
     }
 
     /// <summary>Binds a status matrix.</summary>
@@ -63,7 +50,45 @@ public sealed class GitRepoVisualizer : UserControl
     {
         ArgumentNullException.ThrowIfNull(matrix);
         _matrix = matrix;
-        _list.ItemsSource = matrix.Repos.Select(r => new RepoRow(r)).ToList();
+        var previous = GetSelection().Selected.Select(r => r.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _suppressOpen = true;
+        try
+        {
+            var rows = matrix.Repos.Select(r => new RepoRow(r)).ToList();
+            _list.ItemsSource = rows;
+            foreach (var row in rows)
+            {
+                if (previous.Contains(row.Row.Repo.Path))
+                    _list.SelectedItems?.Add(row);
+            }
+        }
+        finally
+        {
+            _suppressOpen = false;
+        }
+
+        RaiseSelection();
+    }
+
+    /// <summary>Selects a repo by path without treating it as a multi-select batch.</summary>
+    public void SelectRepo(string path)
+    {
+        if (_list.ItemsSource is not IEnumerable<RepoRow> rows)
+            return;
+        var match = rows.FirstOrDefault(r =>
+            string.Equals(r.Row.Repo.Path, path, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+            return;
+        _suppressOpen = true;
+        try
+        {
+            _list.SelectedItems?.Clear();
+            _list.SelectedItem = match;
+        }
+        finally
+        {
+            _suppressOpen = false;
+        }
     }
 
     /// <summary>Current selection.</summary>
@@ -75,6 +100,16 @@ public sealed class GitRepoVisualizer : UserControl
             .Select(r => r.Row.Repo)
             .ToArray() ?? [];
         return new RepoSelection { Root = root, Selected = selected };
+    }
+
+    void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        RaiseSelection();
+        if (_suppressOpen)
+            return;
+        // Single highlighted repo opens detail panes; multi-select is for batch fetch/pull.
+        if (_list.SelectedItems?.Count == 1 && _list.SelectedItem is RepoRow row)
+            RepoOpenRequested?.Invoke(this, new RepoOpenEventArgs(row.Row.Repo));
     }
 
     void RaiseSelection() =>
