@@ -31,16 +31,24 @@ public sealed class GitCommitGraphView : UserControl
             CommitSelected?.Invoke(this, new CommitSelectedEventArgs(node));
         };
 
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            ColumnDefinitions = new ColumnDefinitions("80,*"),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
         };
         var scrollCanvas = new ScrollViewer
         {
             Content = _canvas,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
         };
+        _list.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _list.VerticalAlignment = VerticalAlignment.Stretch;
         Grid.SetColumn(scrollCanvas, 0);
         Grid.SetColumn(_list, 1);
         grid.Children.Add(scrollCanvas);

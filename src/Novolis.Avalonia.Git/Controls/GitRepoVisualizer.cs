@@ -28,13 +28,18 @@ public sealed class GitRepoVisualizer : UserControl
     {
         _list.SelectionChanged += (_, _) => RaiseSelection();
         _list.DoubleTapped += OnDoubleTapped;
+        _list.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _list.VerticalAlignment = VerticalAlignment.Stretch;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
         Content = new DockPanel
         {
+            LastChildFill = true,
             Children =
             {
                 new TextBlock
                 {
-                    Text = "Repositories",
+                    Text = "Repositories (double-click to open)",
                     FontWeight = FontWeight.SemiBold,
                     Margin = new Thickness(8, 8, 8, 4),
                     [DockPanel.DockProperty] = Dock.Top,
