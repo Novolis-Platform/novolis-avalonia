@@ -123,9 +123,9 @@ public static class CadShipExterior
         {
             return Color.FromArgb(
                 255,
-                (int)(Math.Clamp(rgb[0], 0f, 1f) * 255),
-                (int)(Math.Clamp(rgb[1], 0f, 1f) * 255),
-                (int)(Math.Clamp(rgb[2], 0f, 1f) * 255));
+                (int)(System.Math.Clamp(rgb[0], 0f, 1f) * 255),
+                (int)(System.Math.Clamp(rgb[1], 0f, 1f) * 255),
+                (int)(System.Math.Clamp(rgb[2], 0f, 1f) * 255));
         }
 
         return FallbackSolid;
