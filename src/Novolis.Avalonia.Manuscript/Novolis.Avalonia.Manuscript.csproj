@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Manuscript</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Manuscript</RootNamespace>
+    <Description>Composable Avalonia chrome panels for manuscript editors (not a product host).</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Novolis.Avalonia.Markdown" />
+    <PackageReference Include="Novolis.Manuscript" />
+  </ItemGroup>
+</Project>
