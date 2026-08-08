@@ -8,7 +8,9 @@
 
 # Novolis.Avalonia.Studio
 
-Studio chrome for Avalonia editor apps: status/flash lines, busy overlay, three-column layout, focus mode, dirty/clean status brushes, and a domain-agnostic command bar.
+Studio chrome for Avalonia editor apps: status/flash lines, busy overlay, three-column layout (façade over Layout `AuthoringWorkspace` when used), focus mode, dirty/clean status brushes, and a domain-agnostic command bar.
+
+Prefer composing `Novolis.Avalonia.Layout.AuthoringWorkspace` for new hosts; `StudioWorkspace` remains for existing callers.
 
 ## Install
 

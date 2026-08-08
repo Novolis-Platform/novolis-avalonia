@@ -18,6 +18,10 @@ dotnet add package Novolis.Avalonia.Controls
 
 **Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) (`net10.0`), Avalonia. References `Novolis.Avalonia.Layout`.
 
+## Control grain
+
+Keep atoms (lists, dialogs, job rows). Reject controls that embed multiple product jobs or open workspaces. See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-governance/blob/main/docs/avalonia-composition-grain.md).
+
 ## Quick start
 
 ```csharp

@@ -69,6 +69,11 @@ For NuGet.org and Visual Studio, the **embedded** README.md inside each package 
 
 Reusable **no-XAML** Avalonia controls and layouts for Novolis desktop tools (packet analyzers, studios, inspectors).
 
+## Composition (non-negotiable)
+
+**Layout shell → Controls atoms → domain chrome panels → app host.**  
+See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-governance/blob/main/docs/avalonia-composition-grain.md). Apps wire session and jobs; packages must not become product hosts.
+
 ## Packages
 
 | Package | Description |
