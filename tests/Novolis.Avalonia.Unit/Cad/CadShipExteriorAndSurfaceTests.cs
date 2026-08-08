@@ -10,12 +10,28 @@ namespace Novolis.Avalonia.Unit.Cad;
 public sealed class CadShipExteriorTests
 {
     [Test]
-    public async Task ShouldUseExterior_DetectsShipDocument()
+    public async Task ShouldUseExterior_DetectsShipDocumentWithAuthoredSolids()
     {
-        var shipLike = new CadDocument();
-        shipLike.Entities.Add(new CadEntity { Kind = "wall", Name = "Hull" });
-        shipLike.Entities.Add(new CadEntity { Kind = "space", Name = "Hold" });
-        await Assert.That(CadShipExterior.ShouldUseExterior(shipLike)).IsTrue();
+        var decksOnly = new CadDocument();
+        decksOnly.Entities.Add(new CadEntity { Kind = "wall", Name = "Hull" });
+        decksOnly.Entities.Add(new CadEntity { Kind = "space", Name = "Hold" });
+        await Assert.That(CadShipExterior.ShouldUseExterior(decksOnly)).IsFalse();
+
+        var withExterior = new CadDocument();
+        withExterior.Entities.Add(new CadEntity { Kind = "wall", Name = "Hull" });
+        withExterior.Entities.Add(new CadEntity { Kind = "space", Name = "Hold" });
+        withExterior.Entities.Add(new CadEntity
+        {
+            Kind = "box",
+            Name = "ext-hull",
+            Center = [0f, 1f, 0f],
+            HalfExtents = [1f, 1f, 1f],
+            Properties = new Dictionary<string, System.Text.Json.JsonElement>
+            {
+                ["exterior"] = System.Text.Json.JsonSerializer.SerializeToElement(true),
+            },
+        });
+        await Assert.That(CadShipExterior.ShouldUseExterior(withExterior)).IsTrue();
 
         var plain = CadDocumentSession.CreateStarter();
         await Assert.That(CadShipExterior.ShouldUseExterior(plain)).IsFalse();

@@ -663,14 +663,14 @@ public sealed class CadCommandDispatcher
         {
             if (!RequireNumbers(call, 2, out var n, out var err))
                 return err;
-            _bus.Execute(new AddEntityCommand(new CadEntity
+            _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
             {
                 Name = NextName("Cylinder"),
                 Kind = "cylinder",
                 Center = CadVec.Xyz(0, (float)n[1] * 0.5f, 0),
                 Radius = (float)n[0],
                 Height = (float)n[1],
-            }));
+            })));
             return null;
         }
 
@@ -678,14 +678,14 @@ public sealed class CadCommandDispatcher
         {
             if (!RequireNumbers(call, 5, out var n, out var err))
                 return err;
-            _bus.Execute(new AddEntityCommand(new CadEntity
+            _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
             {
                 Name = NextName("Cylinder"),
                 Kind = "cylinder",
                 Center = CadVec.Xyz((float)n[0], (float)n[1], (float)n[2]),
                 Radius = (float)n[3],
                 Height = (float)n[4],
-            }));
+            })));
             return null;
         }
 
@@ -698,25 +698,25 @@ public sealed class CadCommandDispatcher
         {
             if (!RequireNumbers(call, 1, out var n, out var err))
                 return err;
-            _bus.Execute(new AddEntityCommand(new CadEntity
+            _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
             {
                 Name = NextName("Sphere"),
                 Kind = "sphere",
                 Center = CadVec.Xyz(0, (float)n[0], 0),
                 Radius = (float)n[0],
-            }));
+            })));
             return null;
         }
 
         if (!RequireNumbers(call, 4, out var m, out var err4))
             return err4;
-        _bus.Execute(new AddEntityCommand(new CadEntity
+        _bus.Execute(new AddEntityCommand(TagShipExterior(new CadEntity
         {
             Name = NextName("Sphere"),
             Kind = "sphere",
             Center = CadVec.Xyz((float)m[0], (float)m[1], (float)m[2]),
             Radius = (float)m[3],
-        }));
+        })));
         return null;
     }
 
