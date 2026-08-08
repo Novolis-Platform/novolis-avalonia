@@ -86,7 +86,6 @@ public sealed class GitStashPanel : UserControl
         _apply.Click += (_, _) => Raise(GitChromeCommand.StashApply);
         _pop.Click += (_, _) => Raise(GitChromeCommand.StashPop);
         _drop.Click += (_, _) => Raise(GitChromeCommand.StashDrop);
-        GitChromeUi.BindTextList(_list, static (StashRow r) => r.ToString());
         var bar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
