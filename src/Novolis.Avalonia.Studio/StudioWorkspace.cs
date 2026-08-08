@@ -1,10 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Novolis.Avalonia.Layout;
 
 namespace Novolis.Avalonia.Studio;
 
-/// <summary>Three-column editor shell: left rail, center (toolbar + body), right rail.</summary>
+/// <summary>
+/// Three-column editor shell wrapping a forced-Wide <see cref="AuthoringWorkspace"/>.
+/// Prefer composing <see cref="AuthoringWorkspace"/> directly for new adaptive hosts.
+/// </summary>
 public sealed class StudioWorkspace : Grid
 {
     public StudioWorkspace(
@@ -14,14 +18,18 @@ public sealed class StudioWorkspace : Grid
         double leftWidth = 300,
         double rightWidth = 320)
     {
-        ColumnDefinitions = new ColumnDefinitions($"{leftWidth},*,{rightWidth}");
-        Grid.SetColumn(leftRail, 0);
-        Children.Add(leftRail);
-        Grid.SetColumn(centerBody, 1);
-        Children.Add(centerBody);
-        Grid.SetColumn(rightRail, 2);
-        Children.Add(rightRail);
+        Authoring = new AuthoringWorkspace(nav: leftRail, primary: centerBody, context: rightRail)
+        {
+            NavWidth = leftWidth,
+            ContextWidth = rightWidth,
+            LayoutMode = AuthoringLayoutMode.Wide,
+            ForceMode = true,
+        };
+        Children.Add(Authoring);
     }
+
+    /// <summary>Underlying Layout authoring shell (forced Wide).</summary>
+    public AuthoringWorkspace Authoring { get; }
 
     public static Grid CreateCenterColumn(Control toolbar, Control body)
     {

@@ -9,4 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
+  </ItemGroup>
 </Project>

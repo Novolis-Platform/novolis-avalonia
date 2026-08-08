@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Layout</PackageId>
 <IsPackable>true</IsPackable>
-    <Description>WireShark-style analyzer workspace layout primitives for Avalonia (no XAML).</Description>
+    <Description>Avalonia layout shells (no XAML): AnalyzerWorkspace and adaptive AuthoringWorkspace (Wide/Narrow).</Description>
     <RootNamespace>Novolis.Avalonia.Layout</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

@@ -78,7 +78,7 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 
 | Package | Description |
 |---------|-------------|
-| [`Novolis.Avalonia.Layout`](src/Novolis.Avalonia.Layout/README.md) | `AnalyzerWorkspace`, `ToolbarRow`, `FilterBar`, `DetailTreeNode` |
+| [`Novolis.Avalonia.Layout`](src/Novolis.Avalonia.Layout/README.md) | `AnalyzerWorkspace`, `AuthoringWorkspace` (Wide/Narrow), `ToolbarRow`, `FilterBar` |
 | [`Novolis.Avalonia.Controls`](src/Novolis.Avalonia.Controls/README.md) | `HexDumpView`, `TreeDetailsView`, `PacketTableView`, `SketchControl` |
 | [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
 | [`Novolis.Avalonia.Gaming`](src/Novolis.Avalonia.Gaming/README.md) | Game shell: HUD + modal menus over Silk/TwoD viewport (`HardPause` default) |
