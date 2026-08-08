@@ -14,6 +14,7 @@
     <Project Path="src/Novolis.Avalonia.Timeline/Novolis.Avalonia.Timeline.csproj" />
     <Project Path="src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj" />
     <Project Path="src/Novolis.Avalonia.Manuscript/Novolis.Avalonia.Manuscript.csproj" />
+    <Project Path="src/Novolis.Avalonia.Git/Novolis.Avalonia.Git.csproj" />
     <Project Path="src/Novolis.Avalonia.Mermaid/Novolis.Avalonia.Mermaid.csproj" />
     <Project Path="src/Novolis.Avalonia.StarMap/Novolis.Avalonia.StarMap.csproj" />
     <Project Path="src/Novolis.Avalonia.Briefing/Novolis.Avalonia.Briefing.csproj" />

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Git</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Git</RootNamespace>
+    <Description>Composable Avalonia Git chrome (commit graph, repo matrix, branches, stash, diff) bound to Novolis.IO.Git — not a product host.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Novolis.IO.Git" />
+  </ItemGroup>
+</Project>

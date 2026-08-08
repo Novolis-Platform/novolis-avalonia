@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
+    <PackageReference Include="Novolis.IO.Git" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Cad.Primitives" />
     <PackageReference Include="Novolis.Modeling.Scene" />
@@ -28,5 +29,6 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Timeline\Novolis.Avalonia.Timeline.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Voice\Novolis.Avalonia.Voice.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Git\Novolis.Avalonia.Git.csproj" />
   </ItemGroup>
 </Project>

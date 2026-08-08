@@ -61,7 +61,9 @@
     <PackageVersion Include="Novolis.Audio.Voice.Platform.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.Profiles" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Manuscript" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.IO.Git" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Avalonia.Markdown" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Avalonia.Git" Version="2026.1.*" />
     <PackageVersion Include="NAudio" Version="2.3.0" />
     <PackageVersion Include="Novolis.Video.Rtc.Abstractions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Video.Rtc" Version="2026.1.*" />
