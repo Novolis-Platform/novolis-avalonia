@@ -165,57 +165,6 @@ public sealed class GitCommitDetailView : UserControl
     }
 }
 
-/// <summary>Unified diff viewer.</summary>
-public sealed class GitDiffView : UserControl
-{
-    readonly TextBox _box = new()
-    {
-        IsReadOnly = true,
-        AcceptsReturn = true,
-        TextWrapping = TextWrapping.NoWrap,
-        FontFamily = new FontFamily("Cascadia Mono, Consolas, monospace"),
-        FontSize = 12,
-        Foreground = Brushes.WhiteSmoke,
-        Background = new SolidColorBrush(Color.FromRgb(22, 24, 28)),
-    };
-
-    /// <summary>Creates view.</summary>
-    public GitDiffView() => Content = _box;
-
-    /// <summary>Binds diff document.</summary>
-    public void SetDiff(DiffDocument? doc)
-    {
-        if (doc is null || doc.Files.Count == 0)
-        {
-            _box.Text = "(no diff)";
-            return;
-        }
-
-        var sb = new System.Text.StringBuilder();
-        foreach (var f in doc.Files)
-        {
-            sb.AppendLine($"--- {f.OldPath ?? f.Path}");
-            sb.AppendLine($"+++ {f.Path}");
-            if (f.IsBinary)
-            {
-                sb.AppendLine("Binary file");
-                continue;
-            }
-
-            foreach (var h in f.Hunks)
-            {
-                sb.AppendLine(h.Header);
-                foreach (var line in h.Lines)
-                    sb.Append(line.Kind).AppendLine(line.Text);
-            }
-
-            sb.AppendLine();
-        }
-
-        _box.Text = sb.ToString();
-    }
-}
-
 /// <summary>Working tree groups.</summary>
 public sealed class GitWorkingTreeView : UserControl
 {
