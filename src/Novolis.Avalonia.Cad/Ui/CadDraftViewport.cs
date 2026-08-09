@@ -56,6 +56,12 @@ public sealed class CadDraftViewport : Control
 
     public event Action? ViewChanged;
 
+    /// <summary>
+    /// Optional filter for left-clicks in world XZ. Return true to consume the click
+    /// (skip CAD select / draw tools). Used by ship PLAN authoring.
+    /// </summary>
+    public Func<Vector3, bool>? WorldClickFilter { get; set; }
+
     public void Fit()
     {
         var bounds = EntityBounds.Compute(_session.Document);
@@ -119,6 +125,12 @@ public sealed class CadDraftViewport : Control
         if (props.IsLeftButtonPressed)
         {
             var world = Snap(ScreenToWorld(p));
+            if (WorldClickFilter?.Invoke(world) == true)
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (_dispatcher.ActiveTool == CadToolKind.Select)
             {
                 if (TryBeginGrip(world))

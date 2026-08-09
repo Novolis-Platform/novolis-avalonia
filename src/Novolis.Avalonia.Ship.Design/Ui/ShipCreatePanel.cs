@@ -12,7 +12,7 @@ public static class ShipCreatePanel
 {
     public static Control Build(ShipDesignSession session, Action? onCreated = null)
     {
-        var nameBox = new TextBox { Text = "Calypso", PlaceholderText = "Name" };
+        var nameBox = new TextBox { Text = "New Ship", PlaceholderText = "Name" };
         var lengthBox = Num(90m);
         var beamBox = Num(20m);
         var heightBox = Num(12m);
@@ -97,6 +97,14 @@ public static class ShipCreatePanel
 
         var form = new StackPanel { Spacing = 8, Margin = new Thickness(8) };
         form.Children.Add(Header("Create ship"));
+        form.Children.Add(new TextBlock
+        {
+            Text = "Clean slate — set definition, then Create ship. PLAN tools place objects on the active deck.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = Brushes.CadetBlue,
+            FontSize = 11,
+            Margin = new Thickness(0, 0, 0, 4),
+        });
         form.Children.Add(Labeled("Name", nameBox));
         form.Children.Add(Labeled("Length (m)", lengthBox));
         form.Children.Add(Labeled("Beam (m)", beamBox));

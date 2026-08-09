@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Avalonia.Ship.Design.Services;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
 
@@ -90,18 +91,12 @@ public static class ShipPlanObjectList
         var addPassage = new Button { Content = "Add mid-deck passage", Padding = new Thickness(8, 4) };
         addPassage.Click += (_, _) =>
         {
-            if (session.Design.Decks.Count == 0)
+            if (!session.HasShip || session.Design.Decks.Count == 0)
                 return;
-            var deck = session.Design.Decks[System.Math.Clamp(session.ActiveDeckIndex, 0, session.Design.Decks.Count - 1)];
-            var L = session.Design.Ship.LengthMeters;
-            session.Mutate(d => ShipDesignMutations.AddPassage(
-                d,
-                deck.Id,
-                "Corridor",
-                [[0f, -L * 0.35f], [0f, L * 0.35f]],
-                widthM: 1.2f,
-                heightM: 2.2f));
+            ShipPlanAuthoring.AddDefault(session, ShipDesignTool.Passage);
         };
+        session.Changed += () => addPassage.IsEnabled = session.HasShip;
+        addPassage.IsEnabled = session.HasShip;
         panel.Children.Add(addPassage);
         return panel;
     }

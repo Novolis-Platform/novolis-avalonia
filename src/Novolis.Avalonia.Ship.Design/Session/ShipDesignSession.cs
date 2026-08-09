@@ -12,13 +12,15 @@ public sealed class ShipDesignSession
     private string? _path;
     private ShipValidationResult _validation = new() { Issues = [] };
     private ShipAnalysisReport _analysis = EmptyAnalysis();
+    private readonly List<float[]> _placePoints = [];
 
     public ShipDesignSession(string dataRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         DataRoot = dataRoot;
         Directory.CreateDirectory(dataRoot);
-        _design = ShipFactory.Create(DefaultDefinition("New Ship"));
+        _design = ShipFactory.CreateBlank();
+        HasShip = false;
         Recompute();
     }
 
@@ -26,11 +28,16 @@ public sealed class ShipDesignSession
 
     public ShipDesign Design => _design;
 
+    /// <summary>False until Create ship / New Ship / Open / Import populates a real design.</summary>
+    public bool HasShip { get; private set; }
+
     public string? Path => _path;
 
     public ShipObjectId? SelectedObjectId { get; private set; }
 
     public ShipWorkspaceKind Workspace { get; private set; } = ShipWorkspaceKind.Plan;
+
+    public ShipDesignTool ActiveTool { get; private set; } = ShipDesignTool.Select;
 
     public int ActiveDeckIndex { get; private set; }
 
@@ -52,15 +59,34 @@ public sealed class ShipDesignSession
 
     public bool ShowStructuralOverlays { get; set; } = true;
 
+    public IReadOnlyList<float[]> PlacePoints => _placePoints;
+
     public event Action? Changed;
+
+    public void ClearToBlank()
+    {
+        _design = ShipFactory.CreateBlank();
+        _path = null;
+        HasShip = false;
+        SelectedObjectId = null;
+        ActiveDeckIndex = 0;
+        ActiveTool = ShipDesignTool.Select;
+        ActiveLoadCaseId = null;
+        BreachCompartmentId = null;
+        _placePoints.Clear();
+        Notify();
+    }
 
     public void NewShip(ShipDefinition definition)
     {
         _design = ShipFactory.Create(definition);
         _path = null;
+        HasShip = true;
         SelectedObjectId = _design.Hull.Id.AsObject();
         ActiveDeckIndex = 0;
+        ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
+        _placePoints.Clear();
         Notify();
     }
 
@@ -69,6 +95,7 @@ public sealed class ShipDesignSession
         ArgumentNullException.ThrowIfNull(design);
         _design = design;
         _path = path;
+        HasShip = design.Decks.Count > 0 && design.Hull.Geometry.Entities.Count > 0;
         ActiveLoadCaseId ??= _design.LoadCases.FirstOrDefault()?.Id;
         Notify();
     }
@@ -76,6 +103,8 @@ public sealed class ShipDesignSession
     public void Mutate(Func<ShipDesign, ShipDesign> mutator)
     {
         ArgumentNullException.ThrowIfNull(mutator);
+        if (!HasShip)
+            return;
         _design = mutator(_design);
         Notify();
     }
@@ -89,7 +118,29 @@ public sealed class ShipDesignSession
     public void SetWorkspace(ShipWorkspaceKind workspace)
     {
         Workspace = workspace;
+        if (workspace != ShipWorkspaceKind.Plan)
+        {
+            ActiveTool = ShipDesignTool.Select;
+            _placePoints.Clear();
+        }
+
         Notify();
+    }
+
+    public void SetActiveTool(ShipDesignTool tool)
+    {
+        ActiveTool = tool;
+        _placePoints.Clear();
+        Notify();
+    }
+
+    public void ClearPlacePoints() => _placePoints.Clear();
+
+    public void AddPlacePoint(float x, float z)
+    {
+        var sx = SnapEnabled ? Snap(x) : x;
+        var sz = SnapEnabled ? Snap(z) : z;
+        _placePoints.Add([sx, sz]);
     }
 
     public void SetActiveDeck(int index)
@@ -124,12 +175,16 @@ public sealed class ShipDesignSession
 
     public void Save()
     {
+        if (!HasShip)
+            return;
         var path = _path ?? System.IO.Path.Combine(DataRoot, SanitizeFileName(_design.Ship.Name) + ".shipjson");
         SaveTo(path);
     }
 
     public void SaveTo(string path)
     {
+        if (!HasShip)
+            return;
         ShipDesignStore.Save(_design, path);
         _path = path;
         Notify();
@@ -139,9 +194,12 @@ public sealed class ShipDesignSession
     {
         _design = ShipDesignStore.Load(path);
         _path = path;
+        HasShip = true;
         SelectedObjectId = _design.Hull.Id.AsObject();
         ActiveDeckIndex = 0;
+        ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
+        _placePoints.Clear();
         Notify();
     }
 
@@ -150,8 +208,11 @@ public sealed class ShipDesignSession
         ArgumentNullException.ThrowIfNull(document);
         _design = ShipCadProjector.FromCadDocument(document);
         _path = null;
+        HasShip = true;
         SelectedObjectId = _design.Hull.Id.AsObject();
+        ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
+        _placePoints.Clear();
         Notify();
     }
 
@@ -177,12 +238,26 @@ public sealed class ShipDesignSession
 
     private void Recompute()
     {
+        if (!HasShip)
+        {
+            _validation = new ShipValidationResult { Issues = [] };
+            _analysis = EmptyAnalysis();
+            return;
+        }
+
         _validation = ShipDesignValidator.Validate(_design);
         _analysis = ShipAnalyzer.Analyze(_design, new ShipAnalysisContext
         {
             ActiveLoadCaseId = ActiveLoadCaseId,
             BreachCompartmentId = BreachCompartmentId,
         });
+    }
+
+    public float Snap(float value)
+    {
+        if (!SnapEnabled || SnapGridMeters <= 1e-6f)
+            return value;
+        return MathF.Round(value / SnapGridMeters) * SnapGridMeters;
     }
 
     public static ShipDefinition DefaultDefinition(string name) => new()

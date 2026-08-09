@@ -3,11 +3,13 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Avalonia.Cad.Session;
+using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Ship;
 using Novolis.Avalonia.Ship.Design.Grips;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Avalonia.Ship.Design.Services;
 using Novolis.Avalonia.Ship.Design.Ui;
+using Novolis.Cad.Primitives;
 using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design;
@@ -21,20 +23,65 @@ public static class ShipDesignChrome
         ArgumentNullException.ThrowIfNull(design);
         ShipChrome.Attach(cad);
 
+        var syncDepth = 0;
+
         void SyncCad()
         {
-            var source = design.Workspace == ShipWorkspaceKind.Model
-                ? design.SelectedObjectGeometry() ?? ShipCadProjector.ToCadDocument(design.Design)
-                : ShipCadProjector.ToCadDocument(design.Design);
+            syncDepth++;
+            try
+            {
+                if (!design.HasShip)
+                {
+                    cad.Document.Document.Entities.Clear();
+                    cad.Document.Document.Name = "(untitled)";
+                    cad.Document.Document.Properties = new Dictionary<string, System.Text.Json.JsonElement>();
+                    cad.Document.Notify();
+                    return;
+                }
 
-            cad.Document.Document.Entities.Clear();
-            cad.Document.Document.Entities.AddRange(source.Entities);
-            cad.Document.Document.Name = source.Name;
-            cad.Document.Document.Properties = source.Properties;
-            cad.Document.Notify();
+                var source = design.Workspace == ShipWorkspaceKind.Model
+                    ? design.SelectedObjectGeometry() ?? ShipCadProjector.ToCadDocument(design.Design)
+                    : ShipCadProjector.ToCadDocument(design.Design);
+
+                cad.Document.Document.Entities.Clear();
+                cad.Document.Document.Entities.AddRange(source.Entities);
+                cad.Document.Document.Name = source.Name;
+                cad.Document.Document.Properties = source.Properties;
+                cad.Document.Notify();
+            }
+            finally
+            {
+                syncDepth--;
+            }
         }
 
         design.Changed += SyncCad;
+        cad.Document.Changed += () =>
+        {
+            if (syncDepth > 0 || !design.HasShip)
+                return;
+            if (design.Workspace != ShipWorkspaceKind.Model)
+                return;
+            if (design.SelectedObjectId is not { } oid)
+                return;
+
+            var snap = new Novolis.Cad.Primitives.CadDocument
+            {
+                Name = cad.Document.Document.Name,
+                Entities = cad.Document.Document.Entities.ToList(),
+                Properties = cad.Document.Document.Properties,
+            };
+            syncDepth++;
+            try
+            {
+                design.Mutate(d => ShipDesignMutations.ReplaceObjectGeometry(d, oid, snap));
+            }
+            finally
+            {
+                syncDepth--;
+            }
+        };
+
         SyncCad();
     }
 
@@ -61,23 +108,31 @@ public static class ShipDesignChrome
         var analysisPanel = ShipAnalysisPanel.Build(design);
         analysisPanel.IsVisible = false;
 
+        void SetStatus(string text) => status.Text = text;
+
         void RefreshText()
         {
-            inspector.Text = ShipDesignInspector.Format(design);
+            inspector.Text = design.HasShip
+                ? ShipDesignInspector.Format(design)
+                : "Clean slate — use Create ship, then PLAN tools (click to place) or Place default.";
             var val = design.Validation;
-            var gripCount = ShipGripCatalog.ForSelection(design.Design, design.SelectedObjectId).Count;
+            var gripCount = design.HasShip
+                ? ShipGripCatalog.ForSelection(design.Design, design.SelectedObjectId).Count
+                : 0;
+            var name = design.HasShip ? design.Design.Ship.Name : "(untitled)";
             status.Text =
-                $"{design.Workspace} · {design.Design.Ship.Name} · deck {design.ActiveDeckIndex}"
+                $"{design.Workspace} · {name} · deck {design.ActiveDeckIndex}"
+                + $" · tool {design.ActiveTool}"
                 + $" · val {(val.Ok ? "OK" : "FAIL")}({val.Issues.Count})"
                 + $" · analysis {design.Analysis.Worst}"
                 + $" · grips {gripCount}";
-            analysisPanel.IsVisible = design.Workspace == ShipWorkspaceKind.Analyze;
+            analysisPanel.IsVisible = design.Workspace == ShipWorkspaceKind.Analyze && design.HasShip;
         }
 
         design.Changed += RefreshText;
         RefreshText();
 
-        var tools = ShipObjectToolStrip.Build(design);
+        var tools = ShipObjectToolStrip.Build(design, SetStatus);
         var snapRow = ShipSnapSettings.Build(design);
         var analysisStrip = ShipAnalysisStatusStrip.Build(design);
         var workspaceBar = new StackPanel
@@ -90,12 +145,20 @@ public static class ShipDesignChrome
         workspaceBar.Children.Add(Ws("MODEL", ShipWorkspaceKind.Model, design, status));
         workspaceBar.Children.Add(Ws("ANALYZE", ShipWorkspaceKind.Analyze, design, status, () =>
         {
-            status.Text = $"ANALYZE · worst {design.Analysis.Worst} · mass {design.Analysis.TotalMassKg / 1000f:0.#} t";
+            status.Text = design.HasShip
+                ? $"ANALYZE · worst {design.Analysis.Worst} · mass {design.Analysis.TotalMassKg / 1000f:0.#} t"
+                : "ANALYZE — create a ship first";
         }));
 
         var exportScene = new Button { Content = "Export scene", Padding = new Thickness(10, 4) };
         exportScene.Click += (_, _) =>
         {
+            if (!design.HasShip)
+            {
+                status.Text = "Create a ship before exporting.";
+                return;
+            }
+
             var outDir = Path.Combine(design.DataRoot, "exports");
             Directory.CreateDirectory(outDir);
             var path = Path.Combine(outDir, "ship-analyze.nov3djson");
@@ -104,7 +167,39 @@ public static class ShipDesignChrome
         };
         workspaceBar.Children.Add(exportScene);
 
-        var create = ShipCreatePanel.Build(design, RefreshText);
+        Control? cadToolStrip = null;
+        if (editorSurface is CadEditorSurface editor)
+        {
+            cadToolStrip = editor.ToolStrip;
+            editor.ToolStrip.IsVisible = false;
+            editor.DraftViewport.WorldClickFilter = world =>
+            {
+                if (!design.HasShip || design.Workspace != ShipWorkspaceKind.Plan)
+                    return false;
+                if (design.ActiveTool is ShipDesignTool.Select or ShipDesignTool.Hull or ShipDesignTool.Structure)
+                    return false;
+                var msg = ShipPlanAuthoring.TryHandleWorldClick(design, world);
+                if (msg is null)
+                    return false;
+                SetStatus(msg);
+                return true;
+            };
+            design.Changed += () =>
+            {
+                var model = design.Workspace == ShipWorkspaceKind.Model && design.HasShip;
+                editor.ToolStrip.IsVisible = model;
+                if (model)
+                    editor.SetWorkspace(CadWorkspace.Cad);
+            };
+        }
+
+        var create = ShipCreatePanel.Build(design, () =>
+        {
+            RefreshText();
+            SetStatus($"Created {design.Design.Ship.Name} — PLAN tools: click to place, or Place default.");
+            if (editorSurface is CadEditorSurface ed)
+                ed.Fit();
+        });
         var decks = ShipDeckNavigator.Build(design);
         var objects = ShipPlanObjectList.Build(design);
         var props = ShipPropertyEditor.Build(design);
@@ -131,12 +226,16 @@ public static class ShipDesignChrome
 
         var body = new DockPanel();
         DockPanel.SetDock(tools, Dock.Top);
+        if (cadToolStrip is not null)
+            DockPanel.SetDock(cadToolStrip, Dock.Top);
         DockPanel.SetDock(workspaceBar, Dock.Top);
         DockPanel.SetDock(analysisStrip, Dock.Top);
         DockPanel.SetDock(snapRow, Dock.Top);
         DockPanel.SetDock(status, Dock.Bottom);
         DockPanel.SetDock(right, Dock.Right);
         body.Children.Add(tools);
+        if (cadToolStrip is not null)
+            body.Children.Add(cadToolStrip);
         body.Children.Add(workspaceBar);
         body.Children.Add(analysisStrip);
         body.Children.Add(snapRow);
@@ -162,8 +261,12 @@ public static class ShipDesignChrome
             {
                 status.Text = kind switch
                 {
-                    ShipWorkspaceKind.Plan => "PLAN — architecture & structure",
-                    ShipWorkspaceKind.Model => "MODEL — CAD construction on selected object",
+                    ShipWorkspaceKind.Plan => design.HasShip
+                        ? "PLAN — pick a tool, click the deck plan to place"
+                        : "PLAN — create a ship first",
+                    ShipWorkspaceKind.Model => design.HasShip
+                        ? "MODEL — select an object, then use CAD Line/Wall/Rect tools"
+                        : "MODEL — create a ship first",
                     ShipWorkspaceKind.Analyze => "ANALYZE — engineering plausibility",
                     _ => label,
                 };
