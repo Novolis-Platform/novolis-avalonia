@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Numerics;
 using System.Text.Json;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.SceneBridge.Tessellation;
 using Novolis.Cad.Primitives;
 using Novolis.Raylib.Rendering;
 

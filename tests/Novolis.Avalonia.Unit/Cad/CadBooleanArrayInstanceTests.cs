@@ -1,7 +1,7 @@
 using System.Numerics;
 using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
 using Novolis.Cad.Primitives;

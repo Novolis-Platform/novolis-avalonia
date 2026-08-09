@@ -1,6 +1,7 @@
 using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Cad.Primitives;
+using Novolis.Cad.Evaluation;
 
 namespace Novolis.Avalonia.Unit.Cad;
 

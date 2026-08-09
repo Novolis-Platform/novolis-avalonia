@@ -41,6 +41,8 @@
 
 | Package | Install | Package README |
 |---------|---------|----------------|
+| `Novolis.3D.Import` | `dotnet add package Novolis.3D.Import` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.3D.Import/README.md) |
+| `Novolis.3D.Scene` | `dotnet add package Novolis.3D.Scene` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.3D.Scene/README.md) |
 | `Novolis.Avalonia.3D` | `dotnet add package Novolis.Avalonia.3D` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.3D/README.md) |
 | `Novolis.Avalonia.Agent` | `dotnet add package Novolis.Avalonia.Agent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent/README.md) |
 | `Novolis.Avalonia.Agent.Protocol` | `dotnet add package Novolis.Avalonia.Agent.Protocol` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent.Protocol/README.md) |
@@ -101,6 +103,8 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Mobile.Desktop`](src/Novolis.Avalonia.Mobile.Desktop/README.md) | Windows Credential Manager + LocalAppData + system browser |
 | [`Novolis.Avalonia.Mobile.Android`](src/Novolis.Avalonia.Mobile.Android/README.md) | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
 | [`Novolis.Avalonia.Voice`](src/Novolis.Avalonia.Voice/README.md) | Voice preset studio UI |
+| [`Novolis.3D.Scene`](src/Novolis.3D.Scene/README.md) | Avalonia-free mesh scene graph (`.nov3djson`) |
+| [`Novolis.3D.Import`](src/Novolis.3D.Import/README.md) | Assimp mesh import → `EditableMesh` |
 | [`Novolis.Avalonia.3D`](src/Novolis.Avalonia.3D/README.md) | Scene editor / OpenGL 3D renderer surface |
 | [`Novolis.Avalonia.Cad`](src/Novolis.Avalonia.Cad/README.md) | Shared CAD surface: Draft Studio, CAD Studio 3D, preview hosts |
 | [`Novolis.Avalonia.Agent`](src/Novolis.Avalonia.Agent/README.md) | LocalIpc UI agent host for MCP / tooling |

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Novolis.Avalonia.Raylib;
 using Novolis.Cad.Primitives;
+using Novolis.Cad.Evaluation;
 
 namespace Novolis.Avalonia.Cad.Services;
 

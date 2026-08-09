@@ -32,8 +32,9 @@
     <PackageVersion Include="Novolis.Ship.Topology" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Validation" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.SceneBridge" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.Modeling.Import" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Cad.Evaluation" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.3D.Scene" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.3D.Import" Version="2026.1.*" />
     <PackageVersion Include="AssimpNet" Version="4.1.0" />
     <PackageVersion Include="Novolis.Agent.Core" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Agent.Surface" Version="2026.1.*" />

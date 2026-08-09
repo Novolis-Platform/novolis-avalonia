@@ -1,7 +1,8 @@
 using System.Drawing;
 using System.Numerics;
 using Novolis.Avalonia.Cad.Core;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
+using Novolis.Cad.SceneBridge.Tessellation;
 using Novolis.Cad.Primitives;
 using Novolis.Avalonia.Raylib;
 using Novolis.Math.Geometry;

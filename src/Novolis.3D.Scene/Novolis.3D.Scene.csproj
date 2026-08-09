@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.3D.Scene</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Mesh-first 3D scene graph (nodes, lights, cameras, staged evaluation) and .nov3djson serialization. Avalonia-free; UI lives in Novolis.Avalonia.3D.</Description>
+    <RootNamespace>Novolis._3D</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.Math.Geometry" />
+  </ItemGroup>
+</Project>

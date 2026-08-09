@@ -7,6 +7,7 @@ using Novolis.Avalonia.Cad.Core;
 using Novolis.Cad.Primitives;
 using Novolis.Avalonia.Cad.Services;
 using System.Numerics;
+using Novolis.Cad.Evaluation;
 
 namespace Novolis.Avalonia.Cad.Ui;
 

@@ -6,7 +6,7 @@ using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Raylib;
 using Novolis.Cad.Primitives;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 
 namespace Novolis.Avalonia.Cad.Session;
 

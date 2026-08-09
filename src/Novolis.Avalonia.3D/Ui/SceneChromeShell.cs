@@ -5,7 +5,7 @@ using Avalonia.Media;
 using Novolis.Agent.Core;
 using Novolis.Agent.Surface;
 using Novolis.Avalonia._3D.Session;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 
 namespace Novolis.Avalonia._3D.Ui;
 

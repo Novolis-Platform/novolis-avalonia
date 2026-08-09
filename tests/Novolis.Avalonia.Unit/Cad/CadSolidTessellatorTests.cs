@@ -1,5 +1,6 @@
 using System.Numerics;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
+using Novolis.Cad.SceneBridge.Tessellation;
 using Novolis.Cad.Primitives;
 
 namespace Novolis.Avalonia.Unit.Cad;

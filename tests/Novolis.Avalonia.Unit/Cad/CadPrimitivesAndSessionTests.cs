@@ -5,6 +5,7 @@ using Novolis.Avalonia.Cad.Ship.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
 using Novolis.Cad.Primitives;
+using Novolis.Cad.Evaluation;
 
 namespace Novolis.Avalonia.Unit.Cad;
 

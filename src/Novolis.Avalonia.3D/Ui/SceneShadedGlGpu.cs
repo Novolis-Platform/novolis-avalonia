@@ -4,7 +4,7 @@ using Avalonia.OpenGL;
 using Novolis.Avalonia._3D.Services;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Avalonia.Rendering;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 using Silk.NET.OpenGL;
 
 namespace Novolis.Avalonia._3D.Ui;

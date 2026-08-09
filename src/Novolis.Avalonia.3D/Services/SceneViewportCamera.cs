@@ -1,6 +1,6 @@
 using System.Numerics;
 using Novolis.Avalonia._3D.Session;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 using Novolis.Simulation.View;
 
 namespace Novolis.Avalonia._3D.Services;

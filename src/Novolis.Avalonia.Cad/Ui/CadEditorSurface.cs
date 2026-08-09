@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Raylib;
 using Novolis.Cad.Primitives;

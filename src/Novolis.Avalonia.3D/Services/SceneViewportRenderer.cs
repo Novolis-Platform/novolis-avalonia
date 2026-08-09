@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Numerics;
 using Novolis.Avalonia.Raylib;
 using Novolis.Avalonia._3D.Session;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 using Novolis.Raylib.Rendering;
 using Novolis.Simulation.View;
 

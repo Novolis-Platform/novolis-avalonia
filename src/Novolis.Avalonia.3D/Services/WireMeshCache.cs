@@ -1,6 +1,6 @@
 using System.Drawing;
 using System.Numerics;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 
 namespace Novolis.Avalonia._3D.Services;
 

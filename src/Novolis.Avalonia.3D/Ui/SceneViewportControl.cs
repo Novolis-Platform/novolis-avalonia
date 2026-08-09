@@ -8,7 +8,7 @@ using Novolis.Agent.Surface;
 using Novolis.Avalonia.Raylib;
 using Novolis.Avalonia._3D.Services;
 using Novolis.Avalonia._3D.Session;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 
 namespace Novolis.Avalonia._3D.Ui;
 

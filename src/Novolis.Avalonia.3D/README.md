@@ -48,5 +48,5 @@ On Windows hosts, prefer WGL so `OpenGlControlBase` initializes:
 ensurestudiolights → setactivecamera → matchviewport → saverenderpng → dumpviewport
 ```
 
-Depends on `Novolis.Modeling.Scene` and `Novolis.Agent.Surface`.
+Depends on `Novolis.3D.Scene` and `Novolis.Agent.Surface`.
 

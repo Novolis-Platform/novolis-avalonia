@@ -11,8 +11,6 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Modeling.Scene" />
-    <PackageReference Include="Novolis.Modeling.Import" />
     <PackageReference Include="Novolis.Agent.Core" />
     <PackageReference Include="Novolis.Agent.Surface" />
     <PackageReference Include="Novolis.Raylib.Abstractions" />
@@ -27,6 +25,8 @@
     <PackageReference Include="Novolis.Rendering.Backends.Vulkan" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Novolis.3D.Scene\Novolis.3D.Scene.csproj" />
+    <ProjectReference Include="..\Novolis.3D.Import\Novolis.3D.Import.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
   </ItemGroup>

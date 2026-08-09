@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Novolis.Avalonia._3D.Session;
 using Novolis.Avalonia._3D.Ui;
 using Novolis.Math.Geometry;
-using Novolis.Modeling.Scene;
+using Novolis._3D;
 
 namespace Novolis.Avalonia._3D.Services;
 

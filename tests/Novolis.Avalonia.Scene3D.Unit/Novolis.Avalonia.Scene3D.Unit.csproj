@@ -8,9 +8,14 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="MessagePack" />
     <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Modeling.Scene" />
+    <PackageReference Include="AssimpNet" />
     <PackageReference Include="Novolis.Agent.Core" />
     <PackageReference Include="Novolis.Agent.Surface" />
+    <ProjectReference Include="..\..\src\Novolis.3D.Scene\Novolis.3D.Scene.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.3D.Import\Novolis.3D.Import.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.3D\Novolis.Avalonia.3D.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

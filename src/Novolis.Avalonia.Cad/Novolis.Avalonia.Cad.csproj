@@ -10,7 +10,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Cad.Primitives" />
     <PackageReference Include="Novolis.Cad.SceneBridge" />
-    <PackageReference Include="Novolis.Modeling.Scene" />
+    <PackageReference Include="Novolis.Cad.Evaluation" />
     <PackageReference Include="Novolis.Commands.Expressions" />
     <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Raylib.Abstractions" />
@@ -19,6 +19,7 @@
     <PackageReference Include="Novolis.Simulation.View" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Novolis.3D.Scene\Novolis.3D.Scene.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
   </ItemGroup>

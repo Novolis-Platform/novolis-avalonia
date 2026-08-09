@@ -1,6 +1,6 @@
 using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
-using Novolis.Avalonia.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
 using Novolis.Cad.Primitives;
 using Novolis.Math.Geometry;
 
