@@ -76,6 +76,24 @@
       ],
       "project": "src/Novolis.Avalonia.Ship.Design/Novolis.Avalonia.Ship.Design.csproj"
     },
+    "Novolis.3D.Scene": {
+      "paths": [
+        "src/Novolis.3D.Scene/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.3D.Scene/Novolis.3D.Scene.csproj"
+    },
+    "Novolis.3D.Import": {
+      "paths": [
+        "src/Novolis.3D.Import/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.3D.Import/Novolis.3D.Import.csproj"
+    },
     "Novolis.Avalonia.3D": {
       "paths": [
         "src/Novolis.Avalonia.3D/**",
