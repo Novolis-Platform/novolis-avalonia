@@ -179,24 +179,84 @@ public sealed class SketchDocumentTests
     }
 
     [Test]
-    public async Task ApplyFill_Sets_Fill_And_Closes()
+    public async Task ApplyFill_Sets_Fill_On_Closed()
     {
         var doc = new SketchDocument();
         doc.AddStroke(new StrokeShape
         {
             Id = "poly",
+            Closed = true,
             Points =
             [
                 new SketchPoint(0, 0),
                 new SketchPoint(10, 0),
                 new SketchPoint(10, 10),
-                new SketchPoint(0, 10)
+                new SketchPoint(0, 10),
+                new SketchPoint(0, 0)
             ]
         });
         await Assert.That(doc.ApplyFill("poly", "#80ff0000")).IsTrue();
         var s = doc.Find("poly")!;
         await Assert.That(s.FillColor).IsEqualTo("#80ff0000");
         await Assert.That(s.Closed).IsTrue();
+    }
+
+    [Test]
+    public async Task ApplyFill_Open_Freehand_Is_Refused()
+    {
+        var doc = new SketchDocument();
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "open",
+            Points =
+            [
+                new SketchPoint(0, 0),
+                new SketchPoint(20, 5),
+                new SketchPoint(5, 25),
+                new SketchPoint(30, 40)
+            ]
+        });
+        await Assert.That(doc.ApplyFill("open", "#ffe63946")).IsFalse();
+        await Assert.That(doc.Find("open")!.FillColor).IsNull();
+        await Assert.That(doc.Find("open")!.Closed).IsFalse();
+    }
+
+    [Test]
+    public async Task FloodFill_Enclosed_Square_Adds_Filled_Region()
+    {
+        var doc = new SketchDocument();
+        // Open square ring made of four edges (separate strokes) enclosing (5,5).
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "t",
+            StrokeWidth = 2,
+            Points = [new SketchPoint(0, 0), new SketchPoint(10, 0)]
+        });
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "r",
+            StrokeWidth = 2,
+            Points = [new SketchPoint(10, 0), new SketchPoint(10, 10)]
+        });
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "b",
+            StrokeWidth = 2,
+            Points = [new SketchPoint(10, 10), new SketchPoint(0, 10)]
+        });
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "l",
+            StrokeWidth = 2,
+            Points = [new SketchPoint(0, 10), new SketchPoint(0, 0)]
+        });
+
+        await Assert.That(doc.TryFloodFill(new SketchPoint(5, 5), "#ffe63946")).IsTrue();
+        await Assert.That(doc.Elements.Count).IsEqualTo(5);
+        var region = doc.Elements[^1];
+        await Assert.That(region.Closed).IsTrue();
+        await Assert.That(region.FillColor).IsEqualTo("#ffe63946");
+        await Assert.That(region.Points.Count).IsGreaterThanOrEqualTo(3);
     }
 
     [Test]

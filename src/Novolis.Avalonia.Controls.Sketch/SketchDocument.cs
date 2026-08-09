@@ -159,10 +159,10 @@ public sealed class SketchDocument
     }
 
     /// <summary>
-    /// Applies fill to <paramref name="strokeId"/> (closes open polylines with ≥3 points).
-    /// Returns false when missing, locked, or unsupported.
+    /// Applies fill to a closed (or nearly closed) stroke. Open freehand is refused —
+    /// use flood-fill via the paint bucket for enclosed regions between strokes.
     /// </summary>
-    public bool ApplyFill(string strokeId, string fillColor)
+    public bool ApplyFill(string strokeId, string fillColor, double closeTolerance = 4)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(strokeId);
         ArgumentException.ThrowIfNullOrWhiteSpace(fillColor);
@@ -171,26 +171,67 @@ public sealed class SketchDocument
             return false;
         if (IsLayerLocked(stroke.LayerId))
             return false;
-        if (stroke.Kind == SketchElementKind.Image)
+        if (stroke.Kind != SketchElementKind.Stroke)
+            return false;
+        if (stroke.Points.Count < 3)
+            return false;
+
+        var nearly = NearlyClosed(stroke.Points, closeTolerance);
+        if (!stroke.Closed && !nearly)
             return false;
 
         Mutate(() =>
         {
             stroke.FillColor = fillColor;
-            if (stroke.Kind == SketchElementKind.Stroke && stroke.Points.Count >= 3)
-            {
-                stroke.Closed = true;
-                if (!NearlyClosed(stroke.Points))
-                    stroke.Points.Add(stroke.Points[0]);
-            }
+            stroke.Closed = true;
+            if (!NearlyClosed(stroke.Points, 1e-6))
+                stroke.Points.Add(stroke.Points[0]);
         });
         return true;
     }
 
-    static bool NearlyClosed(IReadOnlyList<SketchPoint> pts) =>
-        pts.Count >= 3
-        && Math.Abs(pts[0].X - pts[^1].X) < 1e-6
-        && Math.Abs(pts[0].Y - pts[^1].Y) < 1e-6;
+    /// <summary>
+    /// Flood-fills an enclosed empty region around <paramref name="seed"/> and adds a new
+    /// closed filled polygon. Returns false when the region is open / unbounded.
+    /// </summary>
+    public bool TryFloodFill(SketchPoint seed, string fillColor)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fillColor);
+        if (IsLayerLocked(ActiveLayerId))
+            return false;
+
+        var contour = SketchFloodFill.TryCreateRegion(
+            _elements,
+            IsLayerVisible,
+            seed);
+        if (contour is null || contour.Count < 3)
+            return false;
+
+        AddStroke(new StrokeShape
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Kind = SketchElementKind.Stroke,
+            Points = [.. contour],
+            StrokeColor = "#00000000",
+            StrokeWidth = 0.25,
+            FillColor = fillColor,
+            StrokeStyle = SketchStrokeStyle.Solid,
+            Closed = true,
+            LayerId = ActiveLayerId
+        });
+        return true;
+    }
+
+    static bool NearlyClosed(IReadOnlyList<SketchPoint> pts, double tolerance)
+    {
+        if (pts.Count < 3)
+            return false;
+        var a = pts[0];
+        var b = pts[^1];
+        var dx = a.X - b.X;
+        var dy = a.Y - b.Y;
+        return Math.Sqrt(dx * dx + dy * dy) <= tolerance;
+    }
 
     /// <summary>Replaces all elements (used by load / undo restore).</summary>
     public void ReplaceElements(IEnumerable<StrokeShape> elements, bool recordHistory = false)

@@ -1366,14 +1366,19 @@ public sealed class SketchControl : Control
 
     void ApplyPaintBucket(Point screen)
     {
-        var hit = HitTestStroke(screen);
-        if (hit is null)
-            return;
-
         var fill = string.IsNullOrWhiteSpace(FillColor)
             ? (string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor)
             : FillColor;
-        if (EnsureDocument().ApplyFill(hit.Id, fill))
+        var world = ScreenToWorld(screen);
+        var hit = HitTestStroke(screen);
+        if (hit is not null && EnsureDocument().ApplyFill(hit.Id, fill))
+        {
+            DocumentChanged?.Invoke();
+            RaiseSelectionIfNeeded();
+            return;
+        }
+
+        if (EnsureDocument().TryFloodFill(world, fill))
         {
             DocumentChanged?.Invoke();
             RaiseSelectionIfNeeded();
