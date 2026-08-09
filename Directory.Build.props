@@ -23,6 +23,14 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!--
+      Repo-root ApplicationIcon is imported as AvaloniaResource (default window icon), which
+      triggers CompileAvaloniaXamlTask even when a library has no .axaml. That task copies the
+      intermediate DLL onto itself and races under ProjectReference rebuilds (MSB4018 file lock).
+      Libraries in this repo are code-only Avalonia controls — skip XAML IL rewrite.
+    -->
+    <EnableAvaloniaXamlCompilation
+        Condition="'$(EnableAvaloniaXamlCompilation)' == '' and '$(OutputType)' != 'WinExe' and '$(OutputType)' != 'Exe'">false</EnableAvaloniaXamlCompilation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
