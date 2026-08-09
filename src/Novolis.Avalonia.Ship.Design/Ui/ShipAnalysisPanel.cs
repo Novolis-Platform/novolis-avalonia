@@ -22,15 +22,21 @@ public static class ShipAnalysisPanel
         };
 
         var loadCaseBox = new ComboBox { Width = 180 };
+        var breachBox = new ComboBox { Width = 180 };
+        var syncing = false;
+
         loadCaseBox.SelectionChanged += (_, _) =>
         {
+            if (syncing)
+                return;
             if (loadCaseBox.SelectedItem is string id)
                 session.SetActiveLoadCase(id);
         };
 
-        var breachBox = new ComboBox { Width = 180 };
         breachBox.SelectionChanged += (_, _) =>
         {
+            if (syncing)
+                return;
             if (breachBox.SelectedItem is BreachItem b)
                 session.SetBreachCompartment(b.Id);
             else
@@ -39,19 +45,27 @@ public static class ShipAnalysisPanel
 
         void Rebuild()
         {
-            loadCaseBox.ItemsSource = session.Design.LoadCases.Select(c => c.Id).ToList();
-            loadCaseBox.SelectedItem = session.ActiveLoadCaseId
-                ?? session.Design.LoadCases.FirstOrDefault()?.Id;
-
-            var breaches = new List<BreachItem> { new("(none)", null) };
-            breaches.AddRange(session.Design.Compartments.Select(c => new BreachItem(c.Name, c.Id.Value)));
-            breachBox.ItemsSource = breaches;
-            breachBox.SelectedIndex = 0;
-            if (session.BreachCompartmentId is { } bid)
+            syncing = true;
+            try
             {
-                var idx = breaches.FindIndex(b => b.Id == bid);
-                if (idx >= 0)
-                    breachBox.SelectedIndex = idx;
+                loadCaseBox.ItemsSource = session.Design.LoadCases.Select(c => c.Id).ToList();
+                loadCaseBox.SelectedItem = session.ActiveLoadCaseId
+                    ?? session.Design.LoadCases.FirstOrDefault()?.Id;
+
+                var breaches = new List<BreachItem> { new("(none)", null) };
+                breaches.AddRange(session.Design.Compartments.Select(c => new BreachItem(c.Name, c.Id.Value)));
+                breachBox.ItemsSource = breaches;
+                breachBox.SelectedIndex = 0;
+                if (session.BreachCompartmentId is { } bid)
+                {
+                    var idx = breaches.FindIndex(b => b.Id == bid);
+                    if (idx >= 0)
+                        breachBox.SelectedIndex = idx;
+                }
+            }
+            finally
+            {
+                syncing = false;
             }
 
             var report = session.Analysis;

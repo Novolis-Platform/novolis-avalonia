@@ -108,12 +108,16 @@ public sealed class ShipDesignSession
 
     public void SetActiveLoadCase(string? loadCaseId)
     {
+        if (string.Equals(ActiveLoadCaseId, loadCaseId, StringComparison.Ordinal))
+            return;
         ActiveLoadCaseId = loadCaseId;
         Notify();
     }
 
     public void SetBreachCompartment(Guid? compartmentId)
     {
+        if (BreachCompartmentId == compartmentId)
+            return;
         BreachCompartmentId = compartmentId;
         Notify();
     }
