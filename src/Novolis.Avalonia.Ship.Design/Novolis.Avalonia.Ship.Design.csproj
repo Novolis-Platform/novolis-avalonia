@@ -2,7 +2,7 @@
   <PropertyGroup>
     <PackageId>Novolis.Avalonia.Ship.Design</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Object-first Ship Designer Avalonia UI: PLAN/MODEL/PRESENT, ShipDesignSession, create panel, grips, object tools.</Description>
+    <Description>Object-first Ship Designer Avalonia UI: PLAN/MODEL/PRESENT, ShipDesignSession, create panel, grips, object tools, scene evaluation.</Description>
     <RootNamespace>Novolis.Avalonia.Ship.Design</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -10,12 +10,12 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Cad.Primitives" />
+    <PackageReference Include="Novolis.Cad.SceneBridge" />
+    <PackageReference Include="Novolis.Math.Measure" />
     <PackageReference Include="Novolis.Ship.Primitives" />
     <PackageReference Include="Novolis.Ship.Topology" />
     <PackageReference Include="Novolis.Ship.Validation" />
     <PackageReference Include="Novolis.Ship.Design" />
-    <PackageReference Include="Novolis.Math.Measure" />
-    <PackageReference Include="Novolis.3D.Scene" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
