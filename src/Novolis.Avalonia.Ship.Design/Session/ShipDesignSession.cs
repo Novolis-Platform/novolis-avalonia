@@ -1,4 +1,5 @@
 using Novolis.Cad.Primitives;
+using Novolis.Ship.Analysis;
 using Novolis.Ship.Design;
 using Novolis.Ship.Validation;
 
@@ -10,6 +11,7 @@ public sealed class ShipDesignSession
     private ShipDesign _design;
     private string? _path;
     private ShipValidationResult _validation = new() { Issues = [] };
+    private ShipAnalysisReport _analysis = EmptyAnalysis();
 
     public ShipDesignSession(string dataRoot)
     {
@@ -17,7 +19,7 @@ public sealed class ShipDesignSession
         DataRoot = dataRoot;
         Directory.CreateDirectory(dataRoot);
         _design = ShipFactory.Create(DefaultDefinition("New Ship"));
-        Revalidate();
+        Recompute();
     }
 
     public string DataRoot { get; }
@@ -32,8 +34,15 @@ public sealed class ShipDesignSession
 
     public int ActiveDeckIndex { get; private set; }
 
-    /// <summary>Latest continuous validation (baseline §23 — not a manual-only refresh).</summary>
+    public AnalysisCategory? ActiveAnalysisCategory { get; private set; }
+
+    public string? ActiveLoadCaseId { get; private set; }
+
+    public Guid? BreachCompartmentId { get; private set; }
+
     public ShipValidationResult Validation => _validation;
+
+    public ShipAnalysisReport Analysis => _analysis;
 
     public bool SnapEnabled { get; set; } = true;
 
@@ -51,6 +60,7 @@ public sealed class ShipDesignSession
         _path = null;
         SelectedObjectId = _design.Hull.Id.AsObject();
         ActiveDeckIndex = 0;
+        ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         Notify();
     }
 
@@ -59,6 +69,7 @@ public sealed class ShipDesignSession
         ArgumentNullException.ThrowIfNull(design);
         _design = design;
         _path = path;
+        ActiveLoadCaseId ??= _design.LoadCases.FirstOrDefault()?.Id;
         Notify();
     }
 
@@ -89,6 +100,24 @@ public sealed class ShipDesignSession
         Notify();
     }
 
+    public void SetAnalysisCategory(AnalysisCategory? category)
+    {
+        ActiveAnalysisCategory = category;
+        Notify();
+    }
+
+    public void SetActiveLoadCase(string? loadCaseId)
+    {
+        ActiveLoadCaseId = loadCaseId;
+        Notify();
+    }
+
+    public void SetBreachCompartment(Guid? compartmentId)
+    {
+        BreachCompartmentId = compartmentId;
+        Notify();
+    }
+
     public void Save()
     {
         var path = _path ?? System.IO.Path.Combine(DataRoot, SanitizeFileName(_design.Ship.Name) + ".shipjson");
@@ -108,6 +137,7 @@ public sealed class ShipDesignSession
         _path = path;
         SelectedObjectId = _design.Hull.Id.AsObject();
         ActiveDeckIndex = 0;
+        ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         Notify();
     }
 
@@ -117,6 +147,7 @@ public sealed class ShipDesignSession
         _design = ShipCadProjector.FromCadDocument(document);
         _path = null;
         SelectedObjectId = _design.Hull.Id.AsObject();
+        ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         Notify();
     }
 
@@ -136,23 +167,47 @@ public sealed class ShipDesignSession
 
     public void Notify()
     {
-        Revalidate();
+        Recompute();
         Changed?.Invoke();
     }
 
-    private void Revalidate() => _validation = ShipDesignValidator.Validate(_design);
+    private void Recompute()
+    {
+        _validation = ShipDesignValidator.Validate(_design);
+        _analysis = ShipAnalyzer.Analyze(_design, new ShipAnalysisContext
+        {
+            ActiveLoadCaseId = ActiveLoadCaseId,
+            BreachCompartmentId = BreachCompartmentId,
+        });
+    }
 
     public static ShipDefinition DefaultDefinition(string name) => new()
     {
         Name = name,
-        Length = ShipLengths.FromMeters(69f),
+        Length = ShipLengths.FromMeters(90f),
         Beam = ShipLengths.FromMeters(20f),
         Height = ShipLengths.FromMeters(12f),
-        DeckCount = 4,
+        DeckCount = 3,
+        DeckSpacing = ShipLengths.FromMeters(4f),
         HullMaterial = MaterialId.Steel,
-        HullThickness = ShipLengths.FromMeters(0.02f),
-        FrameSpacing = ShipLengths.FromMeters(3f),
-        HullGenerator = HullGeneratorKind.TaperedBox,
+        HullThickness = ShipLengths.FromMeters(0.024f),
+        FrameSpacing = ShipLengths.FromMeters(1.5f),
+        PrimaryStructuralMaterial = MaterialId.Steel,
+        HullGenerator = HullGeneratorKind.Faceted,
+        GravitySystem = GravitySystemKind.Plating,
+        NominalGravityG = 1f,
+        NominalInternalPressureAtm = 1f,
+        ExternalEnvironment = ExternalEnvironmentKind.Vacuum,
+    };
+
+    private static ShipAnalysisReport EmptyAnalysis() => new()
+    {
+        Categories = [],
+        Findings = [],
+        TotalMassKg = 0,
+        CenterOfMassX = 0,
+        CenterOfMassY = 0,
+        CenterOfMassZ = 0,
     };
 
     private static string SanitizeFileName(string name)

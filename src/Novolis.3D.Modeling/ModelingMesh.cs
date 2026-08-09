@@ -3,8 +3,9 @@ using Novolis.Math.Geometry;
 namespace Novolis._3D.Modeling;
 
 /// <summary>
-/// Baseline <c>Novolis.3D.Modeling</c> mesh operations.
+/// Product <c>Novolis.3D.Modeling</c> mesh operations (boolean, weld, split, combine).
 /// Implementations delegate to <see cref="Novolis.Math.Geometry"/> — ship/CAD packages must not reimplement mesh algorithms.
+/// Extrusion / sweep / loft construction intent stays in CadDocuments and is evaluated by Cad.Evaluation.
 /// </summary>
 public static class ModelingMesh
 {

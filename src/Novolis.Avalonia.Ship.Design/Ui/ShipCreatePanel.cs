@@ -12,14 +12,21 @@ public static class ShipCreatePanel
 {
     public static Control Build(ShipDesignSession session, Action? onCreated = null)
     {
-        var nameBox = new TextBox { Text = "New Ship", PlaceholderText = "Name" };
-        var lengthBox = Num(69m);
+        var nameBox = new TextBox { Text = "Calypso", PlaceholderText = "Name" };
+        var lengthBox = Num(90m);
         var beamBox = Num(20m);
         var heightBox = Num(12m);
-        var decksBox = Num(4m, min: 1m, max: 20m);
-        var thicknessBox = Num(0.02m, min: 0.005m, max: 0.5m, format: "0.###");
-        var spacingBox = Num(3m, min: 0.5m, max: 20m, format: "0.##");
+        var decksBox = Num(3m, min: 1m, max: 20m);
+        var deckSpacingBox = Num(4m, min: 2m, max: 10m, format: "0.##");
+        var thicknessBox = Num(0.024m, min: 0.005m, max: 0.5m, format: "0.###");
+        var spacingBox = Num(1.5m, min: 0.5m, max: 20m, format: "0.##");
         var materialBox = new ComboBox
+        {
+            ItemsSource = new[] { "steel", "aluminum" },
+            SelectedIndex = 0,
+            Width = 140,
+        };
+        var structMatBox = new ComboBox
         {
             ItemsSource = new[] { "steel", "aluminum" },
             SelectedIndex = 0,
@@ -27,7 +34,21 @@ public static class ShipCreatePanel
         };
         var hullBox = new ComboBox
         {
-            ItemsSource = new[] { "TaperedBox", "Box", "Faceted", "Cylinder", "Capsule", "LoftedSections" },
+            ItemsSource = new[] { "Faceted", "TaperedBox", "Box", "Cylinder", "Capsule", "LoftedSections" },
+            SelectedIndex = 0,
+            Width = 140,
+        };
+        var gravityBox = new ComboBox
+        {
+            ItemsSource = new[] { "Plating", "None" },
+            SelectedIndex = 0,
+            Width = 140,
+        };
+        var gBox = Num(1m, min: 0m, max: 2m, format: "0.##");
+        var pressureBox = Num(1m, min: 0.1m, max: 2m, format: "0.##");
+        var externalBox = new ComboBox
+        {
+            ItemsSource = new[] { "Vacuum", "Atmosphere" },
             SelectedIndex = 0,
             Width = 140,
         };
@@ -43,22 +64,32 @@ public static class ShipCreatePanel
             var def = new ShipDefinition
             {
                 Name = string.IsNullOrWhiteSpace(nameBox.Text) ? "New Ship" : nameBox.Text.Trim(),
-                Length = ShipLengths.FromMeters((float)(lengthBox.Value ?? 69m)),
+                Length = ShipLengths.FromMeters((float)(lengthBox.Value ?? 90m)),
                 Beam = ShipLengths.FromMeters((float)(beamBox.Value ?? 20m)),
                 Height = ShipLengths.FromMeters((float)(heightBox.Value ?? 12m)),
-                DeckCount = (int)(decksBox.Value ?? 4m),
+                DeckCount = (int)(decksBox.Value ?? 3m),
+                DeckSpacing = ShipLengths.FromMeters((float)(deckSpacingBox.Value ?? 4m)),
                 HullMaterial = new MaterialId(materialBox.SelectedItem as string ?? "steel"),
-                HullThickness = ShipLengths.FromMeters((float)(thicknessBox.Value ?? 0.02m)),
-                FrameSpacing = ShipLengths.FromMeters((float)(spacingBox.Value ?? 3m)),
+                PrimaryStructuralMaterial = new MaterialId(structMatBox.SelectedItem as string ?? "steel"),
+                HullThickness = ShipLengths.FromMeters((float)(thicknessBox.Value ?? 0.024m)),
+                FrameSpacing = ShipLengths.FromMeters((float)(spacingBox.Value ?? 1.5m)),
                 HullGenerator = (hullBox.SelectedItem as string) switch
                 {
                     "Box" => HullGeneratorKind.Box,
-                    "Faceted" => HullGeneratorKind.Faceted,
+                    "TaperedBox" => HullGeneratorKind.TaperedBox,
                     "Cylinder" => HullGeneratorKind.Cylinder,
                     "Capsule" => HullGeneratorKind.Capsule,
                     "LoftedSections" => HullGeneratorKind.LoftedSections,
-                    _ => HullGeneratorKind.TaperedBox,
+                    _ => HullGeneratorKind.Faceted,
                 },
+                GravitySystem = string.Equals(gravityBox.SelectedItem as string, "None", StringComparison.OrdinalIgnoreCase)
+                    ? GravitySystemKind.None
+                    : GravitySystemKind.Plating,
+                NominalGravityG = (float)(gBox.Value ?? 1m),
+                NominalInternalPressureAtm = (float)(pressureBox.Value ?? 1m),
+                ExternalEnvironment = string.Equals(externalBox.SelectedItem as string, "Atmosphere", StringComparison.OrdinalIgnoreCase)
+                    ? ExternalEnvironmentKind.Atmosphere
+                    : ExternalEnvironmentKind.Vacuum,
             };
             session.NewShip(def);
             onCreated?.Invoke();
@@ -71,14 +102,20 @@ public static class ShipCreatePanel
         form.Children.Add(Labeled("Beam (m)", beamBox));
         form.Children.Add(Labeled("Height (m)", heightBox));
         form.Children.Add(Labeled("Deck count", decksBox));
+        form.Children.Add(Labeled("Deck spacing (m)", deckSpacingBox));
         form.Children.Add(Labeled("Hull material", materialBox));
+        form.Children.Add(Labeled("Structure material", structMatBox));
         form.Children.Add(Labeled("Hull thickness (m)", thicknessBox));
         form.Children.Add(Labeled("Frame spacing (m)", spacingBox));
         form.Children.Add(Labeled("Hull generator", hullBox));
+        form.Children.Add(Labeled("Gravity system", gravityBox));
+        form.Children.Add(Labeled("Nominal g", gBox));
+        form.Children.Add(Labeled("Cabin pressure (atm)", pressureBox));
+        form.Children.Add(Labeled("External", externalBox));
         form.Children.Add(apply);
         form.Children.Add(new TextBlock
         {
-            Text = "Creates hull, decks, frames, longitudinals, and primary bulkheads — not an empty CAD workspace.",
+            Text = "Creates hull, decks, frames, longitudinals, primary bulkheads, environment, and load cases.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.Gray,
             FontSize = 11,
@@ -103,7 +140,7 @@ public static class ShipCreatePanel
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Width = 130,
+            Width = 140,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = Brushes.LightGray,
         });

@@ -33,6 +33,7 @@
     <PackageVersion Include="Novolis.Ship.Topology" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Validation" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Design" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Ship.Analysis" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Avalonia.Ship.Design" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.SceneBridge" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.Evaluation" Version="2026.1.*" />

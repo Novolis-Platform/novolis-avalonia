@@ -1,6 +1,7 @@
 using System.Text;
 using Novolis.Avalonia.Ship.Design.Grips;
 using Novolis.Avalonia.Ship.Design.Session;
+using Novolis.Ship.Analysis;
 using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design.Ui;
@@ -11,18 +12,30 @@ public static class ShipDesignInspector
     {
         var d = session.Design;
         var val = session.Validation;
+        var analysis = session.Analysis;
         var sb = new StringBuilder();
         sb.AppendLine($"Ship: {d.Ship.Name}");
         sb.AppendLine($"Envelope: {d.Ship.LengthMeters:0.##} × {d.Ship.BeamMeters:0.##} × {d.Ship.HeightMeters:0.##} m");
         sb.AppendLine($"Workspace: {session.Workspace}");
+        sb.AppendLine($"Env: {d.Environment.External} · {d.Environment.GravitySystem} {d.Environment.NominalGravityG:0.##} g · {d.Environment.NominalInternalPressureAtm:0.##} atm");
         sb.AppendLine($"Hull: {d.Hull.Generator} · thick {ShipLengths.ToMeters(d.Hull.Thickness):0.###} m · {d.Hull.Material}");
         sb.AppendLine($"Decks: {d.Decks.Count} · Frames: {d.Frames.Count} · Longs: {d.Longitudinals.Count}");
         sb.AppendLine($"Bulkheads: {d.Bulkheads.Count} · Compartments: {d.Compartments.Count}");
         sb.AppendLine($"Passages: {d.Passages.Count} · Openings: {d.Openings.Count} · Equipment: {d.Equipment.Count}");
-        sb.AppendLine($"Cutouts: {d.Cutouts.Count}");
+        sb.AppendLine($"Cutouts: {d.Cutouts.Count} · LoadCases: {d.LoadCases.Count}");
         sb.AppendLine($"Validation: {(val.Ok ? "OK" : "FAIL")} ({val.Issues.Count}) — continuous");
-        foreach (var i in val.Issues.Take(10))
+        foreach (var i in val.Issues.Take(6))
             sb.AppendLine($"  [{i.Severity}] {i.Code}: {i.Message}");
+
+        sb.AppendLine($"Analysis: {analysis.Worst} · mass {analysis.TotalMassKg / 1000f:0.##} t");
+        foreach (var c in analysis.Categories)
+            sb.AppendLine($"  {c.Category}: {c.Severity} ({c.FindingCount})");
+        if (session.ActiveAnalysisCategory is { } overlay)
+        {
+            sb.AppendLine($"Overlay findings ({overlay}):");
+            foreach (var f in analysis.Findings.Where(x => x.Category == overlay).Take(8))
+                sb.AppendLine($"  [{f.Severity}] {f.Message}");
+        }
 
         sb.AppendLine();
         sb.AppendLine("Selection:");
@@ -43,18 +56,6 @@ public static class ShipDesignInspector
                 sb.AppendLine($"  {g.Kind} {g.Label} @ ({g.X:0.##},{g.Y:0.##},{g.Z:0.##})");
         }
 
-        if (session.ShowStructuralOverlays)
-        {
-            var related = d.Cutouts.Where(c =>
-                c.HostId.Value == id || c.SourceId.Value == id).Take(8).ToList();
-            if (related.Count > 0)
-            {
-                sb.AppendLine("Cutout overlays:");
-                foreach (var c in related)
-                    sb.AppendLine($"  {c.Purpose}: {c.SourceId.Value:N} → {c.HostId.Value:N}");
-            }
-        }
-
         return sb.ToString();
     }
 
@@ -63,7 +64,6 @@ public static class ShipDesignInspector
         if (d.Hull.Id.Value == id)
         {
             sb.AppendLine($"  Hull {id:N}");
-            sb.AppendLine($"  Entities: {d.Hull.Geometry.Entities.Count}");
             return;
         }
 
@@ -92,13 +92,6 @@ public static class ShipDesignInspector
         if (passage is not null)
         {
             sb.AppendLine($"  Passage '{passage.Name}' width {ShipLengths.ToMeters(passage.Width):0.###} m");
-            return;
-        }
-
-        var opening = d.Openings.FirstOrDefault(x => x.Id.Value == id);
-        if (opening is not null)
-        {
-            sb.AppendLine($"  Opening '{opening.Name}' {opening.Kind} host {opening.HostId}");
             return;
         }
 

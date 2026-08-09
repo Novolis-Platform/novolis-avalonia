@@ -15,17 +15,14 @@ namespace Novolis.Avalonia.Ship.Design;
 /// <summary>Attaches object-first ship design chrome to a Cad session + design session.</summary>
 public static class ShipDesignChrome
 {
-    /// <summary>Cad.Ship exterior/import + legacy validate actions + design session wiring.</summary>
     public static void Attach(CadSessionService cad, ShipDesignSession design)
     {
         ArgumentNullException.ThrowIfNull(cad);
         ArgumentNullException.ThrowIfNull(design);
         ShipChrome.Attach(cad);
 
-        // Keep Cad document as a projected mirror for MODEL tools / exterior preview.
         void SyncCad()
         {
-            // MODEL edits the selected object's CadDocument; PLAN/PRESENT use the flat projector.
             var source = design.Workspace == ShipWorkspaceKind.Model
                 ? design.SelectedObjectGeometry() ?? ShipCadProjector.ToCadDocument(design.Design)
                 : ShipCadProjector.ToCadDocument(design.Design);
@@ -41,7 +38,6 @@ public static class ShipDesignChrome
         SyncCad();
     }
 
-    /// <summary>PLAN tool strip + workspace bar + create/object panels around a CAD editor surface.</summary>
     public static Control CreateShell(
         CadSessionService cad,
         ShipDesignSession design,
@@ -62,6 +58,9 @@ public static class ShipDesignChrome
         };
         status ??= new TextBlock { Text = "PLAN", Margin = new Thickness(8, 4), Foreground = Brushes.LightGray };
 
+        var analysisPanel = ShipAnalysisPanel.Build(design);
+        analysisPanel.IsVisible = false;
+
         void RefreshText()
         {
             inspector.Text = ShipDesignInspector.Format(design);
@@ -70,8 +69,9 @@ public static class ShipDesignChrome
             status.Text =
                 $"{design.Workspace} · {design.Design.Ship.Name} · deck {design.ActiveDeckIndex}"
                 + $" · val {(val.Ok ? "OK" : "FAIL")}({val.Issues.Count})"
-                + $" · grips {gripCount}"
-                + (design.SnapEnabled ? $" · snap {design.SnapGridMeters:0.##}m" : "");
+                + $" · analysis {design.Analysis.Worst}"
+                + $" · grips {gripCount}";
+            analysisPanel.IsVisible = design.Workspace == ShipWorkspaceKind.Analyze;
         }
 
         design.Changed += RefreshText;
@@ -79,6 +79,7 @@ public static class ShipDesignChrome
 
         var tools = ShipObjectToolStrip.Build(design);
         var snapRow = ShipSnapSettings.Build(design);
+        var analysisStrip = ShipAnalysisStatusStrip.Build(design);
         var workspaceBar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -87,15 +88,21 @@ public static class ShipDesignChrome
         };
         workspaceBar.Children.Add(Ws("PLAN", ShipWorkspaceKind.Plan, design, status));
         workspaceBar.Children.Add(Ws("MODEL", ShipWorkspaceKind.Model, design, status));
-        workspaceBar.Children.Add(Ws("PRESENT", ShipWorkspaceKind.Present, design, status, () =>
+        workspaceBar.Children.Add(Ws("ANALYZE", ShipWorkspaceKind.Analyze, design, status, () =>
+        {
+            status.Text = $"ANALYZE · worst {design.Analysis.Worst} · mass {design.Analysis.TotalMassKg / 1000f:0.#} t";
+        }));
+
+        var exportScene = new Button { Content = "Export scene", Padding = new Thickness(10, 4) };
+        exportScene.Click += (_, _) =>
         {
             var outDir = Path.Combine(design.DataRoot, "exports");
             Directory.CreateDirectory(outDir);
-            var path = Path.Combine(outDir, "ship-present.nov3djson");
+            var path = Path.Combine(outDir, "ship-analyze.nov3djson");
             var eval = ShipDesignEvaluator.Evaluate(design.Design, path);
-            status.Text =
-                $"PRESENT · {eval.MeshNodeCount} meshes · {eval.CutoutCount} cutouts → {path}";
-        }));
+            status.Text = $"Scene export · {eval.MeshNodeCount} meshes · {eval.CutoutCount} cutouts → {path}";
+        };
+        workspaceBar.Children.Add(exportScene);
 
         var create = ShipCreatePanel.Build(design, RefreshText);
         var decks = ShipDeckNavigator.Build(design);
@@ -104,6 +111,8 @@ public static class ShipDesignChrome
 
         var rightStack = new StackPanel { Spacing = 8 };
         rightStack.Children.Add(create);
+        rightStack.Children.Add(new Separator());
+        rightStack.Children.Add(analysisPanel);
         rightStack.Children.Add(new Separator());
         rightStack.Children.Add(decks);
         rightStack.Children.Add(new Separator());
@@ -115,7 +124,7 @@ public static class ShipDesignChrome
 
         var right = new ScrollViewer
         {
-            Width = 340,
+            Width = 360,
             Content = rightStack,
             Background = new SolidColorBrush(Color.Parse("#1a1c20")),
         };
@@ -123,11 +132,13 @@ public static class ShipDesignChrome
         var body = new DockPanel();
         DockPanel.SetDock(tools, Dock.Top);
         DockPanel.SetDock(workspaceBar, Dock.Top);
+        DockPanel.SetDock(analysisStrip, Dock.Top);
         DockPanel.SetDock(snapRow, Dock.Top);
         DockPanel.SetDock(status, Dock.Bottom);
         DockPanel.SetDock(right, Dock.Right);
         body.Children.Add(tools);
         body.Children.Add(workspaceBar);
+        body.Children.Add(analysisStrip);
         body.Children.Add(snapRow);
         body.Children.Add(status);
         body.Children.Add(right);
@@ -153,7 +164,7 @@ public static class ShipDesignChrome
                 {
                     ShipWorkspaceKind.Plan => "PLAN — architecture & structure",
                     ShipWorkspaceKind.Model => "MODEL — CAD construction on selected object",
-                    ShipWorkspaceKind.Present => "PRESENT — materials, lights, scene",
+                    ShipWorkspaceKind.Analyze => "ANALYZE — engineering plausibility",
                     _ => label,
                 };
             }

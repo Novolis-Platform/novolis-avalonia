@@ -18,6 +18,7 @@
     <PackageReference Include="Novolis.Ship.Topology" />
     <PackageReference Include="Novolis.Ship.Validation" />
     <PackageReference Include="Novolis.Ship.Design" />
+    <PackageReference Include="Novolis.Ship.Analysis" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />

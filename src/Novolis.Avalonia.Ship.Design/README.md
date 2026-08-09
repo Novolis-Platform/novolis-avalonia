@@ -8,9 +8,9 @@
 
 # Novolis.Avalonia.Ship.Design
 
-Object-first Ship Designer UI for Avalonia: `ShipDesignSession`, PLAN / MODEL / PRESENT workspaces, create-ship panel, object tools, deck navigation, and contextual properties.
+Object-first Spacecraft Design UI for Avalonia: `ShipDesignSession`, PLAN / MODEL / ANALYZE workspaces, create-ship panel, semantic hierarchy, continuous GREEN/YELLOW/RED analysis strip, object tools, deck navigation, and contextual properties.
 
-Composes `Novolis.Ship.Design`, `Novolis.Avalonia.Cad`, and `Novolis.Avalonia.Ship` (validate/import forwarder).
+Composes `Novolis.Ship.Design`, `Novolis.Ship.Analysis`, `Novolis.Avalonia.Cad`, and `Novolis.Avalonia.Ship`.
 
 ## Install
 
