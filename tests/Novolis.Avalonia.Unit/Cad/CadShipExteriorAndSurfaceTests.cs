@@ -13,13 +13,13 @@ public sealed class CadShipExteriorTests
     public async Task ShouldUseExterior_DetectsShipDocumentWithAuthoredSolids()
     {
         var decksOnly = new CadDocument();
-        decksOnly.Entities.Add(new CadEntity { Kind = "wall", Name = "Hull" });
-        decksOnly.Entities.Add(new CadEntity { Kind = "space", Name = "Hold" });
+        for (var i = 0; i < 8; i++)
+            decksOnly.Entities.Add(new CadEntity { Kind = i % 2 == 0 ? "wall" : "space", Name = $"Deck{i}" });
         await Assert.That(CadShipExterior.ShouldUseExterior(decksOnly)).IsFalse();
 
         var withExterior = new CadDocument();
-        withExterior.Entities.Add(new CadEntity { Kind = "wall", Name = "Hull" });
-        withExterior.Entities.Add(new CadEntity { Kind = "space", Name = "Hold" });
+        for (var i = 0; i < 8; i++)
+            withExterior.Entities.Add(new CadEntity { Kind = i % 2 == 0 ? "wall" : "space", Name = $"Deck{i}" });
         withExterior.Entities.Add(new CadEntity
         {
             Kind = "box",
