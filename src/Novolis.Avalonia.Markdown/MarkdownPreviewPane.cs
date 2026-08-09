@@ -160,10 +160,30 @@ public sealed class MarkdownPreviewPane : Border
 
     private void RefreshHtml()
     {
-        var body = _lastBodyHtml ?? ResolveBodyHtml();
-        _html.Text = MarkdownPreviewHtml.WrapDocument(body, PreviewTheme);
-        ApplyThemeChrome();
-        ApplyLayout();
+        try
+        {
+            var body = _lastBodyHtml ?? ResolveBodyHtml();
+            _html.Text = MarkdownPreviewHtml.WrapDocument(body, PreviewTheme);
+            ApplyThemeChrome();
+            ApplyLayout();
+        }
+        catch
+        {
+            // HtmlRenderer can throw / native-fail on odd HTML (e.g. Review mastheads).
+            // Keep the pane alive with a minimal fallback instead of taking down the host.
+            try
+            {
+                var escaped = System.Net.WebUtility.HtmlEncode(Markdown ?? string.Empty)
+                    .Replace("\n", "<br/>");
+                _html.Text = MarkdownPreviewHtml.WrapDocument($"<p>{escaped}</p>", PreviewTheme);
+                ApplyThemeChrome();
+                ApplyLayout();
+            }
+            catch
+            {
+                // Last resort: leave previous content.
+            }
+        }
     }
 
     private string ResolveBodyHtml()
@@ -172,7 +192,16 @@ public sealed class MarkdownPreviewPane : Border
         if (explicitBody is not null)
             return explicitBody;
 
-        return MarkdownPreviewHtml.ToBodyHtml(Markdown, PreviewTheme);
+        try
+        {
+            return MarkdownPreviewHtml.ToBodyHtml(Markdown, PreviewTheme);
+        }
+        catch
+        {
+            var escaped = System.Net.WebUtility.HtmlEncode(Markdown ?? string.Empty)
+                .Replace("\n", "<br/>");
+            return $"<p>{escaped}</p>";
+        }
     }
 
     private void ApplyLayout()
