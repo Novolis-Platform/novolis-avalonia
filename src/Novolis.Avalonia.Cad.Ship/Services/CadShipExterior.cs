@@ -164,9 +164,9 @@ public static class CadShipExterior
                             continue;
                     }
 
-                    // Both windings so backfaces still read under orbit lighting.
-                    World.DrawTriangle(a, b, c, color);
-                    World.DrawTriangle(a, c, b, color);
+                    // Wireframe until World.DrawTriangle is on the published Raylib.Runtime feed.
+                    // (Filled triangles require Novolis.Raylib.Runtime ≥ the DrawTriangle facade.)
+                    _ = color;
                     World.DrawLine(a, b, edge);
                     World.DrawLine(b, c, edge);
                     World.DrawLine(c, a, edge);
