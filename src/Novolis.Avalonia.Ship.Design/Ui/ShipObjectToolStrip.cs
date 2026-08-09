@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Avalonia.Ship.Design.Services;
@@ -20,9 +19,30 @@ public static class ShipObjectToolStrip
             Margin = new Thickness(8, 4),
         };
 
+        var toolButtons = new Dictionary<ShipDesignTool, Button>();
+
+        void RefreshHighlight()
+        {
+            foreach (var (tool, btn) in toolButtons)
+            {
+                var on = session.ActiveTool == tool;
+                if (on)
+                {
+                    btn.Background = new SolidColorBrush(Color.Parse("#2a6f8f"));
+                    btn.Foreground = Brushes.White;
+                }
+                else
+                {
+                    btn.ClearValue(Button.BackgroundProperty);
+                    btn.ClearValue(Button.ForegroundProperty);
+                }
+            }
+        }
+
         void Add(string label, ShipDesignTool tool, bool placeable)
         {
             var btn = new Button { Content = label, Padding = new Thickness(10, 4) };
+            toolButtons[tool] = btn;
             btn.Click += (_, _) =>
             {
                 if (!session.HasShip && tool is not ShipDesignTool.Select)
@@ -37,22 +57,19 @@ public static class ShipObjectToolStrip
                 else if (tool == ShipDesignTool.Structure && session.Design.Frames.Count > 0)
                     session.Select(session.Design.Frames[0].Id.AsObject());
 
-                if (placeable && session.Workspace == ShipWorkspaceKind.Plan)
-                    onStatus?.Invoke(ShipPlanAuthoring.ToolHint(tool) + " · Shift+click tool = place default");
+                // Immediate place so one toolbar click always produces visible geometry.
+                if (placeable && session.HasShip && session.Workspace == ShipWorkspaceKind.Plan)
+                {
+                    var msg = ShipPlanAuthoring.AddDefault(session, tool);
+                    onStatus?.Invoke(
+                        (msg ?? "Placed.") + " · click plan for another (2 clicks for path/box tools)");
+                }
                 else
+                {
                     onStatus?.Invoke(ShipPlanAuthoring.ToolHint(tool));
-            };
-            btn.PointerPressed += (_, e) =>
-            {
-                if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-                    return;
-                if (!placeable)
-                    return;
-                e.Handled = true;
-                session.SetActiveTool(tool);
-                var msg = ShipPlanAuthoring.AddDefault(session, tool);
-                if (msg is not null)
-                    onStatus?.Invoke(msg);
+                }
+
+                RefreshHighlight();
             };
             row.Children.Add(btn);
         }
@@ -65,14 +82,6 @@ public static class ShipObjectToolStrip
         Add("Equipment", ShipDesignTool.Equipment, placeable: true);
         Add("Structure", ShipDesignTool.Structure, placeable: false);
         Add("Hull", ShipDesignTool.Hull, placeable: false);
-
-        var placeDefault = new Button { Content = "Place default", Padding = new Thickness(10, 4) };
-        placeDefault.Click += (_, _) =>
-        {
-            var msg = ShipPlanAuthoring.AddDefault(session, session.ActiveTool);
-            onStatus?.Invoke(msg ?? "Select a create tool first (Bulkhead / Compartment / Passage / Opening / Equipment).");
-        };
-        row.Children.Add(placeDefault);
 
         var deckBox = new NumericUpDown
         {
@@ -92,7 +101,7 @@ public static class ShipObjectToolStrip
             deckBox.IsEnabled = session.HasShip;
             deckBox.Maximum = System.Math.Max(0, session.Design.Decks.Count - 1);
             deckBox.Value = session.ActiveDeckIndex;
-            placeDefault.IsEnabled = session.HasShip;
+            RefreshHighlight();
         };
 
         row.Children.Add(new TextBlock
@@ -103,6 +112,7 @@ public static class ShipObjectToolStrip
             Foreground = Brushes.Gray,
         });
         row.Children.Add(deckBox);
+        RefreshHighlight();
         return row;
     }
 }

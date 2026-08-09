@@ -85,14 +85,14 @@ public static class ShipPlanAuthoring
                     d, host.Value, $"Opening {d.Openings.Count + 1}", OpeningKind.Door,
                     0.9f, 2.0f, [0f, elev + 1f, 0f]));
                 SelectLastOpening(session);
-                return "Added door opening on host.";
+                return "Added door opening on host — visible on active deck.";
             }
             case ShipDesignTool.Equipment:
                 session.Mutate(d => ShipDesignMutations.AddEquipment(
                     d, $"Equipment {d.Equipment.Count + 1}",
-                    [0f, elev + 1f, 0f], [1f, 1f, 1.5f], massKg: 800f));
+                    [0f, elev + 1f, 0f], [1f, 1f, 1.5f], massKg: 800f, deckIndex: deck.Index));
                 SelectLastEquipment(session);
-                return "Added equipment envelope at origin.";
+                return "Added equipment envelope at origin — visible on active deck.";
             default:
                 return null;
         }
@@ -179,7 +179,7 @@ public static class ShipPlanAuthoring
         var elev = ShipLengths.ToMeters(deck.Elevation);
         session.Mutate(d => ShipDesignMutations.AddEquipment(
             d, $"Equipment {d.Equipment.Count + 1}",
-            [world.X, elev + 1f, world.Z], [1f, 1f, 1.5f], massKg: 800f));
+            [world.X, elev + 1f, world.Z], [1f, 1f, 1.5f], massKg: 800f, deckIndex: deck.Index));
         SelectLastEquipment(session);
         return "Placed equipment.";
     }

@@ -55,7 +55,23 @@ public static class ShipDesignChrome
             }
         }
 
-        design.Changed += SyncCad;
+        void SyncDrawElevation()
+        {
+            if (!design.HasShip || design.Design.Decks.Count == 0)
+                return;
+            var deck = design.Design.Decks[
+                System.Math.Clamp(design.ActiveDeckIndex, 0, design.Design.Decks.Count - 1)];
+            // CadVec bands decks at 3.6 m steps; stamp elevation so IsolateLevel matches Deck index.
+            cad.Settings.Settings.DrawElevation = deck.Index * Novolis.Cad.Primitives.CadVec.DeckHeightMeters;
+            cad.Settings.Settings.IsolateLevel = true;
+        }
+
+        design.Changed += () =>
+        {
+            SyncDrawElevation();
+            SyncCad();
+        };
+        SyncDrawElevation();
         cad.Document.Changed += () =>
         {
             if (syncDepth > 0 || !design.HasShip)
@@ -184,21 +200,27 @@ public static class ShipDesignChrome
                 SetStatus(msg);
                 return true;
             };
-            design.Changed += () =>
+            void SyncCadWorkspace()
             {
-                var model = design.Workspace == ShipWorkspaceKind.Model && design.HasShip;
-                editor.ToolStrip.IsVisible = model;
-                if (model)
+                var planOrModel = design.Workspace is ShipWorkspaceKind.Plan or ShipWorkspaceKind.Model;
+                editor.ToolStrip.IsVisible = design.Workspace == ShipWorkspaceKind.Model && design.HasShip;
+                if (planOrModel)
                     editor.SetWorkspace(CadWorkspace.Cad);
-            };
+            }
+
+            design.Changed += SyncCadWorkspace;
+            SyncCadWorkspace();
         }
 
         var create = ShipCreatePanel.Build(design, () =>
         {
             RefreshText();
-            SetStatus($"Created {design.Design.Ship.Name} — PLAN tools: click to place, or Place default.");
+            SetStatus($"Created {design.Design.Ship.Name} — click Passage/Bulkhead/… to place (shows on deck plan).");
             if (editorSurface is CadEditorSurface ed)
+            {
+                ed.SetWorkspace(CadWorkspace.Cad);
                 ed.Fit();
+            }
         });
         var decks = ShipDeckNavigator.Build(design);
         var objects = ShipPlanObjectList.Build(design);
