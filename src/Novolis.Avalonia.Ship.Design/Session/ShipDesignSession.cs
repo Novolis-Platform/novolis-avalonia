@@ -1,5 +1,6 @@
 using Novolis.Cad.Primitives;
 using Novolis.Ship.Design;
+using Novolis.Ship.Validation;
 
 namespace Novolis.Avalonia.Ship.Design.Session;
 
@@ -8,6 +9,7 @@ public sealed class ShipDesignSession
 {
     private ShipDesign _design;
     private string? _path;
+    private ShipValidationResult _validation = new() { Issues = [] };
 
     public ShipDesignSession(string dataRoot)
     {
@@ -15,6 +17,7 @@ public sealed class ShipDesignSession
         DataRoot = dataRoot;
         Directory.CreateDirectory(dataRoot);
         _design = ShipFactory.Create(DefaultDefinition("New Ship"));
+        Revalidate();
     }
 
     public string DataRoot { get; }
@@ -28,6 +31,17 @@ public sealed class ShipDesignSession
     public ShipWorkspaceKind Workspace { get; private set; } = ShipWorkspaceKind.Plan;
 
     public int ActiveDeckIndex { get; private set; }
+
+    /// <summary>Latest continuous validation (baseline §23 — not a manual-only refresh).</summary>
+    public ShipValidationResult Validation => _validation;
+
+    public bool SnapEnabled { get; set; } = true;
+
+    public float SnapGridMeters { get; set; } = 0.25f;
+
+    public bool ShowDimensions { get; set; } = true;
+
+    public bool ShowStructuralOverlays { get; set; } = true;
 
     public event Action? Changed;
 
@@ -120,7 +134,13 @@ public sealed class ShipDesignSession
         return null;
     }
 
-    public void Notify() => Changed?.Invoke();
+    public void Notify()
+    {
+        Revalidate();
+        Changed?.Invoke();
+    }
+
+    private void Revalidate() => _validation = ShipDesignValidator.Validate(_design);
 
     public static ShipDefinition DefaultDefinition(string name) => new()
     {

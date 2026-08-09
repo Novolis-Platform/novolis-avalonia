@@ -10,8 +10,10 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Novolis.Cad.Primitives" />
+    <PackageReference Include="Novolis.Cad.Evaluation" />
     <PackageReference Include="Novolis.Cad.SceneBridge" />
     <PackageReference Include="Novolis.Math.Measure" />
+    <PackageReference Include="Novolis.Math.Geometry" />
     <PackageReference Include="Novolis.Ship.Primitives" />
     <PackageReference Include="Novolis.Ship.Topology" />
     <PackageReference Include="Novolis.Ship.Validation" />
@@ -21,5 +23,7 @@
     <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Cad.Ship\Novolis.Avalonia.Cad.Ship.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Ship\Novolis.Avalonia.Ship.csproj" />
+    <ProjectReference Include="..\Novolis.3D.Modeling\Novolis.3D.Modeling.csproj" />
+    <ProjectReference Include="..\Novolis.3D.Scene\Novolis.3D.Scene.csproj" />
   </ItemGroup>
 </Project>

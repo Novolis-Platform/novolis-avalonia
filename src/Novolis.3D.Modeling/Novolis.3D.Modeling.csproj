@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.3D.Modeling</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Evaluated mesh operations (boolean, weld, split, spatial queries) for ship/CAD pipelines. Thin Avalonia-free facade over Novolis.Math.Geometry; algorithms are not duplicated.</Description>
+    <RootNamespace>Novolis._3D.Modeling</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.Math.Geometry" />
+  </ItemGroup>
+</Project>

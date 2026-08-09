@@ -85,6 +85,15 @@
       ],
       "project": "src/Novolis.3D.Scene/Novolis.3D.Scene.csproj"
     },
+    "Novolis.3D.Modeling": {
+      "paths": [
+        "src/Novolis.3D.Modeling/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.3D.Modeling/Novolis.3D.Modeling.csproj"
+    },
     "Novolis.3D.Import": {
       "paths": [
         "src/Novolis.3D.Import/**",

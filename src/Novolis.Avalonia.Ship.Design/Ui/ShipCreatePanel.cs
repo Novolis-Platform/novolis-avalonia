@@ -27,7 +27,7 @@ public static class ShipCreatePanel
         };
         var hullBox = new ComboBox
         {
-            ItemsSource = new[] { "TaperedBox", "Box" },
+            ItemsSource = new[] { "TaperedBox", "Box", "Faceted", "Cylinder", "Capsule", "LoftedSections" },
             SelectedIndex = 0,
             Width = 140,
         };
@@ -50,9 +50,15 @@ public static class ShipCreatePanel
                 HullMaterial = new MaterialId(materialBox.SelectedItem as string ?? "steel"),
                 HullThickness = ShipLengths.FromMeters((float)(thicknessBox.Value ?? 0.02m)),
                 FrameSpacing = ShipLengths.FromMeters((float)(spacingBox.Value ?? 3m)),
-                HullGenerator = string.Equals(hullBox.SelectedItem as string, "Box", StringComparison.OrdinalIgnoreCase)
-                    ? HullGeneratorKind.Box
-                    : HullGeneratorKind.TaperedBox,
+                HullGenerator = (hullBox.SelectedItem as string) switch
+                {
+                    "Box" => HullGeneratorKind.Box,
+                    "Faceted" => HullGeneratorKind.Faceted,
+                    "Cylinder" => HullGeneratorKind.Cylinder,
+                    "Capsule" => HullGeneratorKind.Capsule,
+                    "LoftedSections" => HullGeneratorKind.LoftedSections,
+                    _ => HullGeneratorKind.TaperedBox,
+                },
             };
             session.NewShip(def);
             onCreated?.Invoke();
