@@ -16,6 +16,8 @@ Excalidraw-inspired `SketchControl` (pen/line/spline/box/circle/eraser, meetup v
 dotnet add package Novolis.Avalonia.Controls.Sketch
 ```
 
+## Quick start
+
 ```csharp
 using Novolis.Avalonia.Controls.Sketch;
 

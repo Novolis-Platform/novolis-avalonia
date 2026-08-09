@@ -379,6 +379,20 @@ public sealed class CadDraftViewport : Control
             case "space" when entity.Points is { Count: >= 2 }:
             {
                 var pts = entity.Points;
+                if (entity.Color is { Length: >= 3 })
+                {
+                    var geo = new StreamGeometry();
+                    using (var gctx = geo.Open())
+                    {
+                        gctx.BeginFigure(WorldToScreen(CadVec.To(pts[0])), isFilled: true);
+                        for (var i = 1; i < pts.Count; i++)
+                            gctx.LineTo(WorldToScreen(CadVec.To(pts[i])));
+                        gctx.EndFigure(isClosed: true);
+                    }
+
+                    context.DrawGeometry(ToBrush(entity.Color, dimmed ? 0.12f : 0.32f), null, geo);
+                }
+
                 for (var i = 0; i < pts.Count; i++)
                 {
                     var a = WorldToScreen(CadVec.To(pts[i]));

@@ -16,6 +16,8 @@ Freighter / ship CAD chrome for hosts that need sealed exterior massing and ship
 dotnet add package Novolis.Avalonia.Cad.Ship
 ```
 
+## Quick start
+
 ```csharp
 using Novolis.Avalonia.Cad.Ship;
 
@@ -30,4 +32,5 @@ CadShipChrome.Attach(cadSession); // registers importship + exterior hooks
 | `CadShipExterior` | Sealed freighter silhouette for Model view |
 | `CadShipImport` | Copy generated `.cadjson` into `ship-workspace` |
 
-Draft Studio and Calypso CAD call `Attach` at startup.
+Draft Studio and Calypso CAD call `Attach` at startup. Author freighters in **Ship Designer**; keep this package for exterior/import chrome.
+

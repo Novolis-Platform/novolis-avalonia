@@ -16,6 +16,8 @@ Avalonia torrent session chrome bound to [`Novolis.Transports.Torrent`](https://
 dotnet add package Novolis.Avalonia.Torrent
 ```
 
+## Quick start
+
 ```csharp
 using Novolis.Avalonia.Torrent;
 

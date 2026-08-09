@@ -20,3 +20,11 @@ See [avalonia-composition-grain](https://github.com/Novolis-Platform/novolis-gov
 ```powershell
 dotnet add package Novolis.Avalonia.Manuscript
 ```
+
+## Quick start
+
+```csharp
+var chapters = new ChapterListPane();
+var metadata = new MetadataFormPane();
+var diagnostics = new DiagnosticsListPane();
+```

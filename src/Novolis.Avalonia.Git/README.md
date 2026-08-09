@@ -16,6 +16,12 @@ Composable Avalonia chrome for Git: repo matrix, commit graph, branch navigator,
 dotnet add package Novolis.Avalonia.Git
 ```
 
+## Quick start
+
+```csharp
+// Host a GitRepoVisualizer + GitActionBar; bind CommandRequested to Novolis.IO.Git APIs.
+```
+
 ## Controls
 
 | Control | Role |

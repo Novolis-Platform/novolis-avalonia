@@ -17,6 +17,7 @@ internal static class ShipSessionActions
             var doc = session.Document.Document;
             var topo = ShipTopology.Analyze(doc);
             ShipTopology.ApplySpaceFlags(doc, topo);
+            ShipAirtightOverlay.Apply(doc, topo);
             var result = ShipValidator.Validate(doc, topo);
             var lines = result.Issues
                 .Select(i => $"[{i.Severity}] {i.Code}: {i.Message}")
@@ -38,6 +39,8 @@ internal static class ShipSessionActions
             var doc = session.Document.Document;
             var topo = ShipTopology.Analyze(doc);
             ShipTopology.ApplySpaceFlags(doc, topo);
+            ShipAirtightOverlay.Apply(doc, topo);
+            session.Document.Notify();
             return new CadCommandResultDto
             {
                 ActionId = ShipChrome.RefreshAirtightActionId,
@@ -50,7 +53,14 @@ internal static class ShipSessionActions
         session.RegisterAction(ShipChrome.PlaceHatchActionId, command =>
         {
             if (!TryGuidProp(command, "hostWallId", out var wallId))
-                return Fail(ShipChrome.PlaceHatchActionId, "Need hostWallId.", "badArgs");
+            {
+                var selected = session.Document.SelectedEntity;
+                if (selected is not null
+                    && string.Equals(selected.Kind, "wall", StringComparison.OrdinalIgnoreCase))
+                    wallId = selected.Id;
+                else
+                    return Fail(ShipChrome.PlaceHatchActionId, "Select a wall or pass hostWallId.", "badArgs");
+            }
 
             var doc = session.Document.Document;
             var wall = doc.Entities.FirstOrDefault(e => e.Id == wallId);

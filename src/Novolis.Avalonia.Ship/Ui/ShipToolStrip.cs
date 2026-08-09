@@ -29,6 +29,7 @@ internal static class ShipToolStrip
 
         AddAction("Validate Ship", ShipChrome.ValidateShipActionId);
         AddAction("Airtight", ShipChrome.RefreshAirtightActionId);
+        AddAction("Place Hatch", ShipChrome.PlaceHatchActionId);
 
         var deckBox = new NumericUpDown
         {
