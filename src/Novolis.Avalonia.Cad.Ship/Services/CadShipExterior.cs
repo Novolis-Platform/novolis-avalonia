@@ -30,13 +30,46 @@ public static class CadShipExterior
             DrawOne(entity);
     }
 
+    /// <summary>
+    /// Exterior pass with an invisible slicing plane: geometry whose centroid lies on the
+    /// <paramref name="cutNormal"/> side of <paramref name="cutOrigin"/> is not drawn (camera half-space culled).
+    /// </summary>
+    public static void Draw(CadDocument document, Vector3 cutOrigin, Vector3 cutNormal)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (cutNormal.LengthSquared() < 1e-8f)
+        {
+            Draw(document);
+            return;
+        }
+
+        cutNormal = Vector3.Normalize(cutNormal);
+        foreach (var entity in document.Entities)
+            DrawOne(entity, cutOrigin, cutNormal);
+    }
+
     /// <summary>Draw a single authored solid/mesh when it qualifies for the exterior pass.</summary>
     public static void DrawOne(CadEntity entity)
     {
         ArgumentNullException.ThrowIfNull(entity);
         if (!IsExteriorDrawable(entity))
             return;
-        DrawEntity(entity);
+        DrawEntity(entity, cutaway: false, default, default);
+    }
+
+    /// <summary>Exterior solid with optional cutaway cull.</summary>
+    public static void DrawOne(CadEntity entity, Vector3 cutOrigin, Vector3 cutNormal)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        if (!IsExteriorDrawable(entity))
+            return;
+        if (cutNormal.LengthSquared() < 1e-8f)
+        {
+            DrawEntity(entity, cutaway: false, default, default);
+            return;
+        }
+
+        DrawEntity(entity, cutaway: true, cutOrigin, Vector3.Normalize(cutNormal));
     }
 
     /// <summary>Solids/meshes that belong in the exterior / Model sealed pass (not walls/spaces/ops).</summary>
@@ -53,12 +86,13 @@ public static class CadShipExterior
         if (TryGetBoolProp(entity, "interiorOnly") == true)
             return false;
 
-        // Sealed exterior = authored exterior solids (prop/name), plus C40 cargo peek when present.
+        // Sealed exterior = authored exterior solids only (explicit exterior=true / ext-* names).
+        // Cargo peek (C40) stays interior-only unless a host marks exterior=true.
         if (TryGetBoolProp(entity, "exterior") == true)
             return true;
         if (IsPreservedExterior(entity))
             return true;
-        return entity.Name?.StartsWith("C40", StringComparison.OrdinalIgnoreCase) == true;
+        return false;
     }
 
     /// <summary>Entities the RevG generator must not wipe on regenerate (hand-authored exterior).</summary>
@@ -72,26 +106,38 @@ public static class CadShipExterior
                || name.StartsWith("nacelle-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void DrawEntity(CadEntity entity)
+    private static void DrawEntity(CadEntity entity, bool cutaway, Vector3 cutOrigin, Vector3 cutNormal)
     {
         var color = ResolveColor(entity);
         switch (entity.Kind.ToLowerInvariant())
         {
             case "box" when CadShipGeometry.TryGetBox(entity, out var c, out var he):
+                if (cutaway && CulledByCutPlane(c, cutOrigin, cutNormal))
+                    return;
                 World.DrawCube(c, MathF.Abs(he.X) * 2f, MathF.Abs(he.Y) * 2f, MathF.Abs(he.Z) * 2f, color);
                 break;
             case "sphere" when entity.Center is not null:
-                World.DrawSphere(CadVec.To(entity.Center), entity.Radius, color);
+            {
+                var center = CadVec.To(entity.Center);
+                if (cutaway && CulledByCutPlane(center, cutOrigin, cutNormal))
+                    return;
+                World.DrawSphere(center, entity.Radius, color);
                 break;
+            }
             case "cylinder" when entity.Center is not null:
+            {
+                var center = CadVec.To(entity.Center);
+                if (cutaway && CulledByCutPlane(center, cutOrigin, cutNormal))
+                    return;
                 World.DrawCylinder(
-                    CadVec.To(entity.Center) - new Vector3(0f, entity.Height * 0.5f, 0f),
+                    center - new Vector3(0f, entity.Height * 0.5f, 0f),
                     entity.Radius,
                     entity.Radius,
                     entity.Height,
                     24,
                     color);
                 break;
+            }
             case "mesh":
             case "cone":
             case "wedge":
@@ -108,6 +154,16 @@ public static class CadShipExterior
                     var a = mesh.Vertices[mesh.Indices[i]];
                     var b = mesh.Vertices[mesh.Indices[i + 1]];
                     var c = mesh.Vertices[mesh.Indices[i + 2]];
+                    if (cutaway)
+                    {
+                        // Keep a triangle if any vertex is on the keep side (not fully camera-side).
+                        var ca = CulledByCutPlane(a, cutOrigin, cutNormal);
+                        var cb = CulledByCutPlane(b, cutOrigin, cutNormal);
+                        var cc = CulledByCutPlane(c, cutOrigin, cutNormal);
+                        if (ca && cb && cc)
+                            continue;
+                    }
+
                     // Both windings so backfaces still read under orbit lighting.
                     World.DrawTriangle(a, b, c, color);
                     World.DrawTriangle(a, c, b, color);
@@ -120,6 +176,10 @@ public static class CadShipExterior
             }
         }
     }
+
+    /// <summary>True when <paramref name="p"/> is on the camera / culled half-space of the cut plane.</summary>
+    public static bool CulledByCutPlane(Vector3 p, Vector3 cutOrigin, Vector3 cutNormal) =>
+        Vector3.Dot(p - cutOrigin, cutNormal) > 0f;
 
     private static Color ResolveColor(CadEntity entity)
     {

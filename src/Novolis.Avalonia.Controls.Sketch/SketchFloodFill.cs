@@ -53,7 +53,7 @@ public static class SketchFloodFill
         var worldW = Math.Max(1e-6, maxX - minX);
         var worldH = Math.Max(1e-6, maxY - minY);
         var scale = Math.Min(MaxDimension / worldW, MaxDimension / worldH);
-        scale = Math.Clamp(scale, 0.25, 8);
+        scale = Math.Clamp(scale, 0.5, 16);
         var width = Math.Max(3, (int)Math.Ceiling(worldW * scale));
         var height = Math.Max(3, (int)Math.Ceiling(worldH * scale));
         if (width * height > MaxPixels)
@@ -103,7 +103,7 @@ public static class SketchFloodFill
 
         foreach (var stroke in strokes)
         {
-            var radius = Math.Max(1, (int)Math.Ceiling(Math.Max(0.5, stroke.StrokeWidth) * scale * 0.5));
+            var radius = Math.Max(1, (int)Math.Round(Math.Max(0.75, stroke.StrokeWidth) * scale * 0.5));
             var pts = stroke.Points;
             for (var i = 0; i < pts.Count - 1; i++)
                 StampSegment(pts[i], pts[i + 1], radius);
@@ -111,15 +111,33 @@ public static class SketchFloodFill
                 StampSegment(pts[^1], pts[0], radius);
         }
 
+        // Morphological dilate once so 1px gaps at stroke joints don't leak.
+        Dilate(barriers, width, height);
+
         var sx = (int)Math.Round((seed.X - minX) * scale);
         var sy = (int)Math.Round((seed.Y - minY) * scale);
         if ((uint)sx >= (uint)width || (uint)sy >= (uint)height)
             return null;
         if (barriers[sy * width + sx])
-            return null;
+        {
+            // Nudge seed toward empty neighbors if we landed on ink.
+            if (!TryFindEmptyNear(barriers, width, height, sx, sy, out sx, out sy))
+                return null;
+        }
 
         var filled = new bool[width * height];
         var queue = new Queue<(int X, int Y)>();
+        void TryEnqueue(int x, int y)
+        {
+            if ((uint)x >= (uint)width || (uint)y >= (uint)height)
+                return;
+            var i = y * width + x;
+            if (filled[i] || barriers[i])
+                return;
+            filled[i] = true;
+            queue.Enqueue((x, y));
+        }
+
         queue.Enqueue((sx, sy));
         filled[sy * width + sx] = true;
         var count = 0;
@@ -146,20 +164,10 @@ public static class SketchFloodFill
         if (hitBorder || count < 8)
             return null;
 
-        void TryEnqueue(int x, int y)
-        {
-            if ((uint)x >= (uint)width || (uint)y >= (uint)height)
-                return;
-            var i = y * width + x;
-            if (filled[i] || barriers[i])
-                return;
-            filled[i] = true;
-            queue.Enqueue((x, y));
-        }
-
+        // Local TryEnqueue was previously after the loop; keep contour extraction only here.
         var contour = TraceOuterContour(filled, width, height);
         if (contour.Count < 3)
-            return null;
+            return BoundsOfFilled(filled, width, height, minX, minY, scale);
 
         var world = new List<SketchPoint>(contour.Count);
         foreach (var (x, y) in contour)
@@ -168,11 +176,104 @@ public static class SketchFloodFill
         }
 
         var simplified = Simplify(world, epsilon: Math.Max(0.35 / scale, 0.15));
-        if (simplified.Count < 3)
+        if (simplified.Count >= 3)
+        {
+            if (Distance(simplified[0], simplified[^1]) > 1e-6)
+                simplified.Add(simplified[0]);
+            return simplified;
+        }
+
+        // Contour simplify collapsed — fall back to filled AABB.
+        return BoundsOfFilled(filled, width, height, minX, minY, scale);
+    }
+
+    static IReadOnlyList<SketchPoint>? BoundsOfFilled(
+        bool[] filled,
+        int width,
+        int height,
+        double minX,
+        double minY,
+        double scale)
+    {
+        var minFX = width;
+        var minFY = height;
+        var maxFX = 0;
+        var maxFY = 0;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                if (!filled[y * width + x])
+                    continue;
+                if (x < minFX) minFX = x;
+                if (y < minFY) minFY = y;
+                if (x > maxFX) maxFX = x;
+                if (y > maxFY) maxFY = y;
+            }
+        }
+
+        if (maxFX <= minFX || maxFY <= minFY)
             return null;
-        if (Distance(simplified[0], simplified[^1]) > 1e-6)
-            simplified.Add(simplified[0]);
-        return simplified;
+
+        return
+        [
+            new SketchPoint(minX + (minFX + 0.5) / scale, minY + (minFY + 0.5) / scale),
+            new SketchPoint(minX + (maxFX + 0.5) / scale, minY + (minFY + 0.5) / scale),
+            new SketchPoint(minX + (maxFX + 0.5) / scale, minY + (maxFY + 0.5) / scale),
+            new SketchPoint(minX + (minFX + 0.5) / scale, minY + (maxFY + 0.5) / scale),
+            new SketchPoint(minX + (minFX + 0.5) / scale, minY + (minFY + 0.5) / scale)
+        ];
+    }
+
+    static void Dilate(bool[] map, int width, int height)
+    {
+        var copy = (bool[])map.Clone();
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                if (!copy[y * width + x])
+                    continue;
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        var xx = x + dx;
+                        var yy = y + dy;
+                        if ((uint)xx >= (uint)width || (uint)yy >= (uint)height)
+                            continue;
+                        map[yy * width + xx] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    static bool TryFindEmptyNear(bool[] barriers, int width, int height, int sx, int sy, out int x, out int y)
+    {
+        for (var r = 1; r <= 6; r++)
+        {
+            for (var dy = -r; dy <= r; dy++)
+            {
+                for (var dx = -r; dx <= r; dx++)
+                {
+                    var xx = sx + dx;
+                    var yy = sy + dy;
+                    if ((uint)xx >= (uint)width || (uint)yy >= (uint)height)
+                        continue;
+                    if (!barriers[yy * width + xx])
+                    {
+                        x = xx;
+                        y = yy;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        x = sx;
+        y = sy;
+        return false;
     }
 
     static bool IsNearlyClosed(IReadOnlyList<SketchPoint> pts) =>
