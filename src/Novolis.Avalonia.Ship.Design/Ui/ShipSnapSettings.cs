@@ -12,7 +12,11 @@ public static class ShipSnapSettings
     public static Control Build(ShipDesignSession session)
     {
         var snap = new CheckBox { Content = "Snap", IsChecked = session.SnapEnabled };
-        snap.IsCheckedChanged += (_, _) => session.SnapEnabled = snap.IsChecked == true;
+        snap.IsCheckedChanged += (_, _) =>
+        {
+            session.SnapEnabled = snap.IsChecked == true;
+            session.Notify();
+        };
 
         var grid = new NumericUpDown
         {
@@ -26,14 +30,25 @@ public static class ShipSnapSettings
         grid.ValueChanged += (_, _) =>
         {
             if (grid.Value is { } v)
+            {
                 session.SnapGridMeters = (float)v;
+                session.Notify();
+            }
         };
 
         var dims = new CheckBox { Content = "Dimensions", IsChecked = session.ShowDimensions };
-        dims.IsCheckedChanged += (_, _) => session.ShowDimensions = dims.IsChecked == true;
+        dims.IsCheckedChanged += (_, _) =>
+        {
+            session.ShowDimensions = dims.IsChecked == true;
+            session.Notify();
+        };
 
         var overlays = new CheckBox { Content = "Structure overlays", IsChecked = session.ShowStructuralOverlays };
-        overlays.IsCheckedChanged += (_, _) => session.ShowStructuralOverlays = overlays.IsChecked == true;
+        overlays.IsCheckedChanged += (_, _) =>
+        {
+            session.ShowStructuralOverlays = overlays.IsChecked == true;
+            session.Notify();
+        };
 
         var row = new StackPanel
         {

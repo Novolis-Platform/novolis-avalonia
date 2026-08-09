@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Novolis.Avalonia.Ship.Design.Services;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
 
@@ -18,27 +17,44 @@ public static class ShipPlanObjectList
             MinHeight = 220,
             Background = new SolidColorBrush(Color.Parse("#14161a")),
         };
+        var syncing = false;
+        var leaves = new Dictionary<Guid, TreeViewItem>();
 
         void Refresh()
         {
             var d = session.Design;
             var roots = new List<TreeViewItem>();
+            leaves.Clear();
+            if (!session.HasShip)
+            {
+                syncing = true;
+                try
+                {
+                    tree.ItemsSource = roots;
+                }
+                finally
+                {
+                    syncing = false;
+                }
 
-            roots.Add(Leaf("Hull", d.Hull.Id.AsObject(), session));
+                return;
+            }
+
+            roots.Add(Leaf("Hull", d.Hull.Id.AsObject(), session, leaves));
 
             var structure = new TreeViewItem { Header = "Structure", IsExpanded = true };
             var frames = new TreeViewItem { Header = "Frames", IsExpanded = false };
             foreach (var f in d.Frames)
-                frames.Items.Add(Leaf(f.Name, f.Id.AsObject(), session));
+                frames.Items.Add(Leaf(f.Name, f.Id.AsObject(), session, leaves));
             var longs = new TreeViewItem { Header = "Longitudinals", IsExpanded = false };
             foreach (var l in d.Longitudinals)
-                longs.Items.Add(Leaf(l.Name, l.Id.AsObject(), session));
+                longs.Items.Add(Leaf(l.Name, l.Id.AsObject(), session, leaves));
             var decksNode = new TreeViewItem { Header = "Decks", IsExpanded = false };
             foreach (var deck in d.Decks)
-                decksNode.Items.Add(Leaf(deck.Name, deck.Id.AsObject(), session));
-            var bhNode = new TreeViewItem { Header = "Structural Bulkheads", IsExpanded = false };
-            foreach (var b in d.Bulkheads.Where(x => x.IsPrimary))
-                bhNode.Items.Add(Leaf(b.Name, b.Id.AsObject(), session));
+                decksNode.Items.Add(Leaf(deck.Name, deck.Id.AsObject(), session, leaves));
+            var bhNode = new TreeViewItem { Header = "Bulkheads", IsExpanded = true };
+            foreach (var b in d.Bulkheads)
+                bhNode.Items.Add(Leaf(b.Name, b.Id.AsObject(), session, leaves));
             structure.Items.Add(frames);
             structure.Items.Add(longs);
             structure.Items.Add(decksNode);
@@ -54,15 +70,14 @@ public static class ShipPlanObjectList
                     Tag = deck.Id.AsObject(),
                 };
                 foreach (var c in d.Compartments.Where(x => x.DeckId.Value == deck.Id.Value))
-                    deckItem.Items.Add(Leaf($"Cmp · {c.Name}", c.Id.AsObject(), session));
+                    deckItem.Items.Add(Leaf($"Room · {c.Name}", c.Id.AsObject(), session, leaves));
                 foreach (var p in d.Passages.Where(x => x.DeckId.Value == deck.Id.Value))
-                    deckItem.Items.Add(Leaf($"Pass · {p.Name}", p.Id.AsObject(), session));
+                    deckItem.Items.Add(Leaf($"Pass · {p.Name}", p.Id.AsObject(), session, leaves));
                 foreach (var o in d.Openings)
                 {
-                    // Openings hosted by bulkheads on this deck, or any opening when deck active.
                     var bh = d.Bulkheads.FirstOrDefault(b => b.Id.Value == o.HostId.Value);
                     if (bh?.DeckId is { } bid && bid.Value == deck.Id.Value)
-                        deckItem.Items.Add(Leaf($"Open · {o.Name}", o.Id.AsObject(), session));
+                        deckItem.Items.Add(Leaf($"Open · {o.Name}", o.Id.AsObject(), session, leaves));
                 }
 
                 roots.Add(deckItem);
@@ -70,11 +85,32 @@ public static class ShipPlanObjectList
 
             var equip = new TreeViewItem { Header = "Equipment", IsExpanded = true };
             foreach (var e in d.Equipment)
-                equip.Items.Add(Leaf(e.Name, e.Id.AsObject(), session));
+                equip.Items.Add(Leaf(e.Name, e.Id.AsObject(), session, leaves));
             roots.Add(equip);
 
-            tree.ItemsSource = roots;
+            syncing = true;
+            try
+            {
+                tree.ItemsSource = roots;
+                if (session.SelectedObjectId is { } sel && leaves.TryGetValue(sel.Value, out var item))
+                    tree.SelectedItem = item;
+            }
+            finally
+            {
+                syncing = false;
+            }
         }
+
+        tree.SelectionChanged += (_, _) =>
+        {
+            if (syncing)
+                return;
+            if (tree.SelectedItem is TreeViewItem { Tag: ShipObjectId id })
+            {
+                session.Select(id);
+                session.SetHighlighted([]);
+            }
+        };
 
         session.Changed += Refresh;
         Refresh();
@@ -87,24 +123,22 @@ public static class ShipPlanObjectList
             Foreground = Brushes.LightGray,
         });
         panel.Children.Add(tree);
-
-        var addPassage = new Button { Content = "Add mid-deck passage", Padding = new Thickness(8, 4) };
-        addPassage.Click += (_, _) =>
-        {
-            if (!session.HasShip || session.Design.Decks.Count == 0)
-                return;
-            ShipPlanAuthoring.AddDefault(session, ShipDesignTool.Passage);
-        };
-        session.Changed += () => addPassage.IsEnabled = session.HasShip;
-        addPassage.IsEnabled = session.HasShip;
-        panel.Children.Add(addPassage);
         return panel;
     }
 
-    private static TreeViewItem Leaf(string label, ShipObjectId id, ShipDesignSession session)
+    private static TreeViewItem Leaf(
+        string label,
+        ShipObjectId id,
+        ShipDesignSession session,
+        Dictionary<Guid, TreeViewItem> leaves)
     {
         var item = new TreeViewItem { Header = label, Tag = id };
-        item.PointerPressed += (_, _) => session.Select(id);
+        leaves[id.Value] = item;
+        item.PointerPressed += (_, _) =>
+        {
+            session.Select(id);
+            session.SetHighlighted([]);
+        };
         return item;
     }
 }

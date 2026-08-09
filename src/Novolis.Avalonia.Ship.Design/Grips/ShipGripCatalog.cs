@@ -71,12 +71,15 @@ public static class ShipGripCatalog
         if (passage is not null)
         {
             AppendPathGrips(grips, id, passage.Geometry, includeThickness: false, thicknessM: 0f);
+            var path = ShipPlanPaths.ExtractPathXz(passage.Geometry);
+            var mid = ShipPlanPaths.PointAlong(path, 0.5f);
+            var halfW = ShipLengths.ToMeters(passage.Width) * 0.5f;
             grips.Add(new ShipGrip(
                 id,
                 ShipGripKind.Width,
-                0f,
+                mid[0] + halfW,
                 ShipLengths.ToMeters(passage.Height) * 0.5f,
-                0f,
+                mid[1],
                 $"width={ShipLengths.ToMeters(passage.Width):0.###}"));
             return grips;
         }

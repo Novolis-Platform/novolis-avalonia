@@ -6,15 +6,17 @@ using Novolis.Avalonia.Cad.Session;
 using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Ship;
 using Novolis.Avalonia.Ship.Design.Grips;
+using Novolis.Avalonia.Ship.Design.Plan;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Avalonia.Ship.Design.Services;
 using Novolis.Avalonia.Ship.Design.Ui;
 using Novolis.Cad.Primitives;
+using Novolis.Ship.Analysis;
 using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design;
 
-/// <summary>Attaches object-first ship design chrome to a Cad session + design session.</summary>
+/// <summary>Object-first ship architect chrome: PLAN deck viewport + MODEL CAD + ANALYZE.</summary>
 public static class ShipDesignChrome
 {
     public static void Attach(CadSessionService cad, ShipDesignSession design)
@@ -25,24 +27,14 @@ public static class ShipDesignChrome
 
         var syncDepth = 0;
 
-        void SyncCad()
+        void SyncCadForModel()
         {
+            if (design.Workspace != ShipWorkspaceKind.Model || !design.HasShip)
+                return;
             syncDepth++;
             try
             {
-                if (!design.HasShip)
-                {
-                    cad.Document.Document.Entities.Clear();
-                    cad.Document.Document.Name = "(untitled)";
-                    cad.Document.Document.Properties = new Dictionary<string, System.Text.Json.JsonElement>();
-                    cad.Document.Notify();
-                    return;
-                }
-
-                var source = design.Workspace == ShipWorkspaceKind.Model
-                    ? design.SelectedObjectGeometry() ?? ShipCadProjector.ToCadDocument(design.Design)
-                    : ShipCadProjector.ToCadDocument(design.Design);
-
+                var source = design.SelectedObjectGeometry() ?? new CadDocument { Name = "empty", Entities = [] };
                 cad.Document.Document.Entities.Clear();
                 cad.Document.Document.Entities.AddRange(source.Entities);
                 cad.Document.Document.Name = source.Name;
@@ -55,23 +47,7 @@ public static class ShipDesignChrome
             }
         }
 
-        void SyncDrawElevation()
-        {
-            if (!design.HasShip || design.Design.Decks.Count == 0)
-                return;
-            var deck = design.Design.Decks[
-                System.Math.Clamp(design.ActiveDeckIndex, 0, design.Design.Decks.Count - 1)];
-            // CadVec bands decks at 3.6 m steps; stamp elevation so IsolateLevel matches Deck index.
-            cad.Settings.Settings.DrawElevation = deck.Index * Novolis.Cad.Primitives.CadVec.DeckHeightMeters;
-            cad.Settings.Settings.IsolateLevel = true;
-        }
-
-        design.Changed += () =>
-        {
-            SyncDrawElevation();
-            SyncCad();
-        };
-        SyncDrawElevation();
+        design.Changed += SyncCadForModel;
         cad.Document.Changed += () =>
         {
             if (syncDepth > 0 || !design.HasShip)
@@ -81,7 +57,7 @@ public static class ShipDesignChrome
             if (design.SelectedObjectId is not { } oid)
                 return;
 
-            var snap = new Novolis.Cad.Primitives.CadDocument
+            var snap = new CadDocument
             {
                 Name = cad.Document.Document.Name,
                 Entities = cad.Document.Document.Entities.ToList(),
@@ -97,8 +73,6 @@ public static class ShipDesignChrome
                 syncDepth--;
             }
         };
-
-        SyncCad();
     }
 
     public static Control CreateShell(
@@ -121,49 +95,101 @@ public static class ShipDesignChrome
         };
         status ??= new TextBlock { Text = "PLAN", Margin = new Thickness(8, 4), Foreground = Brushes.LightGray };
 
+        var toolsController = new ShipArchitectToolController(design);
+        var planViewport = new ShipDeckPlanViewport(design, toolsController);
         var analysisPanel = ShipAnalysisPanel.Build(design);
         analysisPanel.IsVisible = false;
 
-        void SetStatus(string text) => status.Text = text;
+        void SetStatus(string text)
+        {
+            design.SetStatusMessage(text);
+            status.Text = text;
+        }
 
         void RefreshText()
         {
             inspector.Text = design.HasShip
                 ? ShipDesignInspector.Format(design)
-                : "Clean slate — use Create ship, then PLAN tools (click to place) or Place default.";
+                : "Clean slate — expand Create ship, then draw Wall / Room on the deck plan.";
             var val = design.Validation;
             var gripCount = design.HasShip
                 ? ShipGripCatalog.ForSelection(design.Design, design.SelectedObjectId).Count
                 : 0;
             var name = design.HasShip ? design.Design.Ship.Name : "(untitled)";
-            status.Text =
-                $"{design.Workspace} · {name} · deck {design.ActiveDeckIndex}"
-                + $" · tool {design.ActiveTool}"
-                + $" · val {(val.Ok ? "OK" : "FAIL")}({val.Issues.Count})"
-                + $" · analysis {design.Analysis.Worst}"
-                + $" · grips {gripCount}";
+            var msg = design.StatusMessage;
+            status.Text = string.IsNullOrWhiteSpace(msg)
+                ? $"{design.Workspace} · {name} · deck {design.ActiveDeckIndex}"
+                  + $" · {design.ActiveTool}"
+                  + $" · val {(val.Ok ? "OK" : "FAIL")}({val.Issues.Count})"
+                  + $" · {design.Analysis.Worst}"
+                  + $" · grips {gripCount}"
+                : msg;
             analysisPanel.IsVisible = design.Workspace == ShipWorkspaceKind.Analyze && design.HasShip;
         }
 
         design.Changed += RefreshText;
         RefreshText();
 
-        var tools = ShipObjectToolStrip.Build(design, SetStatus);
+        CadEditorSurface? cadEditor = editorSurface as CadEditorSurface;
+        if (cadEditor is not null)
+        {
+            cadEditor.IsVisible = false;
+            cadEditor.ToolStrip.IsVisible = false;
+        }
+
+        void ApplyWorkspaceVisibility()
+        {
+            var model = design.Workspace == ShipWorkspaceKind.Model && design.HasShip;
+            planViewport.IsVisible = !model;
+            if (cadEditor is not null)
+            {
+                cadEditor.IsVisible = model;
+                cadEditor.ToolStrip.IsVisible = model;
+                if (model)
+                {
+                    cadEditor.SetWorkspace(CadWorkspace.Cad);
+                    cadEditor.Fit();
+                }
+            }
+
+            if (!model && design.HasShip)
+                planViewport.Fit();
+        }
+
+        design.Changed += ApplyWorkspaceVisibility;
+
+        var tools = ShipObjectToolStrip.Build(design, toolsController, SetStatus);
         var snapRow = ShipSnapSettings.Build(design);
-        var analysisStrip = ShipAnalysisStatusStrip.Build(design);
+        var analysisStrip = ShipAnalysisStatusStrip.Build(design, ids =>
+        {
+            design.SetHighlighted(ids);
+            if (ids.Count > 0)
+                design.Select(ids[0]);
+            planViewport.InvalidateVisual();
+        });
+
         var workspaceBar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
             Margin = new Thickness(8, 4),
         };
-        workspaceBar.Children.Add(Ws("PLAN", ShipWorkspaceKind.Plan, design, status));
-        workspaceBar.Children.Add(Ws("MODEL", ShipWorkspaceKind.Model, design, status));
-        workspaceBar.Children.Add(Ws("ANALYZE", ShipWorkspaceKind.Analyze, design, status, () =>
+        workspaceBar.Children.Add(Ws("PLAN", ShipWorkspaceKind.Plan, design, () =>
         {
-            status.Text = design.HasShip
+            SetStatus("PLAN — Wall / Room / Opening on the deck plan");
+            planViewport.Fit();
+        }));
+        workspaceBar.Children.Add(Ws("MODEL", ShipWorkspaceKind.Model, design, () =>
+        {
+            SetStatus(design.SelectedObjectId is null
+                ? "MODEL — select an object on PLAN first"
+                : "MODEL — CAD construction on selection");
+        }));
+        workspaceBar.Children.Add(Ws("ANALYZE", ShipWorkspaceKind.Analyze, design, () =>
+        {
+            SetStatus(design.HasShip
                 ? $"ANALYZE · worst {design.Analysis.Worst} · mass {design.Analysis.TotalMassKg / 1000f:0.#} t"
-                : "ANALYZE — create a ship first";
+                : "ANALYZE — create a ship first");
         }));
 
         var exportScene = new Button { Content = "Export scene", Padding = new Thickness(10, 4) };
@@ -171,7 +197,7 @@ public static class ShipDesignChrome
         {
             if (!design.HasShip)
             {
-                status.Text = "Create a ship before exporting.";
+                SetStatus("Create a ship before exporting.");
                 return;
             }
 
@@ -179,48 +205,17 @@ public static class ShipDesignChrome
             Directory.CreateDirectory(outDir);
             var path = Path.Combine(outDir, "ship-analyze.nov3djson");
             var eval = ShipDesignEvaluator.Evaluate(design.Design, path);
-            status.Text = $"Scene export · {eval.MeshNodeCount} meshes · {eval.CutoutCount} cutouts → {path}";
+            SetStatus($"Scene export · {eval.MeshNodeCount} meshes · {eval.CutoutCount} cutouts → {path}");
         };
         workspaceBar.Children.Add(exportScene);
-
-        Control? cadToolStrip = null;
-        if (editorSurface is CadEditorSurface editor)
-        {
-            cadToolStrip = editor.ToolStrip;
-            editor.ToolStrip.IsVisible = false;
-            editor.DraftViewport.WorldClickFilter = world =>
-            {
-                if (!design.HasShip || design.Workspace != ShipWorkspaceKind.Plan)
-                    return false;
-                if (design.ActiveTool is ShipDesignTool.Select or ShipDesignTool.Hull or ShipDesignTool.Structure)
-                    return false;
-                var msg = ShipPlanAuthoring.TryHandleWorldClick(design, world);
-                if (msg is null)
-                    return false;
-                SetStatus(msg);
-                return true;
-            };
-            void SyncCadWorkspace()
-            {
-                var planOrModel = design.Workspace is ShipWorkspaceKind.Plan or ShipWorkspaceKind.Model;
-                editor.ToolStrip.IsVisible = design.Workspace == ShipWorkspaceKind.Model && design.HasShip;
-                if (planOrModel)
-                    editor.SetWorkspace(CadWorkspace.Cad);
-            }
-
-            design.Changed += SyncCadWorkspace;
-            SyncCadWorkspace();
-        }
 
         var create = ShipCreatePanel.Build(design, () =>
         {
             RefreshText();
-            SetStatus($"Created {design.Design.Ship.Name} — click Passage/Bulkhead/… to place (shows on deck plan).");
-            if (editorSurface is CadEditorSurface ed)
-            {
-                ed.SetWorkspace(CadWorkspace.Cad);
-                ed.Fit();
-            }
+            SetStatus($"Created {design.Design.Ship.Name} — draw Wall / Room on the plan");
+            design.SetActiveTool(ShipDesignTool.Bulkhead);
+            toolsController.OnToolChanged();
+            planViewport.Fit();
         });
         var decks = ShipDeckNavigator.Build(design);
         var objects = ShipPlanObjectList.Build(design);
@@ -246,53 +241,48 @@ public static class ShipDesignChrome
             Background = new SolidColorBrush(Color.Parse("#1a1c20")),
         };
 
+        var centerHost = new Panel();
+        centerHost.Children.Add(planViewport);
+        if (cadEditor is not null)
+        {
+            // Cad tool strip docked when MODEL; surface fills center.
+            centerHost.Children.Add(cadEditor);
+        }
+        else
+        {
+            centerHost.Children.Add(editorSurface);
+        }
+
         var body = new DockPanel();
         DockPanel.SetDock(tools, Dock.Top);
-        if (cadToolStrip is not null)
-            DockPanel.SetDock(cadToolStrip, Dock.Top);
+        if (cadEditor is not null)
+            DockPanel.SetDock(cadEditor.ToolStrip, Dock.Top);
         DockPanel.SetDock(workspaceBar, Dock.Top);
         DockPanel.SetDock(analysisStrip, Dock.Top);
         DockPanel.SetDock(snapRow, Dock.Top);
         DockPanel.SetDock(status, Dock.Bottom);
         DockPanel.SetDock(right, Dock.Right);
         body.Children.Add(tools);
-        if (cadToolStrip is not null)
-            body.Children.Add(cadToolStrip);
+        if (cadEditor is not null)
+            body.Children.Add(cadEditor.ToolStrip);
         body.Children.Add(workspaceBar);
         body.Children.Add(analysisStrip);
         body.Children.Add(snapRow);
         body.Children.Add(status);
         body.Children.Add(right);
-        body.Children.Add(editorSurface);
+        body.Children.Add(centerHost);
+
+        ApplyWorkspaceVisibility();
         return body;
     }
 
-    private static Button Ws(
-        string label,
-        ShipWorkspaceKind kind,
-        ShipDesignSession design,
-        TextBlock status,
-        Action? onEnter = null)
+    private static Button Ws(string label, ShipWorkspaceKind kind, ShipDesignSession design, Action? onEnter)
     {
         var btn = new Button { Content = label, Padding = new Thickness(10, 4) };
         btn.Click += (_, _) =>
         {
             design.SetWorkspace(kind);
             onEnter?.Invoke();
-            if (onEnter is null)
-            {
-                status.Text = kind switch
-                {
-                    ShipWorkspaceKind.Plan => design.HasShip
-                        ? "PLAN — pick a tool, click the deck plan to place"
-                        : "PLAN — create a ship first",
-                    ShipWorkspaceKind.Model => design.HasShip
-                        ? "MODEL — select an object, then use CAD Line/Wall/Rect tools"
-                        : "MODEL — create a ship first",
-                    ShipWorkspaceKind.Analyze => "ANALYZE — engineering plausibility",
-                    _ => label,
-                };
-            }
         };
         return btn;
     }

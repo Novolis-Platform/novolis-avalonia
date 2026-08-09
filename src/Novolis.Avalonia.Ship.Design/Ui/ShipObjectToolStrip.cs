@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Novolis.Avalonia.Ship.Design.Services;
+using Novolis.Avalonia.Ship.Design.Plan;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
 
@@ -10,7 +10,10 @@ namespace Novolis.Avalonia.Ship.Design.Ui;
 
 public static class ShipObjectToolStrip
 {
-    public static Control Build(ShipDesignSession session, Action<string>? onStatus = null)
+    public static Control Build(
+        ShipDesignSession session,
+        ShipArchitectToolController tools,
+        Action<string>? onStatus = null)
     {
         var row = new StackPanel
         {
@@ -39,7 +42,7 @@ public static class ShipObjectToolStrip
             }
         }
 
-        void Add(string label, ShipDesignTool tool, bool placeable)
+        void Add(string label, ShipDesignTool tool)
         {
             var btn = new Button { Content = label, Padding = new Thickness(10, 4) };
             toolButtons[tool] = btn;
@@ -47,41 +50,41 @@ public static class ShipObjectToolStrip
             {
                 if (!session.HasShip && tool is not ShipDesignTool.Select)
                 {
-                    onStatus?.Invoke("Create a ship first (Create ship panel → Create ship).");
+                    onStatus?.Invoke("Create a ship first.");
                     return;
                 }
 
                 session.SetActiveTool(tool);
+                tools.OnToolChanged();
                 if (tool == ShipDesignTool.Hull && session.HasShip)
                     session.Select(session.Design.Hull.Id.AsObject());
                 else if (tool == ShipDesignTool.Structure && session.Design.Frames.Count > 0)
                     session.Select(session.Design.Frames[0].Id.AsObject());
 
-                // Immediate place so one toolbar click always produces visible geometry.
-                if (placeable && session.HasShip && session.Workspace == ShipWorkspaceKind.Plan)
-                {
-                    var msg = ShipPlanAuthoring.AddDefault(session, tool);
-                    onStatus?.Invoke(
-                        (msg ?? "Placed.") + " · click plan for another (2 clicks for path/box tools)");
-                }
-                else
-                {
-                    onStatus?.Invoke(ShipPlanAuthoring.ToolHint(tool));
-                }
-
+                var hint = ShipArchitectToolController.Hint(tool);
+                session.SetStatusMessage(hint);
+                onStatus?.Invoke(hint);
                 RefreshHighlight();
             };
             row.Children.Add(btn);
         }
 
-        Add("Select", ShipDesignTool.Select, placeable: false);
-        Add("Bulkhead", ShipDesignTool.Bulkhead, placeable: true);
-        Add("Compartment", ShipDesignTool.Compartment, placeable: true);
-        Add("Passage", ShipDesignTool.Passage, placeable: true);
-        Add("Opening", ShipDesignTool.Opening, placeable: true);
-        Add("Equipment", ShipDesignTool.Equipment, placeable: true);
-        Add("Structure", ShipDesignTool.Structure, placeable: false);
-        Add("Hull", ShipDesignTool.Hull, placeable: false);
+        Add("Select", ShipDesignTool.Select);
+        Add("Wall", ShipDesignTool.Bulkhead);
+        Add("Room", ShipDesignTool.Compartment);
+        Add("Passage", ShipDesignTool.Passage);
+        Add("Opening", ShipDesignTool.Opening);
+        Add("Equipment", ShipDesignTool.Equipment);
+        Add("Structure", ShipDesignTool.Structure);
+        Add("Hull", ShipDesignTool.Hull);
+
+        var undo = new Button { Content = "Undo", Padding = new Thickness(10, 4) };
+        undo.Click += (_, _) =>
+        {
+            if (session.TryUndo())
+                onStatus?.Invoke("Undo");
+        };
+        row.Children.Add(undo);
 
         var deckBox = new NumericUpDown
         {
@@ -101,6 +104,7 @@ public static class ShipObjectToolStrip
             deckBox.IsEnabled = session.HasShip;
             deckBox.Maximum = System.Math.Max(0, session.Design.Decks.Count - 1);
             deckBox.Value = session.ActiveDeckIndex;
+            undo.IsEnabled = session.HasShip;
             RefreshHighlight();
         };
 

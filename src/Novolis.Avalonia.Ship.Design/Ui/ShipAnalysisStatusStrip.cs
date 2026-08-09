@@ -4,13 +4,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Analysis;
+using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design.Ui;
 
 /// <summary>Compact live GREEN/YELLOW/RED analysis chips (§28).</summary>
 public static class ShipAnalysisStatusStrip
 {
-    public static Control Build(ShipDesignSession session)
+    public static Control Build(ShipDesignSession session, Action<IReadOnlyList<ShipObjectId>>? onHighlight = null)
     {
         var row = new StackPanel
         {
@@ -34,7 +35,9 @@ public static class ShipAnalysisStatusStrip
                 var status = session.Analysis.Categories.FirstOrDefault(c => c.Category == cat);
                 var severity = status?.Severity ?? AnalysisSeverity.Green;
                 var count = status?.FindingCount ?? 0;
-                var label = count > 0 ? $"{cat}  {severity.ToString().ToUpperInvariant()} {count}" : $"{cat}  {severity.ToString().ToUpperInvariant()}";
+                var label = count > 0
+                    ? $"{cat}  {severity.ToString().ToUpperInvariant()} {count}"
+                    : $"{cat}  {severity.ToString().ToUpperInvariant()}";
                 var btn = new Button
                 {
                     Content = label,
@@ -44,13 +47,27 @@ public static class ShipAnalysisStatusStrip
                     FontSize = 11,
                 };
                 var captured = cat;
-                btn.Click += (_, _) => session.SetAnalysisCategory(captured);
+                btn.Click += (_, _) =>
+                {
+                    if (session.Workspace != ShipWorkspaceKind.Analyze)
+                        session.SetWorkspace(ShipWorkspaceKind.Analyze);
+                    session.SetAnalysisCategory(captured);
+                    var ids = session.Analysis.Findings
+                        .Where(f => f.Category == captured && f.ObjectId is not null)
+                        .Select(f => new ShipObjectId(f.ObjectId!.Value))
+                        .Distinct()
+                        .ToList();
+                    onHighlight?.Invoke(ids);
+                    if (ids.Count == 0)
+                        session.SetHighlighted([]);
+                };
                 row.Children.Add(btn);
             }
 
             row.Children.Add(new TextBlock
             {
-                Text = $"mass {session.Analysis.TotalMassKg / 1000f:0.#} t · CG ({session.Analysis.CenterOfMassX:0.#},{session.Analysis.CenterOfMassY:0.#},{session.Analysis.CenterOfMassZ:0.#})",
+                Text =
+                    $"mass {session.Analysis.TotalMassKg / 1000f:0.#} t · CG ({session.Analysis.CenterOfMassX:0.#},{session.Analysis.CenterOfMassY:0.#},{session.Analysis.CenterOfMassZ:0.#})",
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 0, 0),
                 Foreground = Brushes.LightGray,

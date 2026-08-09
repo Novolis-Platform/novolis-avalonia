@@ -13,6 +13,8 @@ public sealed class ShipDesignSession
     private ShipValidationResult _validation = new() { Issues = [] };
     private ShipAnalysisReport _analysis = EmptyAnalysis();
     private readonly List<float[]> _placePoints = [];
+    private readonly Stack<ShipDesign> _undo = new();
+    private IReadOnlyList<ShipObjectId> _highlighted = [];
 
     public ShipDesignSession(string dataRoot)
     {
@@ -61,7 +63,13 @@ public sealed class ShipDesignSession
 
     public IReadOnlyList<float[]> PlacePoints => _placePoints;
 
+    public IReadOnlyList<ShipObjectId> HighlightedObjectIds => _highlighted;
+
+    public string? StatusMessage { get; private set; }
+
     public event Action? Changed;
+
+    public event Action? StrokePreviewChanged;
 
     public void ClearToBlank()
     {
@@ -109,11 +117,38 @@ public sealed class ShipDesignSession
         Notify();
     }
 
+    public void PushUndo()
+    {
+        if (!HasShip)
+            return;
+        _undo.Push(_design);
+    }
+
+    public bool TryUndo()
+    {
+        if (_undo.Count == 0)
+            return false;
+        _design = _undo.Pop();
+        HasShip = _design.Decks.Count > 0 && _design.Hull.Geometry.Entities.Count > 0;
+        Notify();
+        return true;
+    }
+
     public void Select(ShipObjectId? id)
     {
         SelectedObjectId = id;
         Notify();
     }
+
+    public void SetHighlighted(IReadOnlyList<ShipObjectId>? ids)
+    {
+        _highlighted = ids ?? [];
+        Notify();
+    }
+
+    public void SetStatusMessage(string? message) => StatusMessage = message;
+
+    public void NotifyStrokePreview() => StrokePreviewChanged?.Invoke();
 
     public void SetWorkspace(ShipWorkspaceKind workspace)
     {

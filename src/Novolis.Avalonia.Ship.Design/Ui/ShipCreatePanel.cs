@@ -7,7 +7,7 @@ using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design.Ui;
 
-/// <summary>Non-modal create-ship panel (definition → immediately valid design).</summary>
+/// <summary>Collapsible create-ship panel (definition → immediately valid design).</summary>
 public static class ShipCreatePanel
 {
     public static Control Build(ShipDesignSession session, Action? onCreated = null)
@@ -53,6 +53,30 @@ public static class ShipCreatePanel
             Width = 140,
         };
 
+        var body = new StackPanel { Spacing = 8 };
+        body.Children.Add(Labeled("Name", nameBox));
+        body.Children.Add(Labeled("Length (m)", lengthBox));
+        body.Children.Add(Labeled("Beam (m)", beamBox));
+        body.Children.Add(Labeled("Height (m)", heightBox));
+        body.Children.Add(Labeled("Deck count", decksBox));
+        body.Children.Add(Labeled("Deck spacing (m)", deckSpacingBox));
+        body.Children.Add(Labeled("Hull material", materialBox));
+        body.Children.Add(Labeled("Structure material", structMatBox));
+        body.Children.Add(Labeled("Hull thickness (m)", thicknessBox));
+        body.Children.Add(Labeled("Frame spacing (m)", spacingBox));
+        body.Children.Add(Labeled("Hull generator", hullBox));
+        body.Children.Add(Labeled("Gravity system", gravityBox));
+        body.Children.Add(Labeled("Nominal g", gBox));
+        body.Children.Add(Labeled("Cabin pressure (atm)", pressureBox));
+        body.Children.Add(Labeled("External", externalBox));
+
+        var expander = new Expander
+        {
+            Header = "Create ship",
+            IsExpanded = !session.HasShip,
+            Margin = new Thickness(8),
+        };
+
         var apply = new Button
         {
             Content = "Create ship",
@@ -92,43 +116,19 @@ public static class ShipCreatePanel
                     : ExternalEnvironmentKind.Vacuum,
             };
             session.NewShip(def);
+            expander.IsExpanded = false;
             onCreated?.Invoke();
         };
-
-        var form = new StackPanel { Spacing = 8, Margin = new Thickness(8) };
-        form.Children.Add(Header("Create ship"));
-        form.Children.Add(new TextBlock
+        body.Children.Add(apply);
+        body.Children.Add(new TextBlock
         {
-            Text = "Clean slate — set definition, then Create ship. PLAN tools place objects on the active deck.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = Brushes.CadetBlue,
-            FontSize = 11,
-            Margin = new Thickness(0, 0, 0, 4),
-        });
-        form.Children.Add(Labeled("Name", nameBox));
-        form.Children.Add(Labeled("Length (m)", lengthBox));
-        form.Children.Add(Labeled("Beam (m)", beamBox));
-        form.Children.Add(Labeled("Height (m)", heightBox));
-        form.Children.Add(Labeled("Deck count", decksBox));
-        form.Children.Add(Labeled("Deck spacing (m)", deckSpacingBox));
-        form.Children.Add(Labeled("Hull material", materialBox));
-        form.Children.Add(Labeled("Structure material", structMatBox));
-        form.Children.Add(Labeled("Hull thickness (m)", thicknessBox));
-        form.Children.Add(Labeled("Frame spacing (m)", spacingBox));
-        form.Children.Add(Labeled("Hull generator", hullBox));
-        form.Children.Add(Labeled("Gravity system", gravityBox));
-        form.Children.Add(Labeled("Nominal g", gBox));
-        form.Children.Add(Labeled("Cabin pressure (atm)", pressureBox));
-        form.Children.Add(Labeled("External", externalBox));
-        form.Children.Add(apply);
-        form.Children.Add(new TextBlock
-        {
-            Text = "Creates hull, decks, frames, longitudinals, primary bulkheads, environment, and load cases.",
+            Text = "Creates structure. Then draw Wall / Room / Opening on the deck plan.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.Gray,
             FontSize = 11,
         });
-        return form;
+        expander.Content = body;
+        return expander;
     }
 
     private static NumericUpDown Num(decimal value, decimal min = 1m, decimal max = 500m, string format = "0.##") =>
@@ -155,12 +155,4 @@ public static class ShipCreatePanel
         row.Children.Add(control);
         return row;
     }
-
-    private static TextBlock Header(string text) => new()
-    {
-        Text = text,
-        FontSize = 16,
-        FontWeight = FontWeight.SemiBold,
-        Margin = new Thickness(0, 0, 0, 4),
-    };
 }
