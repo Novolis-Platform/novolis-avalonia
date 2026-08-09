@@ -22,6 +22,7 @@
     <Project Path="src/Novolis.Avalonia.Cad/Novolis.Avalonia.Cad.csproj" />
     <Project Path="src/Novolis.Avalonia.Cad.Ship/Novolis.Avalonia.Cad.Ship.csproj" />
     <Project Path="src/Novolis.Avalonia.Ship/Novolis.Avalonia.Ship.csproj" />
+    <Project Path="src/Novolis.Avalonia.Ship.Design/Novolis.Avalonia.Ship.Design.csproj" />
     <Project Path="src/Novolis.Avalonia.Agent.Protocol/Novolis.Avalonia.Agent.Protocol.csproj" />
     <Project Path="src/Novolis.Avalonia.Agent/Novolis.Avalonia.Agent.csproj" />
     <Project Path="src/Novolis.3D.Scene/Novolis.3D.Scene.csproj" />

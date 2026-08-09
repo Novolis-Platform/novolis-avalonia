@@ -67,6 +67,15 @@
       ],
       "project": "src/Novolis.Avalonia.Ship/Novolis.Avalonia.Ship.csproj"
     },
+    "Novolis.Avalonia.Ship.Design": {
+      "paths": [
+        "src/Novolis.Avalonia.Ship.Design/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json"
+      ],
+      "project": "src/Novolis.Avalonia.Ship.Design/Novolis.Avalonia.Ship.Design.csproj"
+    },
     "Novolis.Avalonia.3D": {
       "paths": [
         "src/Novolis.Avalonia.3D/**",

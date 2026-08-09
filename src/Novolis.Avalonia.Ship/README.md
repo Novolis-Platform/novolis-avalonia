@@ -10,6 +10,8 @@
 
 Ship Designer UI chrome for Avalonia Cad hosts: validate ship, airtight overlay, hatch place helpers. Composes `Novolis.Avalonia.Cad`, `Novolis.Avalonia.Cad.Ship`, and `Novolis.Ship.*`.
 
+For object-first PLAN/MODEL/PRESENT authoring, use **`Novolis.Avalonia.Ship.Design`** (`ShipDesignSession` + `.shipjson`). This package remains the thin validate/import forwarder.
+
 ## Install
 
 ```bash

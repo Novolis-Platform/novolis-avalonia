@@ -27,10 +27,13 @@
     <PackageVersion Include="Novolis.Transports.LocalIpc" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Transports.Torrent" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Math.Measure" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.Primitives" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Primitives" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Topology" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Ship.Validation" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Ship.Design" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Avalonia.Ship.Design" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.SceneBridge" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.Evaluation" Version="2026.1.*" />
     <PackageVersion Include="Novolis.3D.Scene" Version="2026.1.*" />
