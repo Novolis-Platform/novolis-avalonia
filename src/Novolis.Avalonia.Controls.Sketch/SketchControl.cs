@@ -537,6 +537,12 @@ public sealed class SketchControl : Control
                 e.Handled = true;
                 InvalidateVisual();
                 return;
+
+            case SketchTool.Fill:
+                ApplyPaintBucket(screen);
+                e.Handled = true;
+                InvalidateVisual();
+                return;
         }
 
         // Select
@@ -726,7 +732,11 @@ public sealed class SketchControl : Control
             DrawGrid(context, doc.Grid.Size);
 
         foreach (var stroke in doc.Elements)
+        {
+            if (!doc.IsLayerVisible(stroke.LayerId))
+                continue;
             DrawElement(context, stroke);
+        }
 
         var draftPen = CreateStrokePen(
             new ImmutableSolidColorBrush(ParseColor(StrokeColor)),
@@ -1106,6 +1116,8 @@ public sealed class SketchControl : Control
         for (var i = doc.Elements.Count - 1; i >= 0; i--)
         {
             var stroke = doc.Elements[i];
+            if (!doc.IsLayerVisible(stroke.LayerId) || doc.IsLayerLocked(stroke.LayerId))
+                continue;
             if (HitDistance(stroke, world) <= tol + stroke.StrokeWidth)
                 _eraserBatch?.Add(stroke.Id);
         }
@@ -1169,7 +1181,9 @@ public sealed class SketchControl : Control
         _dragOriginalPoints = new Dictionary<string, List<SketchPoint>>(StringComparer.Ordinal);
         _dragOriginalRotations = new Dictionary<string, double>(StringComparer.Ordinal);
 
-        var targets = doc.Elements.Where(e => doc.Selection.Contains(e.Id)).ToList();
+        var targets = doc.Elements
+            .Where(e => doc.Selection.Contains(e.Id) && !doc.IsLayerLocked(e.LayerId))
+            .ToList();
         if (targets.Count == 0)
             return;
 
@@ -1323,6 +1337,8 @@ public sealed class SketchControl : Control
         for (var i = doc.Elements.Count - 1; i >= 0; i--)
         {
             var stroke = doc.Elements[i];
+            if (!doc.IsLayerVisible(stroke.LayerId))
+                continue;
             if (HitDistance(stroke, world) <= tol)
                 return stroke;
         }
@@ -1340,7 +1356,28 @@ public sealed class SketchControl : Control
                 ? 0
                 : double.PositiveInfinity;
 
+        var closed = stroke.Closed || IsNearlyClosed(stroke.Points);
+        if (closed && stroke.Points.Count >= 3
+            && SketchBounds.PointInRotatedPolygon(stroke.Points, stroke.RotationDegrees, world))
+            return 0;
+
         return SketchBounds.DistanceToRotatedPolyline(stroke.Points, stroke.RotationDegrees, world);
+    }
+
+    void ApplyPaintBucket(Point screen)
+    {
+        var hit = HitTestStroke(screen);
+        if (hit is null)
+            return;
+
+        var fill = string.IsNullOrWhiteSpace(FillColor)
+            ? (string.IsNullOrWhiteSpace(StrokeColor) ? "#1e1e1e" : StrokeColor)
+            : FillColor;
+        if (EnsureDocument().ApplyFill(hit.Id, fill))
+        {
+            DocumentChanged?.Invoke();
+            RaiseSelectionIfNeeded();
+        }
     }
 
     static SketchRect ElementWorldBounds(StrokeShape stroke) =>

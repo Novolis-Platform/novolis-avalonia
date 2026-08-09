@@ -1,17 +1,27 @@
 namespace Novolis.Avalonia.Controls.Sketch;
 
-/// <summary>In-memory sketch document: strokes, selection, grid, and undo history.</summary>
+/// <summary>In-memory sketch document: strokes, layers, selection, grid, and undo history.</summary>
 public sealed class SketchDocument
 {
+    /// <summary>Id of the built-in default layer.</summary>
+    public const string DefaultLayerId = "layer-default";
+
     readonly List<StrokeShape> _elements = [];
+    readonly List<SketchLayer> _layers = [];
     readonly HashSet<string> _selection = new(StringComparer.Ordinal);
     readonly SketchHistory _history = new();
 
-    /// <summary>Document format version.</summary>
-    public int Version { get; set; } = 2;
+    /// <summary>Document format version (3 = layers).</summary>
+    public int Version { get; set; } = 3;
 
     /// <summary>Grid configuration.</summary>
     public GridSettings Grid { get; } = new();
+
+    /// <summary>Layer stack (bottom → top order matches list order for new docs).</summary>
+    public IReadOnlyList<SketchLayer> Layers => _layers;
+
+    /// <summary>Active layer for new elements.</summary>
+    public string ActiveLayerId { get; set; } = DefaultLayerId;
 
     /// <summary>Committed stroke shapes (z-order = list order).</summary>
     public IReadOnlyList<StrokeShape> Elements => _elements;
@@ -27,6 +37,101 @@ public sealed class SketchDocument
 
     /// <summary>Whether redo is available.</summary>
     public bool CanRedo => _history.CanRedo;
+
+    /// <summary>Creates a document with a single default layer.</summary>
+    public SketchDocument()
+    {
+        EnsureDefaultLayer();
+    }
+
+    /// <summary>Ensures at least the default layer exists.</summary>
+    public void EnsureDefaultLayer()
+    {
+        if (_layers.Count > 0)
+            return;
+        _layers.Add(new SketchLayer { Id = DefaultLayerId, Name = "Layer 1" });
+        ActiveLayerId = DefaultLayerId;
+    }
+
+    /// <summary>Finds a layer by id.</summary>
+    public SketchLayer? FindLayer(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            id = DefaultLayerId;
+        foreach (var layer in _layers)
+        {
+            if (string.Equals(layer.Id, id, StringComparison.Ordinal))
+                return layer;
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether the layer (or default) is visible.</summary>
+    public bool IsLayerVisible(string? layerId)
+    {
+        EnsureDefaultLayer();
+        var layer = FindLayer(layerId) ?? FindLayer(DefaultLayerId);
+        return layer?.Visible != false;
+    }
+
+    /// <summary>Whether the layer (or default) is locked.</summary>
+    public bool IsLayerLocked(string? layerId)
+    {
+        EnsureDefaultLayer();
+        var layer = FindLayer(layerId) ?? FindLayer(DefaultLayerId);
+        return layer?.Locked == true;
+    }
+
+    /// <summary>Adds a layer and selects it as active.</summary>
+    public SketchLayer AddLayer(string? name = null)
+    {
+        EnsureDefaultLayer();
+        var layer = new SketchLayer
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = string.IsNullOrWhiteSpace(name) ? $"Layer {_layers.Count + 1}" : name.Trim()
+        };
+        _layers.Add(layer);
+        ActiveLayerId = layer.Id;
+        if (Version < 3)
+            Version = 3;
+        Notify();
+        return layer;
+    }
+
+    /// <summary>Replaces the layer list (used by load).</summary>
+    public void ReplaceLayers(IEnumerable<SketchLayer> layers)
+    {
+        ArgumentNullException.ThrowIfNull(layers);
+        _layers.Clear();
+        foreach (var layer in layers)
+            _layers.Add(layer.Clone());
+        EnsureDefaultLayer();
+        if (FindLayer(ActiveLayerId) is null)
+            ActiveLayerId = _layers[0].Id;
+        Notify();
+    }
+
+    /// <summary>Toggles visibility of a layer.</summary>
+    public void SetLayerVisible(string layerId, bool visible)
+    {
+        var layer = FindLayer(layerId);
+        if (layer is null)
+            return;
+        layer.Visible = visible;
+        Notify();
+    }
+
+    /// <summary>Toggles lock of a layer.</summary>
+    public void SetLayerLocked(string layerId, bool locked)
+    {
+        var layer = FindLayer(layerId);
+        if (layer is null)
+            return;
+        layer.Locked = locked;
+        Notify();
+    }
 
     /// <summary>Finds a stroke by id, or null.</summary>
     public StrokeShape? Find(string id)
@@ -45,10 +150,47 @@ public sealed class SketchDocument
     public void AddStroke(StrokeShape stroke)
     {
         ArgumentNullException.ThrowIfNull(stroke);
+        EnsureDefaultLayer();
+        if (string.IsNullOrWhiteSpace(stroke.LayerId))
+            stroke.LayerId = ActiveLayerId;
         _history.PushBeforeChange(_elements);
         _elements.Add(stroke);
         Notify();
     }
+
+    /// <summary>
+    /// Applies fill to <paramref name="strokeId"/> (closes open polylines with ≥3 points).
+    /// Returns false when missing, locked, or unsupported.
+    /// </summary>
+    public bool ApplyFill(string strokeId, string fillColor)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(strokeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fillColor);
+        var stroke = Find(strokeId);
+        if (stroke is null)
+            return false;
+        if (IsLayerLocked(stroke.LayerId))
+            return false;
+        if (stroke.Kind == SketchElementKind.Image)
+            return false;
+
+        Mutate(() =>
+        {
+            stroke.FillColor = fillColor;
+            if (stroke.Kind == SketchElementKind.Stroke && stroke.Points.Count >= 3)
+            {
+                stroke.Closed = true;
+                if (!NearlyClosed(stroke.Points))
+                    stroke.Points.Add(stroke.Points[0]);
+            }
+        });
+        return true;
+    }
+
+    static bool NearlyClosed(IReadOnlyList<SketchPoint> pts) =>
+        pts.Count >= 3
+        && Math.Abs(pts[0].X - pts[^1].X) < 1e-6
+        && Math.Abs(pts[0].Y - pts[^1].Y) < 1e-6;
 
     /// <summary>Replaces all elements (used by load / undo restore).</summary>
     public void ReplaceElements(IEnumerable<StrokeShape> elements, bool recordHistory = false)

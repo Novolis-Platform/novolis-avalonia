@@ -166,7 +166,7 @@ public sealed class SketchDocumentTests
         });
 
         var loaded = SketchJson.Deserialize(SketchJson.Serialize(doc));
-        await Assert.That(loaded.Version).IsEqualTo(2);
+        await Assert.That(loaded.Version).IsGreaterThanOrEqualTo(2);
         var text = loaded.Elements.First(e => e.Id == "t1");
         await Assert.That(text.Kind).IsEqualTo(SketchElementKind.Text);
         await Assert.That(text.Text).IsEqualTo("Hello");
@@ -176,6 +176,47 @@ public sealed class SketchDocumentTests
         var img = loaded.Elements.First(e => e.Id == "img");
         await Assert.That(img.Kind).IsEqualTo(SketchElementKind.Image);
         await Assert.That(img.ImagePngBase64).IsEqualTo("AQID");
+    }
+
+    [Test]
+    public async Task ApplyFill_Sets_Fill_And_Closes()
+    {
+        var doc = new SketchDocument();
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "poly",
+            Points =
+            [
+                new SketchPoint(0, 0),
+                new SketchPoint(10, 0),
+                new SketchPoint(10, 10),
+                new SketchPoint(0, 10)
+            ]
+        });
+        await Assert.That(doc.ApplyFill("poly", "#80ff0000")).IsTrue();
+        var s = doc.Find("poly")!;
+        await Assert.That(s.FillColor).IsEqualTo("#80ff0000");
+        await Assert.That(s.Closed).IsTrue();
+    }
+
+    [Test]
+    public async Task Json_RoundTrips_Layers()
+    {
+        var doc = new SketchDocument { Version = 3 };
+        var extra = doc.AddLayer("Overlay");
+        doc.AddStroke(new StrokeShape
+        {
+            Id = "a",
+            LayerId = extra.Id,
+            Points = [new SketchPoint(1, 2), new SketchPoint(3, 4)]
+        });
+        doc.SetLayerVisible(extra.Id, false);
+
+        var loaded = SketchJson.Deserialize(SketchJson.Serialize(doc));
+        await Assert.That(loaded.Version).IsGreaterThanOrEqualTo(3);
+        await Assert.That(loaded.Layers.Count).IsEqualTo(2);
+        await Assert.That(loaded.Find("a")!.LayerId).IsEqualTo(extra.Id);
+        await Assert.That(loaded.FindLayer(extra.Id)!.Visible).IsFalse();
     }
 
     [Test]
@@ -198,5 +239,6 @@ public sealed class SketchDocumentTests
         var loaded = SketchJson.Deserialize(json);
         await Assert.That(loaded.Elements[0].Kind).IsEqualTo(SketchElementKind.Stroke);
         await Assert.That(loaded.Elements[0].RotationDegrees).IsEqualTo(0.0);
+        await Assert.That(loaded.Layers.Count).IsGreaterThanOrEqualTo(1);
     }
 }

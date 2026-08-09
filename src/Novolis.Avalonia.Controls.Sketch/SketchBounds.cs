@@ -166,6 +166,45 @@ public static class SketchBounds
         return localBounds.Contains(local);
     }
 
+    /// <summary>
+    /// Whether <paramref name="worldPoint"/> lies inside a closed polygon after inverse-rotating
+    /// into local space (ray casting).
+    /// </summary>
+    public static bool PointInRotatedPolygon(
+        IReadOnlyList<SketchPoint> localPoints,
+        double rotationDegrees,
+        SketchPoint worldPoint)
+    {
+        ArgumentNullException.ThrowIfNull(localPoints);
+        if (localPoints.Count < 3)
+            return false;
+
+        var center = FromPoints(localPoints).Center;
+        var local = Math.Abs(rotationDegrees) < 1e-12
+            ? worldPoint
+            : RotatePoint(worldPoint, center, -rotationDegrees);
+
+        var count = localPoints.Count;
+        if (NearlyEqual(localPoints[0], localPoints[^1]) && count >= 4)
+            count--;
+
+        var inside = false;
+        for (int i = 0, j = count - 1; i < count; j = i++)
+        {
+            var pi = localPoints[i];
+            var pj = localPoints[j];
+            var intersect = pi.Y > local.Y != pj.Y > local.Y
+                            && local.X < (pj.X - pi.X) * (local.Y - pi.Y) / (pj.Y - pi.Y + 1e-18) + pi.X;
+            if (intersect)
+                inside = !inside;
+        }
+
+        return inside;
+    }
+
+    static bool NearlyEqual(SketchPoint a, SketchPoint b) =>
+        Math.Abs(a.X - b.X) < 1e-6 && Math.Abs(a.Y - b.Y) < 1e-6;
+
     static double Distance(SketchPoint a, SketchPoint b)
     {
         var dx = a.X - b.X;

@@ -18,7 +18,7 @@ public sealed class StrokeShape
     /// <summary>Stroke width in world units (hairlines down to ~0.25 supported).</summary>
     public double StrokeWidth { get; set; } = 2;
 
-    /// <summary>Optional fill color (#RRGGBB). Null/empty = unfilled.</summary>
+    /// <summary>Optional fill color (#RRGGBB or #AARRGGBB). Null/empty = unfilled.</summary>
     public string? FillColor { get; set; }
 
     /// <summary>Dash / stipple pattern.</summary>
@@ -32,6 +32,9 @@ public sealed class StrokeShape
 
     /// <summary>Optional group id for fused multi-select units.</summary>
     public string? GroupId { get; set; }
+
+    /// <summary>Layer id; null means the document default layer.</summary>
+    public string? LayerId { get; set; }
 
     /// <summary>Text content for <see cref="SketchElementKind.Text"/> / <see cref="SketchElementKind.TextBox"/>.</summary>
     public string? Text { get; set; }
@@ -55,6 +58,7 @@ public sealed class StrokeShape
         Closed = Closed,
         RotationDegrees = RotationDegrees,
         GroupId = GroupId,
+        LayerId = LayerId,
         Text = Text,
         FontSize = FontSize,
         ImagePngBase64 = ImagePngBase64

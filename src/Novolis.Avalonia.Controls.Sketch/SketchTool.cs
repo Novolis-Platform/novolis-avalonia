@@ -31,5 +31,8 @@ public enum SketchTool
     Text = 8,
 
     /// <summary>Drag a bordered text box.</summary>
-    TextBox = 9
+    TextBox = 9,
+
+    /// <summary>Click a shape to apply the current fill color (paint bucket).</summary>
+    Fill = 10
 }
