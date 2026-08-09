@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Ship</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Ship Designer Avalonia chrome: validate ship, hatch helpers, airtight overlay, deck ladder — composes Cad + Cad.Ship + Ship.*</Description>
+    <RootNamespace>Novolis.Avalonia.Ship</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Cad.Primitives" />
+    <PackageReference Include="Novolis.Ship.Primitives" />
+    <PackageReference Include="Novolis.Ship.Topology" />
+    <PackageReference Include="Novolis.Ship.Validation" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Cad.Ship\Novolis.Avalonia.Cad.Ship.csproj" />
+  </ItemGroup>
+</Project>
