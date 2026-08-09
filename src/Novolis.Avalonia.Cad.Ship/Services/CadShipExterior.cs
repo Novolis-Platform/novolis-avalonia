@@ -99,15 +99,21 @@ public static class CadShipExterior
                 var mesh = CadSolidTessellator.TryTessellate(entity);
                 if (mesh is null)
                     return;
-                // Raylib World has no filled triangle mesh helper yet — edge wireframe of authored triangles.
+                var edge = Color.FromArgb(255,
+                    System.Math.Clamp(color.R - 40, 0, 255),
+                    System.Math.Clamp(color.G - 40, 0, 255),
+                    System.Math.Clamp(color.B - 40, 0, 255));
                 for (var i = 0; i < mesh.Indices.Count; i += 3)
                 {
                     var a = mesh.Vertices[mesh.Indices[i]];
                     var b = mesh.Vertices[mesh.Indices[i + 1]];
                     var c = mesh.Vertices[mesh.Indices[i + 2]];
-                    World.DrawLine(a, b, color);
-                    World.DrawLine(b, c, color);
-                    World.DrawLine(c, a, color);
+                    // Both windings so backfaces still read under orbit lighting.
+                    World.DrawTriangle(a, b, c, color);
+                    World.DrawTriangle(a, c, b, color);
+                    World.DrawLine(a, b, edge);
+                    World.DrawLine(b, c, edge);
+                    World.DrawLine(c, a, edge);
                 }
 
                 break;
