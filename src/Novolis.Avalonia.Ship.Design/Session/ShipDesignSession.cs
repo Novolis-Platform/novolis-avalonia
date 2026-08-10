@@ -1,3 +1,4 @@
+using Novolis.Avalonia.Ship.Design.Plan;
 using Novolis.Cad.Primitives;
 using Novolis.Ship.Analysis;
 using Novolis.Ship.Design;
@@ -57,9 +58,34 @@ public sealed class ShipDesignSession
 
     public float SnapGridMeters { get; set; } = 0.25f;
 
+    /// <summary>Sticky F8 ortho (same as holding Shift).</summary>
+    public bool OrthoLocked { get; set; }
+
+    /// <summary>Sticky F7 15° angle lock (same as holding Ctrl).</summary>
+    public bool AngleLockEnabled { get; set; }
+
     public bool ShowDimensions { get; set; } = true;
 
     public bool ShowStructuralOverlays { get; set; } = true;
+
+    /// <summary>Last constraint snap kind for status chrome.</summary>
+    public ShipPlanConstraintSnapKind LastSnapKind { get; set; }
+
+    public void SetOrthoLocked(bool value)
+    {
+        if (OrthoLocked == value)
+            return;
+        OrthoLocked = value;
+        Notify();
+    }
+
+    public void SetAngleLockEnabled(bool value)
+    {
+        if (AngleLockEnabled == value)
+            return;
+        AngleLockEnabled = value;
+        Notify();
+    }
 
     public IReadOnlyList<float[]> PlacePoints => _placePoints;
 

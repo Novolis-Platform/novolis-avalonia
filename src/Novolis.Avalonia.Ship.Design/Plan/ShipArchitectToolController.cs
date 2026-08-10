@@ -31,7 +31,7 @@ public sealed class ShipArchitectToolController
         _status = Hint(_session.ActiveTool);
     }
 
-    /// <summary>Returns true when the click was consumed by a tool.</summary>
+    /// <summary>Returns true when the click was consumed by a tool. Coordinates are already constrained.</summary>
     public bool OnLeftClick(float x, float z, bool finishStroke)
     {
         if (!_session.HasShip || _session.Workspace != ShipWorkspaceKind.Plan)
@@ -41,8 +41,6 @@ public sealed class ShipArchitectToolController
 
         var deck = _session.Design.Decks[
             System.Math.Clamp(_session.ActiveDeckIndex, 0, _session.Design.Decks.Count - 1)];
-        x = _session.Snap(x);
-        z = _session.Snap(z);
 
         return _session.ActiveTool switch
         {
@@ -55,6 +53,8 @@ public sealed class ShipArchitectToolController
             _ => false,
         };
     }
+
+    public float[]? LastStrokePoint() => _stroke.Count > 0 ? _stroke[^1] : null;
 
     public bool OnKeyFinish()
     {
@@ -246,12 +246,12 @@ public sealed class ShipArchitectToolController
 
     public static string Hint(ShipDesignTool tool) => tool switch
     {
-        ShipDesignTool.Select => "Select — click walls, rooms, passages",
-        ShipDesignTool.Bulkhead => "Wall — click segment points, Enter to finish",
-        ShipDesignTool.Compartment => "Room — click polygon corners, Enter to close",
-        ShipDesignTool.Passage => "Passage — click path, Enter to finish",
-        ShipDesignTool.Opening => "Opening — click a wall to place a door",
-        ShipDesignTool.Equipment => "Equipment — click to place envelope",
+        ShipDesignTool.Select => "Select — click walls, rooms, passages · Shift ortho · Ctrl 15° · Alt free",
+        ShipDesignTool.Bulkhead => "Wall — click points · Shift ortho · Ctrl 15° · Enter finish",
+        ShipDesignTool.Compartment => "Room — polygon corners · Shift ortho · Enter close",
+        ShipDesignTool.Passage => "Passage — path · Shift ortho · Enter finish",
+        ShipDesignTool.Opening => "Opening — click a wall (edge snap) · Alt free",
+        ShipDesignTool.Equipment => "Equipment — click to place · Snap/Ortho apply",
         ShipDesignTool.Hull => "Hull selected",
         ShipDesignTool.Structure => "Structure selected",
         _ => tool.ToString(),

@@ -23,6 +23,8 @@ public sealed class ShipDeckPlanViewport : Control
     private Point? _hover;
     private DateTime _lastClickUtc;
     private ShipGrip? _dragGrip;
+    private ShipPlanConstraintResult? _hoverConstraint;
+    private KeyModifiers _mods;
 
     public ShipDeckPlanViewport(ShipDesignSession session, ShipArchitectToolController tools)
     {
@@ -62,9 +64,10 @@ public sealed class ShipDeckPlanViewport : Control
     {
         base.OnPointerPressed(e);
         Focus();
+        _mods = e.KeyModifiers;
         var p = e.GetPosition(this);
         var props = e.GetCurrentPoint(this).Properties;
-        if (props.IsMiddleButtonPressed || (props.IsLeftButtonPressed && e.KeyModifiers.HasFlag(KeyModifiers.Alt)))
+        if (props.IsMiddleButtonPressed)
         {
             _panning = true;
             _last = p;
@@ -76,7 +79,10 @@ public sealed class ShipDeckPlanViewport : Control
         if (!props.IsLeftButtonPressed)
             return;
 
-        var world = Snap(ScreenToWorld(p));
+        var resolved = ResolveAt(ScreenToWorld(p), preferEdge: _session.ActiveTool == ShipDesignTool.Opening);
+        _hoverConstraint = resolved;
+        _session.LastSnapKind = resolved.Kind;
+        var world = new Vector3(resolved.X, 0, resolved.Z);
         if (_session.ActiveTool == ShipDesignTool.Select && TryBeginGrip(world))
         {
             e.Pointer.Capture(this);
@@ -90,7 +96,7 @@ public sealed class ShipDeckPlanViewport : Control
         if (_tools.OnLeftClick(world.X, world.Z, finishStroke: dbl))
         {
             if (_tools.Status is { } s)
-                _session.SetStatusMessage(s);
+                _session.SetStatusMessage(FormatStatus(s, resolved));
             InvalidateVisual();
             e.Handled = true;
         }
@@ -99,6 +105,7 @@ public sealed class ShipDeckPlanViewport : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        _mods = e.KeyModifiers;
         var p = e.GetPosition(this);
         _hover = p;
         if (_panning)
@@ -111,10 +118,13 @@ public sealed class ShipDeckPlanViewport : Control
             return;
         }
 
+        var resolved = ResolveAt(ScreenToWorld(p), preferEdge: _session.ActiveTool == ShipDesignTool.Opening);
+        _hoverConstraint = resolved;
+        _session.LastSnapKind = resolved.Kind;
+
         if (_dragGrip is not null && _session.SelectedObjectId is { } oid)
         {
-            var w = Snap(ScreenToWorld(p));
-            ApplyGrip(oid, _dragGrip, w);
+            ApplyGrip(oid, _dragGrip, new Vector3(resolved.X, 0, resolved.Z));
             e.Handled = true;
             return;
         }
@@ -156,6 +166,25 @@ public sealed class ShipDeckPlanViewport : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        _mods = e.KeyModifiers;
+        if (e.Key == Key.F8)
+        {
+            _session.SetOrthoLocked(!_session.OrthoLocked);
+            _session.SetStatusMessage(_session.OrthoLocked ? "ORTHO on (F8)" : "ORTHO off");
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F7)
+        {
+            _session.SetAngleLockEnabled(!_session.AngleLockEnabled);
+            _session.SetStatusMessage(_session.AngleLockEnabled ? "ANG15 on (F7)" : "ANG15 off");
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key is Key.Enter or Key.Space)
         {
             if (_tools.OnKeyFinish())
@@ -220,10 +249,13 @@ public sealed class ShipDeckPlanViewport : Control
         }
 
         DrawStroke(context);
+        DrawGuides(context);
         if (_session.ShowDimensions && _session.SelectedObjectId is { } sel)
             DrawDims(context, design, sel);
         DrawGrips(context);
-        DrawBadge(context, deck is null ? design.Ship.Name : $"{deck.Name} · {ShipArchitectToolController.Hint(_session.ActiveTool)}");
+        DrawBadge(context, deck is null
+            ? design.Ship.Name
+            : $"{deck.Name} · {ConstraintBadge()} · {ShipArchitectToolController.Hint(_session.ActiveTool)}");
         DrawHover(context);
     }
 
@@ -371,16 +403,61 @@ public sealed class ShipDeckPlanViewport : Control
     private void DrawStroke(DrawingContext context)
     {
         var pts = _tools.StrokePoints;
-        if (pts.Count == 0)
-            return;
         var pen = new Pen(new SolidColorBrush(Color.FromRgb(90, 220, 180)), 2);
-        for (var i = 0; i < pts.Count - 1; i++)
-            context.DrawLine(pen, WorldToScreen(new Vector3(pts[i][0], 0, pts[i][1])), WorldToScreen(new Vector3(pts[i + 1][0], 0, pts[i + 1][1])));
+        if (pts.Count >= 2)
+        {
+            for (var i = 0; i < pts.Count - 1; i++)
+                context.DrawLine(pen, WorldToScreen(new Vector3(pts[i][0], 0, pts[i][1])), WorldToScreen(new Vector3(pts[i + 1][0], 0, pts[i + 1][1])));
+        }
+
         foreach (var p in pts)
         {
             var s = WorldToScreen(new Vector3(p[0], 0, p[1]));
             context.DrawEllipse(new SolidColorBrush(Color.FromRgb(90, 220, 180)), null, s, 3.5, 3.5);
         }
+
+        // Rubber-band to constrained hover.
+        if (pts.Count > 0 && _hoverConstraint is { } hc
+            && _session.ActiveTool is ShipDesignTool.Bulkhead or ShipDesignTool.Compartment or ShipDesignTool.Passage)
+        {
+            var last = pts[^1];
+            var rubber = new Pen(new SolidColorBrush(Color.FromArgb(200, 120, 230, 200)), 1.5);
+            context.DrawLine(
+                rubber,
+                WorldToScreen(new Vector3(last[0], 0, last[1])),
+                WorldToScreen(new Vector3(hc.X, 0, hc.Z)));
+            if (hc.SegmentLengthM is { } len && len > 1e-3f)
+            {
+                var mid = WorldToScreen(new Vector3((last[0] + hc.X) * 0.5f, 0, (last[1] + hc.Z) * 0.5f));
+                var ang = hc.SegmentAngleDeg ?? 0f;
+                DrawLabel(context, mid, $"{len:0.##} m · {ang:0.#}°");
+            }
+        }
+    }
+
+    private void DrawGuides(DrawingContext context)
+    {
+        if (_hoverConstraint is not { Guides.Count: > 0 } hc)
+            return;
+        var pen = new Pen(new SolidColorBrush(Color.FromArgb(140, 255, 180, 70)), 1, dashStyle: DashStyle.Dash);
+        foreach (var g in hc.Guides)
+        {
+            context.DrawLine(
+                pen,
+                WorldToScreen(new Vector3(g.Ax, 0, g.Az)),
+                WorldToScreen(new Vector3(g.Bx, 0, g.Bz)));
+        }
+
+        // Snap marker
+        var s = WorldToScreen(new Vector3(hc.X, 0, hc.Z));
+        var mark = hc.Kind switch
+        {
+            ShipPlanConstraintSnapKind.Vertex => Color.FromRgb(255, 210, 90),
+            ShipPlanConstraintSnapKind.Midpoint => Color.FromRgb(120, 200, 255),
+            ShipPlanConstraintSnapKind.Edge => Color.FromRgb(180, 220, 140),
+            _ => Color.FromRgb(160, 160, 170),
+        };
+        context.DrawEllipse(new SolidColorBrush(mark), new Pen(Brushes.Black, 1), s, 4.5, 4.5);
     }
 
     private void DrawDims(DrawingContext context, ShipDesign design, ShipObjectId id)
@@ -595,17 +672,74 @@ public sealed class ShipDeckPlanViewport : Control
 
     private void DrawHover(DrawingContext context)
     {
-        if (_hover is not { } hp)
+        if (_hoverConstraint is not { } hc)
             return;
-        var w = Snap(ScreenToWorld(hp));
+        var mode = ConstraintBadge();
         context.DrawText(
-            new FormattedText($"{w.X:0.##}, {w.Z:0.##} m", System.Globalization.CultureInfo.InvariantCulture,
+            new FormattedText(
+                $"{hc.X:0.##}, {hc.Z:0.##} m · {hc.Kind} · {mode}",
+                System.Globalization.CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, new Typeface("Consolas"), 11, Brushes.Gray),
             new Point(10, Bounds.Height - 22));
     }
 
-    private Vector3 Snap(Vector3 w) =>
-        new(_session.Snap(w.X), 0, _session.Snap(w.Z));
+    private ShipPlanConstraintResult ResolveAt(Vector3 raw, bool preferEdge)
+    {
+        DeckId? deckId = null;
+        if (_session.HasShip && _session.Design.Decks.Count > 0)
+        {
+            var deck = _session.Design.Decks[
+                System.Math.Clamp(_session.ActiveDeckIndex, 0, _session.Design.Decks.Count - 1)];
+            deckId = deck.Id;
+        }
+
+        float? lastX = null;
+        float? lastZ = null;
+        if (_dragGrip is not null)
+        {
+            lastX = _dragGrip.X;
+            lastZ = _dragGrip.Z;
+        }
+        else if (_tools.LastStrokePoint() is { } last)
+        {
+            lastX = last[0];
+            lastZ = last[1];
+        }
+
+        // Screen-scaled object snap (~12 px).
+        var tol = (float)System.Math.Clamp(12.0 / _scale, 0.2, 0.75);
+        return ShipPlanConstraintResolver.Resolve(
+            raw.X,
+            raw.Z,
+            lastX,
+            lastZ,
+            _session,
+            deckId,
+            altFree: _mods.HasFlag(KeyModifiers.Alt),
+            shiftOrtho: _mods.HasFlag(KeyModifiers.Shift),
+            ctrlAngle: _mods.HasFlag(KeyModifiers.Control),
+            objectSnapTolM: tol,
+            preferEdgeFirst: preferEdge);
+    }
+
+    private string ConstraintBadge()
+    {
+        if (_mods.HasFlag(KeyModifiers.Alt))
+            return "FREE";
+        if (_mods.HasFlag(KeyModifiers.Control) || _session.AngleLockEnabled)
+            return "ANG15";
+        if (_mods.HasFlag(KeyModifiers.Shift) || _session.OrthoLocked)
+            return "ORTHO";
+        return _session.SnapEnabled ? "SNAP" : "OFF";
+    }
+
+    private static string FormatStatus(string toolStatus, ShipPlanConstraintResult resolved)
+    {
+        var extra = resolved.SegmentLengthM is { } len && len > 1e-3f
+            ? $" · {len:0.##} m"
+            : "";
+        return $"{toolStatus} · {resolved.Kind}{extra}";
+    }
 
     private Point WorldToScreen(Vector3 w) =>
         new(Bounds.Width * 0.5 + (w.X - _originX) * _scale, Bounds.Height * 0.5 + (w.Z - _originZ) * _scale);

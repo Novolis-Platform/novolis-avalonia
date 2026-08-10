@@ -6,7 +6,7 @@ using Novolis.Avalonia.Ship.Design.Session;
 
 namespace Novolis.Avalonia.Ship.Design.Ui;
 
-/// <summary>PLAN snapping / dimension readout controls.</summary>
+/// <summary>PLAN snapping / ortho / angle lock controls.</summary>
 public static class ShipSnapSettings
 {
     public static Control Build(ShipDesignSession session)
@@ -36,6 +36,12 @@ public static class ShipSnapSettings
             }
         };
 
+        var ortho = new CheckBox { Content = "Ortho (F8)", IsChecked = session.OrthoLocked };
+        ortho.IsCheckedChanged += (_, _) => session.SetOrthoLocked(ortho.IsChecked == true);
+
+        var ang15 = new CheckBox { Content = "Ang15 (F7)", IsChecked = session.AngleLockEnabled };
+        ang15.IsCheckedChanged += (_, _) => session.SetAngleLockEnabled(ang15.IsChecked == true);
+
         var dims = new CheckBox { Content = "Dimensions", IsChecked = session.ShowDimensions };
         dims.IsCheckedChanged += (_, _) =>
         {
@@ -48,6 +54,13 @@ public static class ShipSnapSettings
         {
             session.ShowStructuralOverlays = overlays.IsChecked == true;
             session.Notify();
+        };
+
+        session.Changed += () =>
+        {
+            ortho.IsChecked = session.OrthoLocked;
+            ang15.IsChecked = session.AngleLockEnabled;
+            snap.IsChecked = session.SnapEnabled;
         };
 
         var row = new StackPanel
@@ -64,8 +77,18 @@ public static class ShipSnapSettings
             Foreground = Brushes.Gray,
         });
         row.Children.Add(grid);
+        row.Children.Add(ortho);
+        row.Children.Add(ang15);
         row.Children.Add(dims);
         row.Children.Add(overlays);
+        row.Children.Add(new TextBlock
+        {
+            Text = "Shift=ortho · Ctrl=15° · Alt=free · MMB=pan",
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = Brushes.DimGray,
+            FontSize = 11,
+            Margin = new Thickness(8, 0, 0, 0),
+        });
         return row;
     }
 }

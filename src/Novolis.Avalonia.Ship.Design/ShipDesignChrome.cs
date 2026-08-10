@@ -117,9 +117,13 @@ public static class ShipDesignChrome
                 : 0;
             var name = design.HasShip ? design.Design.Ship.Name : "(untitled)";
             var msg = design.StatusMessage;
+            var lockMode = design.AngleLockEnabled ? "ANG15"
+                : design.OrthoLocked ? "ORTHO"
+                : design.SnapEnabled ? "SNAP" : "OFF";
             status.Text = string.IsNullOrWhiteSpace(msg)
                 ? $"{design.Workspace} · {name} · deck {design.ActiveDeckIndex}"
                   + $" · {design.ActiveTool}"
+                  + $" · {lockMode}/{design.LastSnapKind}"
                   + $" · val {(val.Ok ? "OK" : "FAIL")}({val.Issues.Count})"
                   + $" · {design.Analysis.Worst}"
                   + $" · grips {gripCount}"
