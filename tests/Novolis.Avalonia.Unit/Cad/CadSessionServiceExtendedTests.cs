@@ -3,7 +3,7 @@ using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
 using Novolis.Cad.Primitives;
-using Novolis._3D;
+using Novolis.ThreeD;
 
 namespace Novolis.Avalonia.Unit.Cad;
 

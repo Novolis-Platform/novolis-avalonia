@@ -22,7 +22,7 @@ Published docs: [https://novolis-platform.github.io/.github/novolis-avalonia/](h
 
 ## Packages
 
-- `Novolis.Avalonia.3D`
+- `Novolis.Avalonia.ThreeD`
 - `Novolis.Avalonia.Agent`
 - `Novolis.Avalonia.Agent.Protocol`
 - `Novolis.Avalonia.Audio`

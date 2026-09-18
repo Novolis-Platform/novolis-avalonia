@@ -2,8 +2,7 @@ using Novolis.Cad.Evaluation;
 using Novolis.Cad.Primitives;
 using Novolis.Math.Geometry;
 using Novolis.Ship.Design;
-using Novolis._3D;
-using Novolis._3D.Modeling;
+using Novolis.ThreeD;
 
 namespace Novolis.Avalonia.Ship.Design.Services;
 
@@ -19,7 +18,7 @@ public sealed class ShipDesignEvaluationResult
 
 /// <summary>
 /// Baseline rendering pipeline (§22):
-/// ShipDesign → per-object CadDocument → Cad.Evaluation → 3D.Modeling cutouts → 3D.Scene.
+/// ShipDesign → per-object CadDocument → Cad.Evaluation → Math.Geometry cutouts → ThreeD.Scene.
 /// Neither Ship.Design nor Cad packages render; this composes evaluated meshes only.
 /// </summary>
 public static class ShipDesignEvaluator
@@ -47,7 +46,10 @@ public static class ShipDesignEvaluator
                 continue;
             if (!hostMeshes.TryGetValue(cutout.SourceId.Value, out var source))
                 continue;
-            hostMeshes[cutout.HostId.Value] = ModelingMesh.BooleanDifference(host, source);
+            hostMeshes[cutout.HostId.Value] = MeshBoolean.Apply(
+                host,
+                source,
+                MeshBooleanKind.Difference);
         }
 
         var scene = ComposeScene(design.Ship.Name, hostMeshes, labels);
@@ -97,7 +99,15 @@ public static class ShipDesignEvaluator
             }
         }
 
-        return ModelingMesh.Combine(parts);
+        EditableMesh? combined = null;
+        foreach (var part in parts)
+        {
+            combined = combined is null
+                ? part.Clone()
+                : MeshBoolean.Concat(combined, part);
+        }
+
+        return combined ?? new EditableMesh();
     }
 
     private static SceneDocument ComposeScene(

@@ -76,42 +76,15 @@
       ],
       "project": "src/Novolis.Avalonia.Ship.Design/Novolis.Avalonia.Ship.Design.csproj"
     },
-    "Novolis.3D.Scene": {
+    "Novolis.Avalonia.ThreeD": {
       "paths": [
-        "src/Novolis.3D.Scene/**",
-        "Directory.Build.props",
-        "Directory.Packages.props",
-        "global.json"
-      ],
-      "project": "src/Novolis.3D.Scene/Novolis.3D.Scene.csproj"
-    },
-    "Novolis.3D.Modeling": {
-      "paths": [
-        "src/Novolis.3D.Modeling/**",
-        "Directory.Build.props",
-        "Directory.Packages.props",
-        "global.json"
-      ],
-      "project": "src/Novolis.3D.Modeling/Novolis.3D.Modeling.csproj"
-    },
-    "Novolis.3D.Import": {
-      "paths": [
-        "src/Novolis.3D.Import/**",
-        "Directory.Build.props",
-        "Directory.Packages.props",
-        "global.json"
-      ],
-      "project": "src/Novolis.3D.Import/Novolis.3D.Import.csproj"
-    },
-    "Novolis.Avalonia.3D": {
-      "paths": [
-        "src/Novolis.Avalonia.3D/**",
+        "src/Novolis.Avalonia.ThreeD/**",
         "samples/LightLab/**",
         "Directory.Build.props",
         "Directory.Packages.props",
         "global.json"
       ],
-      "project": "src/Novolis.Avalonia.3D/Novolis.Avalonia.3D.csproj"
+      "project": "src/Novolis.Avalonia.ThreeD/Novolis.Avalonia.ThreeD.csproj"
     },
     "Novolis.Avalonia.Studio": {
       "paths": [

@@ -4,7 +4,7 @@ using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
 using Novolis.Cad.Primitives;
 using Novolis.Cad.SceneBridge;
-using Novolis._3D;
+using Novolis.ThreeD;
 
 namespace Novolis.Avalonia.Cad.Session;
 

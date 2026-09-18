@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.ThreeD</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Avalonia ThreeD editor surface: scene hierarchy, OpenGL wireframe viewport, mesh tools, lights, cameras, and agent session.</Description>
+    <RootNamespace>Novolis.Avalonia.ThreeD</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Math.Geometry" />
+    <PackageReference Include="Novolis.Agent.Core" />
+    <PackageReference Include="Novolis.Agent.Surface" />
+    <PackageReference Include="Novolis.Raylib.Abstractions" />
+    <PackageReference Include="Novolis.Raylib.Bindings" />
+    <PackageReference Include="Novolis.Raylib.Runtime" />
+    <PackageReference Include="Novolis.Simulation.View" />
+    <PackageReference Include="Silk.NET.OpenGL" />
+    <!-- Owned here so CAD hosts (SceneLab/ViewportBench) need not pin Silk for OpenGL/Vulkan natives. -->
+    <PackageReference Include="Silk.NET.Vulkan" />
+    <PackageReference Include="Silk.NET.Shaderc" />
+    <PackageReference Include="Silk.NET.Shaderc.Native" />
+    <PackageReference Include="Novolis.Rendering.Backends.Vulkan" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Novolis.ThreeD.Scene" />
+    <PackageReference Include="Novolis.ThreeD.Import.Assimp" />
+    <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
+    <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
+  </ItemGroup>
+</Project>

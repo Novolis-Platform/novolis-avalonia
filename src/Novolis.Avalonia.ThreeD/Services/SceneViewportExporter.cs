@@ -1,0 +1,103 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Novolis.Avalonia.ThreeD.Ui;
+
+namespace Novolis.Avalonia.ThreeD.Services;
+
+/// <summary>PNG capture helpers for scene viewports (GL readback or Avalonia RenderTargetBitmap).</summary>
+public static class SceneViewportExporter
+{
+    public static string ExportsDirectory(string root) => Path.Combine(root, "exports");
+
+    public static string DumpsDirectory(string root) => Path.Combine(root, "dumps");
+
+    public static string AllocatePath(string directory, string kind, string extension = "png") =>
+        Path.Combine(directory, $"{kind}-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}.{extension}");
+
+    public static bool TryExportControlPng(Control control, string path)
+    {
+        try
+        {
+            control.UpdateLayout();
+            var w = System.Math.Max(1, (int)System.Math.Ceiling(control.Bounds.Width));
+            var h = System.Math.Max(1, (int)System.Math.Ceiling(control.Bounds.Height));
+            if (w < 2 || h < 2)
+                return false;
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(w, h), new Vector(96, 96));
+            bitmap.Render(control);
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+                Directory.CreateDirectory(dir);
+            using var stream = File.Create(path);
+            bitmap.Save(stream);
+            return stream.Length > 32;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Writes top-down RGBA8888 bytes to a PNG file.</summary>
+    public static bool TryWriteRgbaPng(string path, ReadOnlySpan<byte> rgbaTopDown, int width, int height)
+    {
+        try
+        {
+            if (width < 2 || height < 2 || rgbaTopDown.Length < width * height * 4)
+                return false;
+
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+                Directory.CreateDirectory(dir);
+
+            using var bmp = new WriteableBitmap(
+                new PixelSize(width, height),
+                new Vector(96, 96),
+                PixelFormat.Rgba8888,
+                AlphaFormat.Opaque);
+            using (var fb = bmp.Lock())
+            {
+                unsafe
+                {
+                    fixed (byte* src = rgbaTopDown)
+                        Buffer.MemoryCopy(src, (void*)fb.Address, fb.RowBytes * height, width * height * 4);
+                }
+            }
+
+            using var stream = File.Create(path);
+            bmp.Save(stream);
+            return stream.Length > 32;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static async Task<bool> ExportViewportPngAsync(
+        SceneViewportControl viewport,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(viewport);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (await viewport.CapturePngAsync(path).ConfigureAwait(true))
+            return true;
+
+        // Fallback: Avalonia compose (may be blank for GL until a frame has been presented).
+        for (var i = 0; i < 8; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            viewport.RequestPresent();
+            await Task.Delay(40, cancellationToken).ConfigureAwait(true);
+            if (TryExportControlPng(viewport, path))
+                return true;
+        }
+
+        return false;
+    }
+}

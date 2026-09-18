@@ -41,21 +41,20 @@
 
 | Package | Install | Package README |
 |---------|---------|----------------|
-| `Novolis.3D.Import` | `dotnet add package Novolis.3D.Import` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.3D.Import/README.md) |
-| `Novolis.3D.Scene` | `dotnet add package Novolis.3D.Scene` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.3D.Scene/README.md) |
-| `Novolis.Avalonia.3D` | `dotnet add package Novolis.Avalonia.3D` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.3D/README.md) |
 | `Novolis.Avalonia.Agent` | `dotnet add package Novolis.Avalonia.Agent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent/README.md) |
 | `Novolis.Avalonia.Agent.Protocol` | `dotnet add package Novolis.Avalonia.Agent.Protocol` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent.Protocol/README.md) |
 | `Novolis.Avalonia.Audio` | `dotnet add package Novolis.Avalonia.Audio` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Audio/README.md) |
 | `Novolis.Avalonia.Briefing` | `dotnet add package Novolis.Avalonia.Briefing` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Briefing/README.md) |
 | `Novolis.Avalonia.Cad` | `dotnet add package Novolis.Avalonia.Cad` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad/README.md) |
+| `Novolis.Avalonia.Cad.Ship` | `dotnet add package Novolis.Avalonia.Cad.Ship` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad.Ship/README.md) |
 | `Novolis.Avalonia.Controls` | `dotnet add package Novolis.Avalonia.Controls` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Controls/README.md) |
 | `Novolis.Avalonia.Controls.Sketch` | `dotnet add package Novolis.Avalonia.Controls.Sketch` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Controls.Sketch/README.md) |
-| `Novolis.Avalonia.Torrent` | `dotnet add package Novolis.Avalonia.Torrent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Torrent/README.md) |
-| `Novolis.Avalonia.Cad.Ship` | `dotnet add package Novolis.Avalonia.Cad.Ship` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad.Ship/README.md) |
+| `Novolis.Avalonia.Diagnostics` | `dotnet add package Novolis.Avalonia.Diagnostics` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Diagnostics/README.md) |
 | `Novolis.Avalonia.Gaming` | `dotnet add package Novolis.Avalonia.Gaming` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Gaming/README.md) |
+| `Novolis.Avalonia.Git` | `dotnet add package Novolis.Avalonia.Git` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Git/README.md) |
 | `Novolis.Avalonia.Layout` | `dotnet add package Novolis.Avalonia.Layout` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Layout/README.md) |
 | `Novolis.Avalonia.Live` | `dotnet add package Novolis.Avalonia.Live` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Live/README.md) |
+| `Novolis.Avalonia.Manuscript` | `dotnet add package Novolis.Avalonia.Manuscript` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Manuscript/README.md) |
 | `Novolis.Avalonia.Markdown` | `dotnet add package Novolis.Avalonia.Markdown` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Markdown/README.md) |
 | `Novolis.Avalonia.Mermaid` | `dotnet add package Novolis.Avalonia.Mermaid` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Mermaid/README.md) |
 | `Novolis.Avalonia.Mobile` | `dotnet add package Novolis.Avalonia.Mobile` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Mobile/README.md) |
@@ -64,8 +63,13 @@
 | `Novolis.Avalonia.Packaging.Inno` | `dotnet add package Novolis.Avalonia.Packaging.Inno` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Packaging.Inno/README.md) |
 | `Novolis.Avalonia.Raylib` | `dotnet add package Novolis.Avalonia.Raylib` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Raylib/README.md) |
 | `Novolis.Avalonia.Rendering` | `dotnet add package Novolis.Avalonia.Rendering` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Rendering/README.md) |
+| `Novolis.Avalonia.Ship` | `dotnet add package Novolis.Avalonia.Ship` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Ship/README.md) |
+| `Novolis.Avalonia.Ship.Design` | `dotnet add package Novolis.Avalonia.Ship.Design` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Ship.Design/README.md) |
+| `Novolis.Avalonia.Speech` | `dotnet add package Novolis.Avalonia.Speech` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Speech/README.md) |
 | `Novolis.Avalonia.StarMap` | `dotnet add package Novolis.Avalonia.StarMap` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.StarMap/README.md) |
 | `Novolis.Avalonia.Studio` | `dotnet add package Novolis.Avalonia.Studio` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Studio/README.md) |
+| `Novolis.Avalonia.ThreeD` | `dotnet add package Novolis.Avalonia.ThreeD` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.ThreeD/README.md) |
+| `Novolis.Avalonia.Torrent` | `dotnet add package Novolis.Avalonia.Torrent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Torrent/README.md) |
 | `Novolis.Avalonia.Video` | `dotnet add package Novolis.Avalonia.Video` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Video/README.md) |
 | `Novolis.Avalonia.Voice` | `dotnet add package Novolis.Avalonia.Voice` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Voice/README.md) |
 
@@ -103,9 +107,7 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Mobile.Desktop`](src/Novolis.Avalonia.Mobile.Desktop/README.md) | Windows Credential Manager + LocalAppData + system browser |
 | [`Novolis.Avalonia.Mobile.Android`](src/Novolis.Avalonia.Mobile.Android/README.md) | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
 | [`Novolis.Avalonia.Voice`](src/Novolis.Avalonia.Voice/README.md) | Voice preset studio UI |
-| [`Novolis.3D.Scene`](src/Novolis.3D.Scene/README.md) | Avalonia-free mesh scene graph (`.nov3djson`) |
-| [`Novolis.3D.Import`](src/Novolis.3D.Import/README.md) | Assimp mesh import → `EditableMesh` |
-| [`Novolis.Avalonia.3D`](src/Novolis.Avalonia.3D/README.md) | Scene editor / OpenGL 3D renderer surface |
+| [`Novolis.Avalonia.ThreeD`](src/Novolis.Avalonia.ThreeD/README.md) | Scene editor / OpenGL 3D renderer surface |
 | [`Novolis.Avalonia.Cad`](src/Novolis.Avalonia.Cad/README.md) | Shared CAD surface: Draft Studio, CAD Studio 3D, preview hosts |
 | [`Novolis.Avalonia.Agent`](src/Novolis.Avalonia.Agent/README.md) | LocalIpc UI agent host for MCP / tooling |
 | [`Novolis.Avalonia.Agent.Protocol`](src/Novolis.Avalonia.Agent.Protocol/README.md) | MessagePack DTOs and `UiAgentClient` RPC client |
