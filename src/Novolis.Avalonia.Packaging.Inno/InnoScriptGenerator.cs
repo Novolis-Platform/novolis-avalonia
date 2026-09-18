@@ -112,7 +112,7 @@ public sealed class InnoScriptGenerator
         sb.AppendLine($"OutputDir={OutputDir}");
         sb.AppendLine("PrivilegesRequired=lowest");
         sb.AppendLine("UsePreviousAppDir=yes");
-        sb.AppendLine("AllowDowngrades=no");
+        sb.AppendLine("AllowDowngrade=no");
         sb.AppendLine("DisableDirPage=auto");
         sb.AppendLine("CloseApplications=yes");
         var closeFilter = string.IsNullOrWhiteSpace(CloseApplicationsFilter) ? AppExeName : CloseApplicationsFilter;

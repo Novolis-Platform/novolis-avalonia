@@ -53,7 +53,7 @@
       <_NovolisInnoScriptLines Include="OutputDir=$(NovolisInnoOutputDir)" />
       <_NovolisInnoScriptLines Include="PrivilegesRequired=lowest" />
       <_NovolisInnoScriptLines Include="UsePreviousAppDir=yes" />
-      <_NovolisInnoScriptLines Include="AllowDowngrades=no" />
+      <_NovolisInnoScriptLines Include="AllowDowngrade=no" />
       <_NovolisInnoScriptLines Include="DisableDirPage=auto" />
       <_NovolisInnoScriptLines Include="CloseApplications=yes" />
       <_NovolisInnoScriptLines Include="CloseApplicationsFilter=$(NovolisInnoCloseApplicationsFilter)" Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''" />

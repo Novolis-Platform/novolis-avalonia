@@ -41,7 +41,7 @@ public class InnoScriptGeneratorTests
         }.Generate();
 
         await Assert.That(script).Contains("UsePreviousAppDir=yes");
-        await Assert.That(script).Contains("AllowDowngrades=no");
+        await Assert.That(script).Contains("AllowDowngrade=no");
         await Assert.That(script).Contains("DisableDirPage=auto");
         await Assert.That(script).Contains("CloseApplications=yes");
         await Assert.That(script).Contains("CloseApplicationsFilter=ManuscriptStudio.exe");
@@ -74,7 +74,7 @@ public class InnoScriptGeneratorTests
             AppId = "Novolis.Audio.Live.Studio",
         }.Generate();
 
-        await Assert.That(script).Contains("AllowDowngrades=no");
+        await Assert.That(script).Contains("AllowDowngrade=no");
         await Assert.That(script).Contains(
             "CloseApplicationsFilter=Novolis.Audio.Live.Studio.exe;Novolis.Audio.Live.Host.exe;Novolis.Audio.Live.Launcher.exe");
     }
