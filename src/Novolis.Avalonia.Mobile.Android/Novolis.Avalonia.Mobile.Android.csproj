@@ -9,10 +9,12 @@
   </PropertyGroup>
     <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Novolis.Avalonia.Diagnostics" />
     <PackageReference Include="Novolis.Logging.Diagnostics" />
     <PackageReference Include="Xamarin.AndroidX.Browser" />
     <PackageReference Include="Xamarin.AndroidX.Core" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.Diagnostics\Novolis.Avalonia.Diagnostics.csproj" />
   </ItemGroup>
 </Project>
