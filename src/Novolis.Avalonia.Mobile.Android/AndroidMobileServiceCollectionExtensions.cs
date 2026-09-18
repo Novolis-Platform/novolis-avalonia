@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using Novolis.Avalonia.Diagnostics;
 using Novolis.Avalonia.Mobile;
+using Novolis.Logging.Diagnostics;
 
 namespace Novolis.Avalonia.Mobile.Android;
 
@@ -20,6 +22,18 @@ public static class AndroidMobileServiceCollectionExtensions
         services.AddSingleton<ISecureTokenStore, AndroidSecureTokenStore>();
         services.AddSingleton<IAppDataPaths>(_ => new AndroidAppDataPaths(productName));
         services.AddSingleton<IBrowserLauncher, AndroidBrowserLauncher>();
+        return services;
+    }
+
+    /// <summary>Registers Android diagnostic sharing for a journal created before host startup.</summary>
+    public static IServiceCollection AddNovolisMobileAndroidDiagnostics(
+        this IServiceCollection services,
+        IDiagnosticJournal journal)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(journal);
+        AndroidDiagnostics.InstallEarly(journal);
+        services.AddSingleton<IDiagnosticShare, AndroidDiagnosticShare>();
         return services;
     }
 }

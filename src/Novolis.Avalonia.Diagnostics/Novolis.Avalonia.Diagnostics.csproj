@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Diagnostics</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Avalonia startup exception harness and diagnostic-sharing abstractions.</Description>
+    <RootNamespace>Novolis.Avalonia.Diagnostics</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Logging.Diagnostics" />
+  </ItemGroup>
+</Project>
