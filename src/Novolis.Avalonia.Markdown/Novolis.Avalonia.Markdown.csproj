@@ -11,6 +11,7 @@
     <PackageReference Include="Avalonia.AvaloniaEdit" />
     <PackageReference Include="Avalonia.HtmlRenderer" />
     <PackageReference Include="Novolis.Markup.Markdown" />
+    <PackageReference Include="Novolis.Markup.Markdown.Mermaid.Rendering" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Mermaid\Novolis.Avalonia.Mermaid.csproj" />

@@ -60,7 +60,7 @@ var preview = new MarkdownPreviewPane();
 | `MarkdownSpanAnalyzer` | Portable span analysis without AvaloniaEdit |
 
 **Editor features:** syntax highlighting (dialogue, `[!metadata]`, TK/TODO/FIXME in BookAuthoring profile), line numbers, word wrap, current-line highlight, Ctrl+mouse wheel zoom.  
-**Preview features:** Mermaid diagrams (via `Novolis.Avalonia.Mermaid`), built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom.
+**Preview features:** Mermaid diagrams via `Novolis.Markup.Markdown.Mermaid.Rendering`, built-in studio/GitHub themes, 10% side margins, Ctrl+scroll zoom. Standalone diagram chrome is `Novolis.Avalonia.Mermaid`.
 
 ## Related packages
 
