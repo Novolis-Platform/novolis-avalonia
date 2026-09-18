@@ -20,6 +20,7 @@
     <NovolisInnoAppCopyright Condition="'$(NovolisInnoAppCopyright)' == ''">Copyright (c) Novolis</NovolisInnoAppCopyright>
     <NovolisInnoVersionInfoCompany Condition="'$(NovolisInnoVersionInfoCompany)' == ''">Novolis</NovolisInnoVersionInfoCompany>
     <NovolisInnoVersionInfoDescription Condition="'$(NovolisInnoVersionInfoDescription)' == ''">$(NovolisInnoAppName) - Novolis</NovolisInnoVersionInfoDescription>
+    <_NovolisInnoCloseApplicationsFilterEscaped Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''">$([System.String]::Copy('$(NovolisInnoCloseApplicationsFilter)').Replace(';', '%3B'))</_NovolisInnoCloseApplicationsFilterEscaped>
 
     <_NovolisInnoLicenseCandidate Condition="'$(NovolisInnoLicenseFile)' == ''">$([MSBuild]::GetPathOfFileAbove('LICENSE', '$(MSBuildProjectDirectory)'))</_NovolisInnoLicenseCandidate>
     <NovolisInnoLicenseFile Condition="'$(NovolisInnoLicenseFile)' == '' And '$(_NovolisInnoLicenseCandidate)' != '' And Exists('$(_NovolisInnoLicenseCandidate)')">$(_NovolisInnoLicenseCandidate)</NovolisInnoLicenseFile>
@@ -55,7 +56,7 @@
       <_NovolisInnoScriptLines Include="UsePreviousAppDir=yes" />
       <_NovolisInnoScriptLines Include="DisableDirPage=auto" />
       <_NovolisInnoScriptLines Include="CloseApplications=yes" />
-      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=&quot;$(NovolisInnoCloseApplicationsFilter)&quot;" Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''" />
+      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=&quot;$(_NovolisInnoCloseApplicationsFilterEscaped)&quot;" Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''" />
       <_NovolisInnoScriptLines Include="CloseApplicationsFilter=&quot;$(NovolisInnoAppExeName)&quot;" Condition="'$(NovolisInnoCloseApplicationsFilter)' == ''" />
       <_NovolisInnoScriptLines Include="RestartApplications=yes" />
       <_NovolisInnoScriptLines Include="DisableProgramGroupPage=yes" />
