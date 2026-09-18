@@ -55,8 +55,8 @@
       <_NovolisInnoScriptLines Include="UsePreviousAppDir=yes" />
       <_NovolisInnoScriptLines Include="DisableDirPage=auto" />
       <_NovolisInnoScriptLines Include="CloseApplications=yes" />
-      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=$(NovolisInnoCloseApplicationsFilter)" Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''" />
-      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=$(NovolisInnoAppExeName)" Condition="'$(NovolisInnoCloseApplicationsFilter)' == ''" />
+      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=&quot;$(NovolisInnoCloseApplicationsFilter)&quot;" Condition="'$(NovolisInnoCloseApplicationsFilter)' != ''" />
+      <_NovolisInnoScriptLines Include="CloseApplicationsFilter=&quot;$(NovolisInnoAppExeName)&quot;" Condition="'$(NovolisInnoCloseApplicationsFilter)' == ''" />
       <_NovolisInnoScriptLines Include="RestartApplications=yes" />
       <_NovolisInnoScriptLines Include="DisableProgramGroupPage=yes" />
       <_NovolisInnoScriptLines Include="WizardStyle=modern" />

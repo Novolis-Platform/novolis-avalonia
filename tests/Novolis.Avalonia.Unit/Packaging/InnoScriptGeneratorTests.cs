@@ -44,7 +44,7 @@ public class InnoScriptGeneratorTests
         await Assert.That(script).DoesNotContain("AllowDowngrade");
         await Assert.That(script).Contains("DisableDirPage=auto");
         await Assert.That(script).Contains("CloseApplications=yes");
-        await Assert.That(script).Contains("CloseApplicationsFilter=ManuscriptStudio.exe");
+        await Assert.That(script).Contains("CloseApplicationsFilter=\"ManuscriptStudio.exe\"");
         await Assert.That(script).Contains("RestartApplications=yes");
         await Assert.That(script).Contains("AppPublisher=Novolis");
         await Assert.That(script).Contains("AppPublisherURL=https://github.com/Novolis-Platform");
@@ -75,6 +75,6 @@ public class InnoScriptGeneratorTests
         }.Generate();
 
         await Assert.That(script).Contains(
-            "CloseApplicationsFilter=Novolis.Audio.Live.Studio.exe;Novolis.Audio.Live.Host.exe;Novolis.Audio.Live.Launcher.exe");
+            "CloseApplicationsFilter=\"Novolis.Audio.Live.Studio.exe;Novolis.Audio.Live.Host.exe;Novolis.Audio.Live.Launcher.exe\"");
     }
 }

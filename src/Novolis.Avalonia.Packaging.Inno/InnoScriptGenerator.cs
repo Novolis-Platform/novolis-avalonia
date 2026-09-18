@@ -115,7 +115,7 @@ public sealed class InnoScriptGenerator
         sb.AppendLine("DisableDirPage=auto");
         sb.AppendLine("CloseApplications=yes");
         var closeFilter = string.IsNullOrWhiteSpace(CloseApplicationsFilter) ? AppExeName : CloseApplicationsFilter;
-        sb.AppendLine($"CloseApplicationsFilter={closeFilter}");
+        sb.AppendLine($"CloseApplicationsFilter=\"{closeFilter}\"");
         sb.AppendLine("RestartApplications=yes");
         sb.AppendLine("DisableProgramGroupPage=yes");
         sb.AppendLine("WizardStyle=modern");
