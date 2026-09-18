@@ -41,6 +41,7 @@ public class InnoScriptGeneratorTests
         }.Generate();
 
         await Assert.That(script).Contains("UsePreviousAppDir=yes");
+        await Assert.That(script).Contains("AllowDowngrades=no");
         await Assert.That(script).Contains("DisableDirPage=auto");
         await Assert.That(script).Contains("CloseApplications=yes");
         await Assert.That(script).Contains("CloseApplicationsFilter=ManuscriptStudio.exe");
@@ -57,5 +58,24 @@ public class InnoScriptGeneratorTests
         await Assert.That(script).Contains("VersionInfoDescription=Manuscript Studio - Novolis");
         await Assert.That(script).Contains(@"SetupIconFile=C:\brand\icon.ico");
         await Assert.That(script).Contains(@"LicenseFile=C:\repo\LICENSE");
+    }
+
+    [Test]
+    public async Task Generate_Supports_Multi_Process_Close_Filter()
+    {
+        var script = new InnoScriptGenerator
+        {
+            AppName = "Live Studio",
+            AppVersion = "2026.1.0.1",
+            PublishDir = @"C:\publish\app",
+            AppExeName = "Novolis.Audio.Live.Studio.exe",
+            CloseApplicationsFilter = "Novolis.Audio.Live.Studio.exe;Novolis.Audio.Live.Host.exe;Novolis.Audio.Live.Launcher.exe",
+            OutputDir = @"C:\publish\installer",
+            AppId = "Novolis.Audio.Live.Studio",
+        }.Generate();
+
+        await Assert.That(script).Contains("AllowDowngrades=no");
+        await Assert.That(script).Contains(
+            "CloseApplicationsFilter=Novolis.Audio.Live.Studio.exe;Novolis.Audio.Live.Host.exe;Novolis.Audio.Live.Launcher.exe");
     }
 }

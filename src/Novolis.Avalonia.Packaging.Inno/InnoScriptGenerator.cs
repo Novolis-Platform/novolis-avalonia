@@ -17,6 +17,12 @@ public sealed class InnoScriptGenerator
     /// <summary>Executable name launched by the installer shortcuts.</summary>
     public required string AppExeName { get; init; }
 
+    /// <summary>
+    /// Semicolon-separated CloseApplicationsFilter patterns. Defaults to <see cref="AppExeName"/>.
+    /// Multi-process products (e.g. Live Studio) must list every payload executable.
+    /// </summary>
+    public string? CloseApplicationsFilter { get; init; }
+
     /// <summary>Directory where Inno writes the compiled installer.</summary>
     public required string OutputDir { get; init; }
 
@@ -106,9 +112,11 @@ public sealed class InnoScriptGenerator
         sb.AppendLine($"OutputDir={OutputDir}");
         sb.AppendLine("PrivilegesRequired=lowest");
         sb.AppendLine("UsePreviousAppDir=yes");
+        sb.AppendLine("AllowDowngrades=no");
         sb.AppendLine("DisableDirPage=auto");
         sb.AppendLine("CloseApplications=yes");
-        sb.AppendLine($"CloseApplicationsFilter={AppExeName}");
+        var closeFilter = string.IsNullOrWhiteSpace(CloseApplicationsFilter) ? AppExeName : CloseApplicationsFilter;
+        sb.AppendLine($"CloseApplicationsFilter={closeFilter}");
         sb.AppendLine("RestartApplications=yes");
         sb.AppendLine("DisableProgramGroupPage=yes");
         sb.AppendLine("WizardStyle=modern");
