@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Agent\Novolis.Avalonia.Agent.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Voice\Novolis.Avalonia.Voice.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Speech\Novolis.Avalonia.Speech.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Git\Novolis.Avalonia.Git.csproj" />
   </ItemGroup>

@@ -13,6 +13,7 @@
     <Project Path="src/Novolis.Avalonia.Packaging.Inno/Novolis.Avalonia.Packaging.Inno.csproj" />
     <Project Path="src/Novolis.Avalonia.Live/Novolis.Avalonia.Live.csproj" />
     <Project Path="src/Novolis.Avalonia.Voice/Novolis.Avalonia.Voice.csproj" />
+    <Project Path="src/Novolis.Avalonia.Speech/Novolis.Avalonia.Speech.csproj" />
     <Project Path="src/Novolis.Avalonia.Markdown/Novolis.Avalonia.Markdown.csproj" />
     <Project Path="src/Novolis.Avalonia.Manuscript/Novolis.Avalonia.Manuscript.csproj" />
     <Project Path="src/Novolis.Avalonia.Git/Novolis.Avalonia.Git.csproj" />
