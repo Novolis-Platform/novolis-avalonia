@@ -43,7 +43,8 @@ Host-side APK install / device stats: `Novolis.IO.Mobile.Android` + dogfood `Adb
 
 ## Build / pack
 
-Not included in `Novolis.Avalonia.slnx` (Linux CI lacks the Android workload). Pack on a workload-enabled runner and publish to **GitHub Packages** (no local feeds):
+The solution includes this project; CI installs the Android workload before
+building and packing. Publish to **GitHub Packages** (no local feeds):
 
 ```bash
 dotnet workload install android
