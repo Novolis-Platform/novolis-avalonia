@@ -118,7 +118,7 @@ public class RaylibHostControl : Panel
             Directory.CreateDirectory(dir);
 
         using var stream = File.Create(path);
-        _bitmap.Save(stream);
+        _bitmap.Save(stream, PngBitmapEncoderOptions.Default);
         return stream.Length > 0;
     }
 

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using Avalonia.Threading;
@@ -191,7 +192,7 @@ public sealed class SceneWireGlControl : OpenGlControlBase
             }
 
             using var stream = File.Create(path);
-            bmp.Save(stream);
+            bmp.Save(stream, PngBitmapEncoderOptions.Default);
             return stream.Length > 32;
         }
         catch (Exception ex)

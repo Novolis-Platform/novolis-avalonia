@@ -3,6 +3,7 @@ using Novolis.Avalonia.Voice;
 
 namespace Novolis.Avalonia.Unit.Voice;
 
+[NotInParallel]
 public sealed class InspectorFieldsTests
 {
     [Test]

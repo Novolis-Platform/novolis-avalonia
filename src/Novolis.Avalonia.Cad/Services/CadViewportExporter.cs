@@ -34,7 +34,7 @@ public static class CadViewportExporter
             if (!string.IsNullOrWhiteSpace(dir))
                 Directory.CreateDirectory(dir);
             using var stream = File.Create(path);
-            bitmap.Save(stream);
+            bitmap.Save(stream, PngBitmapEncoderOptions.Default);
             return stream.Length > 32;
         }
         catch

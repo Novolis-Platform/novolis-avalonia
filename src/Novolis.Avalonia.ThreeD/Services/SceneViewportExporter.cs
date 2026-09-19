@@ -32,7 +32,7 @@ public static class SceneViewportExporter
             if (!string.IsNullOrWhiteSpace(dir))
                 Directory.CreateDirectory(dir);
             using var stream = File.Create(path);
-            bitmap.Save(stream);
+            bitmap.Save(stream, PngBitmapEncoderOptions.Default);
             return stream.Length > 32;
         }
         catch
@@ -68,7 +68,7 @@ public static class SceneViewportExporter
             }
 
             using var stream = File.Create(path);
-            bmp.Save(stream);
+            bmp.Save(stream, PngBitmapEncoderOptions.Default);
             return stream.Length > 32;
         }
         catch

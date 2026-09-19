@@ -296,7 +296,7 @@ public sealed class SketchControl : Control
         try
         {
             using var png = new MemoryStream();
-            bitmap.Save(png);
+            bitmap.Save(png, PngBitmapEncoderOptions.Default);
             b64 = Convert.ToBase64String(png.ToArray());
         }
         catch

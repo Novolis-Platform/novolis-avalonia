@@ -45,7 +45,7 @@ internal static class AgentScreenshot
         bitmap.Render(target);
 
         using var stream = new MemoryStream();
-        bitmap.Save(stream);
+        bitmap.Save(stream, PngBitmapEncoderOptions.Default);
         return new UiScreenshotResponseDto(requestId, true, null, stream.ToArray(), pixelSize.Width, pixelSize.Height);
     }
 
