@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Chat</PackageId>
+    <RootNamespace>Novolis.Avalonia.Chat</RootNamespace>
+    <Description>DTO-bound Avalonia chat rail, Markdown thread, and presence chrome.</Description>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Novolis.Chat.Abstractions" />
+    <ProjectReference Include="..\Novolis.Avalonia.Markdown\Novolis.Avalonia.Markdown.csproj" />
+  </ItemGroup>
+</Project>
