@@ -31,9 +31,11 @@ public sealed class AndroidBrowserLauncher : IBrowserLauncher
 
         try
         {
-            var builder = new CustomTabsIntent.Builder();
-            var customTabs = builder.Build();
-            customTabs.Intent.AddFlags(ActivityFlags.NewTask);
+            var customTabs = new CustomTabsIntent.Builder().Build()
+                ?? throw new InvalidOperationException("Custom Tabs intent was not created.");
+            var intent = customTabs.Intent
+                ?? throw new InvalidOperationException("Custom Tabs intent was not created.");
+            intent.AddFlags(ActivityFlags.NewTask);
             customTabs.LaunchUrl(_context, androidUri);
         }
         catch
