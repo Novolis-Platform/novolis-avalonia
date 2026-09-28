@@ -4,14 +4,17 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Map\Novolis.Avalonia.Map.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="TUnit" />
-    <PackageReference Include="Novolis.IO.Git" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Cad.Primitives" />
-    <PackageReference Include="Novolis.Cad.Evaluation" />
-    <PackageReference Include="Novolis.Cad.SceneBridge" />
-    <PackageReference Include="Novolis.Markup.Mermaid" />
-    <PackageReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.IO.Git" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.Cad.Primitives" />
+    <LibraryReference Include="Novolis.Cad.Evaluation" />
+    <LibraryReference Include="Novolis.Cad.SceneBridge" />
+    <LibraryReference Include="Novolis.Markup.Mermaid" />
+    <LibraryReference Include="Novolis.ThreeD.Scene" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls.Sketch\Novolis.Avalonia.Controls.Sketch.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Torrent\Novolis.Avalonia.Torrent.csproj" />

@@ -15,8 +15,8 @@
     <PackageReference Include="Azure.Core" />
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Novolis.Audio.Voice.Abstractions" />
-    <PackageReference Include="Novolis.Audio.Voice.AzureSpeech" />
+    <LibraryReference Include="Novolis.Audio.Voice.Abstractions" />
+    <LibraryReference Include="Novolis.Audio.Voice.AzureSpeech" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
   </ItemGroup>
 

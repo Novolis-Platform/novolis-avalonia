@@ -11,7 +11,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Video.Rtc.Abstractions" />
-    <PackageReference Include="Novolis.Video.Edit" />
+    <LibraryReference Include="Novolis.Video.Rtc.Abstractions" />
+    <LibraryReference Include="Novolis.Video.Edit" />
   </ItemGroup>
 </Project>

@@ -10,23 +10,23 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Agent.Core" />
-    <PackageReference Include="Novolis.Agent.Surface" />
-    <PackageReference Include="Novolis.Raylib.Abstractions" />
-    <PackageReference Include="Novolis.Raylib.Bindings" />
-    <PackageReference Include="Novolis.Raylib.Runtime" />
-    <PackageReference Include="Novolis.Simulation.View" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.Agent.Core" />
+    <LibraryReference Include="Novolis.Agent.Surface" />
+    <LibraryReference Include="Novolis.Raylib.Abstractions" />
+    <LibraryReference Include="Novolis.Raylib.Bindings" />
+    <LibraryReference Include="Novolis.Raylib.Runtime" />
+    <LibraryReference Include="Novolis.Simulation.View" />
     <PackageReference Include="Silk.NET.OpenGL" />
     <!-- Owned here so CAD hosts (SceneLab/ViewportBench) need not pin Silk for OpenGL/Vulkan natives. -->
     <PackageReference Include="Silk.NET.Vulkan" />
     <PackageReference Include="Silk.NET.Shaderc" />
     <PackageReference Include="Silk.NET.Shaderc.Native" />
-    <PackageReference Include="Novolis.Rendering.Backends.Vulkan" />
+    <LibraryReference Include="Novolis.Rendering.Backends.Vulkan" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Novolis.ThreeD.Scene" />
-    <PackageReference Include="Novolis.ThreeD.Import.Assimp" />
+    <LibraryReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.ThreeD.Import.Assimp" />
     <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />
   </ItemGroup>

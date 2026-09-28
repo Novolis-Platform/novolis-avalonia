@@ -8,16 +8,16 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Cad.Primitives" />
-    <PackageReference Include="Novolis.Cad.SceneBridge" />
-    <PackageReference Include="Novolis.Cad.Evaluation" />
-    <PackageReference Include="Novolis.Commands.Expressions" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.ThreeD.Scene" />
-    <PackageReference Include="Novolis.Raylib.Abstractions" />
-    <PackageReference Include="Novolis.Raylib.Bindings" />
-    <PackageReference Include="Novolis.Raylib.Runtime" />
-    <PackageReference Include="Novolis.Simulation.View" />
+    <LibraryReference Include="Novolis.Cad.Primitives" />
+    <LibraryReference Include="Novolis.Cad.SceneBridge" />
+    <LibraryReference Include="Novolis.Cad.Evaluation" />
+    <LibraryReference Include="Novolis.Commands.Expressions" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.Raylib.Abstractions" />
+    <LibraryReference Include="Novolis.Raylib.Bindings" />
+    <LibraryReference Include="Novolis.Raylib.Runtime" />
+    <LibraryReference Include="Novolis.Simulation.View" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Raylib\Novolis.Avalonia.Raylib.csproj" />

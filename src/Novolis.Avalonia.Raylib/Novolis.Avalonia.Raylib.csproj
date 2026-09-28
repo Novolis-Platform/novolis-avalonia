@@ -8,9 +8,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Raylib.Abstractions" />
-    <PackageReference Include="Novolis.Raylib.Runtime" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.Raylib.Abstractions" />
+    <LibraryReference Include="Novolis.Raylib.Runtime" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />

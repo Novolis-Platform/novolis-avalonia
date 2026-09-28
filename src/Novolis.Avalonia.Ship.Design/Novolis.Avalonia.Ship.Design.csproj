@@ -9,17 +9,17 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Cad.Primitives" />
-    <PackageReference Include="Novolis.Cad.Evaluation" />
-    <PackageReference Include="Novolis.Cad.SceneBridge" />
-    <PackageReference Include="Novolis.Math.Measure" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.ThreeD.Scene" />
-    <PackageReference Include="Novolis.Ship.Primitives" />
-    <PackageReference Include="Novolis.Ship.Topology" />
-    <PackageReference Include="Novolis.Ship.Validation" />
-    <PackageReference Include="Novolis.Ship.Design" />
-    <PackageReference Include="Novolis.Ship.Analysis" />
+    <LibraryReference Include="Novolis.Cad.Primitives" />
+    <LibraryReference Include="Novolis.Cad.Evaluation" />
+    <LibraryReference Include="Novolis.Cad.SceneBridge" />
+    <LibraryReference Include="Novolis.Math.Measure" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.Ship.Primitives" />
+    <LibraryReference Include="Novolis.Ship.Topology" />
+    <LibraryReference Include="Novolis.Ship.Validation" />
+    <LibraryReference Include="Novolis.Ship.Design" />
+    <LibraryReference Include="Novolis.Ship.Analysis" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />

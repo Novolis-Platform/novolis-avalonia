@@ -7,10 +7,10 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="MessagePack" />
-    <PackageReference Include="Novolis.Math.Geometry" />
-    <PackageReference Include="Novolis.Agent.Core" />
-    <PackageReference Include="Novolis.Agent.Surface" />
-    <PackageReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.Agent.Core" />
+    <LibraryReference Include="Novolis.Agent.Surface" />
+    <LibraryReference Include="Novolis.ThreeD.Scene" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.ThreeD\Novolis.Avalonia.ThreeD.csproj" />
   </ItemGroup>
   <ItemGroup>

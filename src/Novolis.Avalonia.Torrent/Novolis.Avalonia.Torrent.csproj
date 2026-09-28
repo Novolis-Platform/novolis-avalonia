@@ -8,6 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Transports.Torrent" />
+    <LibraryReference Include="Novolis.Transports.Torrent" />
   </ItemGroup>
 </Project>

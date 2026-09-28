@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Include="Novolis.Avalonia.Markdown" />
-    <PackageReference Include="Novolis.Manuscript" />
+    <LibraryReference Include="Novolis.Avalonia.Markdown" />
+    <LibraryReference Include="Novolis.Manuscript" />
   </ItemGroup>
 </Project>

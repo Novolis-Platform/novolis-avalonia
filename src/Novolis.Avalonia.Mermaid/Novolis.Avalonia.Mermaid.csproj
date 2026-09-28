@@ -12,7 +12,7 @@
     <PackageReference Include="Avalonia.HtmlRenderer" />
     <!-- Mermaider: runtime for Mermaid.Rendering under ProjectRef (transitive when consuming NuGet). -->
     <PackageReference Include="Mermaider" />
-    <PackageReference Include="Novolis.Markup.Mermaid" />
-    <PackageReference Include="Novolis.Markup.Mermaid.Rendering" />
+    <LibraryReference Include="Novolis.Markup.Mermaid" />
+    <LibraryReference Include="Novolis.Markup.Mermaid.Rendering" />
   </ItemGroup>
 </Project>

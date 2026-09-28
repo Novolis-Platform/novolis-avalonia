@@ -11,12 +11,12 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.AvaloniaEdit" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
-    <PackageReference Include="Novolis.Audio.Live" />
-    <PackageReference Include="Novolis.Audio.Live.Dsl" />
-    <PackageReference Include="Novolis.Audio.Live.Protocol" />
-    <PackageReference Include="Novolis.Audio.Live.Visuals" />
-    <PackageReference Include="Novolis.Audio.MusicTheory" />
-    <PackageReference Include="Novolis.Audio.Patterns" />
+    <LibraryReference Include="Novolis.Audio.Live" />
+    <LibraryReference Include="Novolis.Audio.Live.Dsl" />
+    <LibraryReference Include="Novolis.Audio.Live.Protocol" />
+    <LibraryReference Include="Novolis.Audio.Live.Visuals" />
+    <LibraryReference Include="Novolis.Audio.MusicTheory" />
+    <LibraryReference Include="Novolis.Audio.Patterns" />
     <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Studio\Novolis.Avalonia.Studio.csproj" />
   </ItemGroup>

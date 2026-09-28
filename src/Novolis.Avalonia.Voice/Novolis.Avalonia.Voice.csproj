@@ -8,11 +8,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Novolis.Audio.Voice.Abstractions" />
-    <PackageReference Include="Novolis.Audio.Voice.Design" />
-    <PackageReference Include="Novolis.Audio.Voice.Platform.Abstractions" />
-    <PackageReference Include="Novolis.Audio.Voice.Kokoro" />
-    <PackageReference Include="Novolis.Audio.Voice.Profiles" />
+    <LibraryReference Include="Novolis.Audio.Voice.Abstractions" />
+    <LibraryReference Include="Novolis.Audio.Voice.Design" />
+    <LibraryReference Include="Novolis.Audio.Voice.Platform.Abstractions" />
+    <LibraryReference Include="Novolis.Audio.Voice.Kokoro" />
+    <LibraryReference Include="Novolis.Audio.Voice.Profiles" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Layout\Novolis.Avalonia.Layout.csproj" />

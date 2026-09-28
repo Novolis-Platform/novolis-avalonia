@@ -9,6 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MessagePack" />
-    <PackageReference Include="Novolis.Transports.LocalIpc" />
+    <LibraryReference Include="Novolis.Transports.LocalIpc" />
   </ItemGroup>
 </Project>

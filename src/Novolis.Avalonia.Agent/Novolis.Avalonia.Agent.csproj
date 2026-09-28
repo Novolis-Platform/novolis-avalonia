@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="MessagePack" />
-    <PackageReference Include="Novolis.Transports.LocalIpc" />
+    <LibraryReference Include="Novolis.Transports.LocalIpc" />
     <ProjectReference Include="..\Novolis.Avalonia.Agent.Protocol\Novolis.Avalonia.Agent.Protocol.csproj" />
   </ItemGroup>
   <ItemGroup>
