@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Novolis.Avalonia.Map/Novolis.Avalonia.Map.csproj" />
     <Project Path="src/Novolis.Avalonia.Layout/Novolis.Avalonia.Layout.csproj" />
     <Project Path="src/Novolis.Avalonia.Controls/Novolis.Avalonia.Controls.csproj" />
     <Project Path="src/Novolis.Avalonia.Chat/Novolis.Avalonia.Chat.csproj" />

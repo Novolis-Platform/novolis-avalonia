@@ -8,7 +8,9 @@
 
 # Novolis.Avalonia.Mobile.Android
 
-Android implementations of `Novolis.Avalonia.Mobile`: Android Keystore AES-GCM + private SharedPreferences, `{FilesDir}/{product}/workspace`, Custom Tabs.
+Android implementations of `Novolis.Avalonia.Mobile`: Android Keystore AES-GCM,
+private SharedPreferences, `{FilesDir}/{product}/workspace`, Custom Tabs, sparse
+location readings, and connected-Wi-Fi observation.
 
 ## Install
 
@@ -31,7 +33,12 @@ Requires `net10.0-android` and a running Android application context.
 
 | Surface | Role |
 |---------|------|
-| `AddNovolisMobileAndroid(productName)` | Wires Keystore AES-GCM prefs, `{FilesDir}/{product}/workspace`, Custom Tabs |
+| `AddNovolisMobileAndroid(productName)` | Wires storage, browser, location, and Wi-Fi platform services |
+
+`AndroidLocationReadingSource` uses Android location providers and emits
+platform readings only. `AndroidWifiObservationSource` reads the connected SSID
+without scanning nearby networks. Permission denial, disabled services, and
+SSID redaction are returned as explicit capability states.
 
 ## Dogfooding
 

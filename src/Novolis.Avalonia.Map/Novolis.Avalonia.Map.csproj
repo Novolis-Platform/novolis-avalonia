@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Map</PackageId>
+    <IsPackable>true</IsPackable>
+    <RootNamespace>Novolis.Avalonia.Map</RootNamespace>
+    <Description>Provider-neutral Avalonia map viewport with geospatial markers, circles, tiles, selection, and attribution.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
+  </ItemGroup>
+</Project>

@@ -1,5 +1,16 @@
 {
   "packages": {
+    "Novolis.Avalonia.Map": {
+      "paths": [
+        "src/Novolis.Avalonia.Map/**",
+        "tests/Novolis.Avalonia.Unit/Map/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.Map/Novolis.Avalonia.Map.csproj"
+    },
     "Novolis.Avalonia.Layout": {
       "paths": [
         "src/Novolis.Avalonia.Layout/**",

@@ -31,7 +31,13 @@ services.AddNovolisMobileCore();
 | Surface | Role |
 |---------|------|
 | `AddNovolisMobileCore()` | Registers shared mobile abstractions (token store, paths, browser, device-flow UI hooks) |
+| `ILocationReadingSource` | Produces sparse, provider-neutral geographic readings |
+| `IWifiObservationSource` | Reads the currently connected Wi-Fi network when the platform permits it |
+| `MobileSourceStatus` | Reports unavailable, denied, disabled, redacted, or available capability states |
 | Platform packages | Supply OS-backed implementations of those abstractions |
+
+Sensor sources expose platform evidence only. They do not define places,
+presence policy, arrival/departure events, or background scheduling.
 
 ## Dogfooding
 

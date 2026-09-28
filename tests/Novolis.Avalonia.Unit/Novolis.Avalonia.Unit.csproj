@@ -4,6 +4,9 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Map\Novolis.Avalonia.Map.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="TUnit" />
     <LibraryReference Include="Novolis.IO.Git" />
     <LibraryReference Include="Novolis.Math.Geometry" />

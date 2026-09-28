@@ -9,8 +9,8 @@ namespace Novolis.Avalonia.Mobile.Android;
 public static class AndroidMobileServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers Android <see cref="ISecureTokenStore"/>, <see cref="IAppDataPaths"/>, <see cref="IBrowserLauncher"/>,
-    /// and core device-flow presenter.
+    /// Registers Android <see cref="ISecureTokenStore"/>, <see cref="IAppDataPaths"/>,
+    /// <see cref="IBrowserLauncher"/>, location/Wi-Fi sources, and the core device-flow presenter.
     /// </summary>
     public static IServiceCollection AddNovolisMobileAndroid(
         this IServiceCollection services,
@@ -22,6 +22,8 @@ public static class AndroidMobileServiceCollectionExtensions
         services.AddSingleton<ISecureTokenStore, AndroidSecureTokenStore>();
         services.AddSingleton<IAppDataPaths>(_ => new AndroidAppDataPaths(productName));
         services.AddSingleton<IBrowserLauncher, AndroidBrowserLauncher>();
+        services.AddSingleton<ILocationReadingSource, AndroidLocationReadingSource>();
+        services.AddSingleton<IWifiObservationSource, AndroidWifiObservationSource>();
         return services;
     }
 
