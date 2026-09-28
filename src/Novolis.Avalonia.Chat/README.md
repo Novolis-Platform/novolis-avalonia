@@ -10,3 +10,16 @@ Code-first Avalonia chrome for Novolis Chat:
 
 The control receives Markdown only after the application decrypts a protected
 message. It never owns crypto, transport, or host processes.
+
+## Install
+
+```bash
+dotnet add package Novolis.Avalonia.Chat
+```
+
+## Quick start
+
+```csharp
+// Host ChatConversationChrome. Bind decrypted MarkdownBody projections
+// and ChatFrame metadata from the application. Do not hand the control ciphertext.
+```
