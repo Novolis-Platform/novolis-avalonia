@@ -118,8 +118,9 @@ public sealed class AndroidWifiObservationSource : IWifiObservationSource
         return ReadLegacySsid();
     }
 
-    [global::System.Runtime.Versioning.UnsupportedOSPlatform("android31.0")]
+#pragma warning disable CA1422 // ConnectionInfo remains the compatibility fallback on Android 31+.
     string? ReadLegacySsid() => NormalizeSsid(_wifiManager.ConnectionInfo?.SSID);
+#pragma warning restore CA1422
 
     bool HasLocationPermission() =>
         HasPermission(global::Android.Manifest.Permission.AccessFineLocation)
