@@ -43,6 +43,12 @@ public sealed class AndroidWifiObservationSource : IWifiObservationSource
                 MobileObservationStatus.PermissionDenied,
                 "Nearby Wi-Fi permission is not granted.");
 
+        if (!HasPermission(global::Android.Manifest.Permission.AccessNetworkState)
+            || !HasPermission(global::Android.Manifest.Permission.AccessWifiState))
+            return new MobileSourceStatus(
+                MobileObservationStatus.PermissionDenied,
+                "Android Wi-Fi state permissions are not declared or granted.");
+
         try
         {
             return _wifiManager.IsWifiEnabled
@@ -97,9 +103,16 @@ public sealed class AndroidWifiObservationSource : IWifiObservationSource
             var connectivity = _context.GetSystemService(Context.ConnectivityService) as ConnectivityManager;
             var capabilities = connectivity?.GetNetworkCapabilities(connectivity.ActiveNetwork);
             if (capabilities?.TransportInfo is WifiInfo wifiInfo)
-                return NormalizeSsid(wifiInfo.SSID);
+            {
+                var ssid = NormalizeSsid(wifiInfo.SSID);
+                if (ssid is not null)
+                    return ssid;
+            }
 
-            return null;
+            // Some Android builds expose the active transport without its
+            // WifiInfo wrapper. ConnectionInfo still provides the connected
+            // SSID when the app has the location/nearby-device permissions.
+            return ReadLegacySsid();
         }
 
         return ReadLegacySsid();

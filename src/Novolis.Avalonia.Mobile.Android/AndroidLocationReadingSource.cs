@@ -118,6 +118,11 @@ public sealed class AndroidLocationReadingSource : ILocationReadingSource
 
     string GetProvider()
     {
+        // A 50 m geofence needs the fine GPS provider when it is available.
+        // Network fixes remain a useful fallback on devices that disable GPS.
+        if (_locationManager.IsProviderEnabled(LocationManager.GpsProvider))
+            return LocationManager.GpsProvider;
+
         if (_locationManager.IsProviderEnabled(LocationManager.NetworkProvider))
             return LocationManager.NetworkProvider;
 
