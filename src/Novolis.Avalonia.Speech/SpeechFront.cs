@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Azure;
-using Azure.Identity;
 using Azure.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Novolis.Audio.Voice;
@@ -20,6 +19,7 @@ public sealed class SpeechFront
 
     readonly IVoiceService _deviceVoice;
     readonly ISecureTokenStore _secureStore;
+    readonly IAzureSpeechCredentialFactory _credentialFactory;
     readonly SemaphoreSlim _initialization = new(1, 1);
     AzureSpeechSetup? _azureSetup;
     AzureSpeechClient? _azureClient;
@@ -27,10 +27,14 @@ public sealed class SpeechFront
     bool _initialized;
 
     /// <summary>Creates the service front from platform voice and secure storage services.</summary>
-    public SpeechFront(IVoiceService deviceVoice, ISecureTokenStore secureStore)
+    public SpeechFront(
+        IVoiceService deviceVoice,
+        ISecureTokenStore secureStore,
+        IAzureSpeechCredentialFactory? credentialFactory = null)
     {
         _deviceVoice = deviceVoice ?? throw new ArgumentNullException(nameof(deviceVoice));
         _secureStore = secureStore ?? throw new ArgumentNullException(nameof(secureStore));
+        _credentialFactory = credentialFactory ?? new AzureIdentitySpeechCredentialFactory();
     }
 
     /// <summary>Raised after provider or Azure configuration changes.</summary>
@@ -218,13 +222,7 @@ public sealed class SpeechFront
                 new AzureKeyCredential(setup.ApiKey!));
         }
 
-        var credential = new InteractiveBrowserCredential(
-            new InteractiveBrowserCredentialOptions
-            {
-                ClientId = setup.ClientId!,
-                TenantId = setup.TenantId,
-                RedirectUri = new Uri("http://localhost"),
-            });
+        var credential = _credentialFactory.Create(setup);
         return new AzureSpeechClient(setup.Endpoint, credential);
     }
 
