@@ -45,6 +45,12 @@ public sealed record MapCircleOverlay(
     GeoCircle Circle,
     string? Label = null);
 
+/// <summary>A provider-neutral geographic track rendered as a connected line.</summary>
+public sealed record MapTrackOverlay(
+    string Id,
+    IReadOnlyList<GeoCoordinate> Points,
+    string? Label = null);
+
 /// <summary>A normalized tile key in the slippy-map tile scheme.</summary>
 public readonly record struct MapTileKey
 {

@@ -92,4 +92,36 @@ public sealed class MapViewportTests
         await Assert.That(map.Viewport.Zoom).IsEqualTo(14d);
         await Assert.That(map.SelectedCoordinate).IsEqualTo(point);
     }
+
+    [Test]
+    public async Task Map_control_exposes_reusable_track_and_status_state()
+    {
+        var map = new MapControl();
+        var first = new GeoCoordinate(58.14, 7.99);
+        var second = new GeoCoordinate(58.15, 8.01);
+
+        map.Tracks = [new MapTrackOverlay("day", [first, second], "Day samples")];
+        map.ErrorMessage = "Tiles unavailable";
+
+        await Assert.That(map.Tracks).Count().IsEqualTo(1);
+        await Assert.That(map.Tracks![0].Points).Count().IsEqualTo(2);
+        await Assert.That(map.ErrorMessage).IsEqualTo("Tiles unavailable");
+    }
+
+    [Test]
+    public async Task Fit_to_content_centers_and_clamps_the_viewport()
+    {
+        var map = new MapControl();
+        map.Measure(new Size(800, 600));
+        map.Arrange(new Rect(0, 0, 800, 600));
+        var first = new GeoCoordinate(58.14, 7.99);
+        var second = new GeoCoordinate(58.15, 8.01);
+
+        map.FitToContent([first, second]);
+
+        await Assert.That(map.Viewport.Center.Latitude).IsEqualTo(58.145d).Within(1e-9);
+        await Assert.That(map.Viewport.Center.Longitude).IsEqualTo(8d).Within(1e-9);
+        await Assert.That(map.Viewport.Zoom).IsGreaterThan(MapViewport.MinimumZoom);
+        await Assert.That(map.Viewport.Zoom).IsLessThan(MapViewport.MaximumZoom);
+    }
 }

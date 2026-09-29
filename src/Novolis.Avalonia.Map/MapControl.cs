@@ -22,6 +22,7 @@ public sealed class MapControl : Control
     static readonly IPen DefaultCirclePen = new Pen(new SolidColorBrush(Color.Parse("#c77b30")), 2);
     static readonly IBrush DefaultCircleFill = new SolidColorBrush(Color.FromArgb(40, 199, 123, 48));
     static readonly IPen DefaultSelectedPen = new Pen(new SolidColorBrush(Color.Parse("#f4c37a")), 2);
+    static readonly IPen DefaultTrackPen = new Pen(new SolidColorBrush(Color.Parse("#0f6b78")), 3);
 
     readonly Dictionary<MapTileKey, MapTile> _tiles = new();
     CancellationTokenSource? _tileRefreshCancellation;
@@ -45,6 +46,10 @@ public sealed class MapControl : Control
     public static readonly StyledProperty<IReadOnlyList<MapCircleOverlay>?> CirclesProperty =
         AvaloniaProperty.Register<MapControl, IReadOnlyList<MapCircleOverlay>?>(nameof(Circles));
 
+    /// <summary>Connected geographic tracks rendered below markers.</summary>
+    public static readonly StyledProperty<IReadOnlyList<MapTrackOverlay>?> TracksProperty =
+        AvaloniaProperty.Register<MapControl, IReadOnlyList<MapTrackOverlay>?>(nameof(Tracks));
+
     /// <summary>Selected geographic coordinate, if any.</summary>
     public static readonly StyledProperty<GeoCoordinate?> SelectedCoordinateProperty =
         AvaloniaProperty.Register<MapControl, GeoCoordinate?>(nameof(SelectedCoordinate));
@@ -57,15 +62,26 @@ public sealed class MapControl : Control
     public static readonly StyledProperty<IMapTileSource?> TileSourceProperty =
         AvaloniaProperty.Register<MapControl, IMapTileSource?>(nameof(TileSource));
 
+    /// <summary>Whether visible tiles are currently being loaded.</summary>
+    public static readonly StyledProperty<bool> IsLoadingProperty =
+        AvaloniaProperty.Register<MapControl, bool>(nameof(IsLoading));
+
+    /// <summary>Recoverable provider error displayed over the map.</summary>
+    public static readonly StyledProperty<string?> ErrorMessageProperty =
+        AvaloniaProperty.Register<MapControl, string?>(nameof(ErrorMessage));
+
     static MapControl()
     {
         AffectsRender<MapControl>(
             ViewportProperty,
             MarkersProperty,
             CirclesProperty,
+            TracksProperty,
             SelectedCoordinateProperty,
             AttributionProperty,
-            TileSourceProperty);
+            TileSourceProperty,
+            IsLoadingProperty,
+            ErrorMessageProperty);
     }
 
     /// <summary>Creates a map control.</summary>
@@ -113,6 +129,9 @@ public sealed class MapControl : Control
     /// <summary>Attribution background brush.</summary>
     public IBrush AttributionBackground { get; set; } = DefaultAttributionBackground;
 
+    /// <summary>Pen used for geographic tracks.</summary>
+    public IPen TrackPen { get; set; } = DefaultTrackPen;
+
     /// <summary>Viewport state.</summary>
     public MapViewport Viewport
     {
@@ -132,6 +151,13 @@ public sealed class MapControl : Control
     {
         get => GetValue(CirclesProperty);
         set => SetValue(CirclesProperty, value);
+    }
+
+    /// <summary>Connected geographic tracks.</summary>
+    public IReadOnlyList<MapTrackOverlay>? Tracks
+    {
+        get => GetValue(TracksProperty);
+        set => SetValue(TracksProperty, value);
     }
 
     /// <summary>Selected geographic coordinate.</summary>
@@ -155,6 +181,20 @@ public sealed class MapControl : Control
         set => SetValue(TileSourceProperty, value);
     }
 
+    /// <summary>Whether visible tiles are loading.</summary>
+    public bool IsLoading
+    {
+        get => GetValue(IsLoadingProperty);
+        private set => SetValue(IsLoadingProperty, value);
+    }
+
+    /// <summary>Recoverable map provider error.</summary>
+    public string? ErrorMessage
+    {
+        get => GetValue(ErrorMessageProperty);
+        set => SetValue(ErrorMessageProperty, value);
+    }
+
     /// <summary>Raised when the user selects a geographic coordinate.</summary>
     public event Action<GeoCoordinate>? PointSelected;
 
@@ -164,6 +204,51 @@ public sealed class MapControl : Control
     /// <summary>Sets the viewport center and zoom.</summary>
     public void SetViewport(GeoCoordinate center, double zoom) =>
         Viewport = new MapViewport(center, zoom);
+
+    /// <summary>Zooms around the center by one accessible step.</summary>
+    public void ZoomIn() => ZoomAt(
+        new Point(Bounds.Width / 2, Bounds.Height / 2),
+        Viewport.Zoom + 1);
+
+    /// <summary>Zooms around the center by one accessible step.</summary>
+    public void ZoomOut() => ZoomAt(
+        new Point(Bounds.Width / 2, Bounds.Height / 2),
+        Viewport.Zoom - 1);
+
+    /// <summary>Fits the supplied coordinates with a small viewport margin.</summary>
+    public void FitToContent(
+        IEnumerable<GeoCoordinate> coordinates,
+        double paddingPixels = 48)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+        var points = coordinates.ToArray();
+        if (points.Length == 0 || Bounds.Width <= 0 || Bounds.Height <= 0)
+            return;
+
+        var minLatitude = points.Min(point => point.Latitude);
+        var maxLatitude = points.Max(point => point.Latitude);
+        var minLongitude = points.Min(point => point.Longitude);
+        var maxLongitude = points.Max(point => point.Longitude);
+        var center = new GeoCoordinate(
+            (minLatitude + maxLatitude) / 2,
+            (minLongitude + maxLongitude) / 2);
+        var longitudeSpan = global::System.Math.Max(0.00001, maxLongitude - minLongitude);
+        var latitudeSpan = global::System.Math.Max(0.00001, maxLatitude - minLatitude);
+        var usableWidth = global::System.Math.Max(64, Bounds.Width - paddingPixels * 2);
+        var usableHeight = global::System.Math.Max(64, Bounds.Height - paddingPixels * 2);
+        var zoomByLongitude = global::System.Math.Log(
+            usableWidth * 360 / (MapViewportTransform.TileSizePixels * longitudeSpan),
+            2);
+        var zoomByLatitude = global::System.Math.Log(
+            usableHeight * 170 / (MapViewportTransform.TileSizePixels * latitudeSpan),
+            2);
+        SetViewport(
+            center,
+            global::System.Math.Clamp(
+                global::System.Math.Min(zoomByLongitude, zoomByLatitude),
+                MapViewport.MinimumZoom,
+                MapViewport.MaximumZoom));
+    }
 
     /// <summary>Returns the current screen/geographic transform.</summary>
     public MapViewportTransform CreateTransform() =>
@@ -200,16 +285,20 @@ public sealed class MapControl : Control
         if (source is null)
             return;
 
+        IsLoading = true;
+        ErrorMessage = null;
         using var refreshCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var previousCancellation = Interlocked.Exchange(
             ref _tileRefreshCancellation,
             refreshCancellation);
         previousCancellation?.Cancel();
 
-        var pending = GetVisibleTileKeys()
+        var visibleKeys = GetVisibleTileKeys();
+        var pending = visibleKeys
             .Where(key => !_tiles.ContainsKey(key))
             .Select(key => LoadTileAsync(source, key, refreshCancellation.Token))
             .ToList();
+        var requested = pending.Count;
 
         try
         {
@@ -228,12 +317,17 @@ public sealed class MapControl : Control
                     InvalidateVisual();
                 });
             }
+
+            if (requested > 0
+                && visibleKeys.All(key => !_tiles.ContainsKey(key)))
+                ErrorMessage = "Map tiles are unavailable. Check the connection and retry.";
         }
         finally
         {
             if (ReferenceEquals(_tileRefreshCancellation, refreshCancellation))
                 _tileRefreshCancellation = null;
             previousCancellation?.Dispose();
+            IsLoading = false;
         }
     }
 
@@ -392,6 +486,42 @@ public sealed class MapControl : Control
     }
 
     /// <inheritdoc />
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Add:
+            case Key.OemPlus:
+                ZoomIn();
+                e.Handled = true;
+                return;
+            case Key.Subtract:
+            case Key.OemMinus:
+                ZoomOut();
+                e.Handled = true;
+                return;
+        }
+
+        var delta = e.Key switch
+        {
+            Key.Left => new Vector(80, 0),
+            Key.Right => new Vector(-80, 0),
+            Key.Up => new Vector(0, 80),
+            Key.Down => new Vector(0, -80),
+            _ => default,
+        };
+        if (delta != default)
+        {
+            var transform = CreateTransform();
+            var center = transform.ScreenToGeo(new Point(
+                transform.Width / 2 + delta.X,
+                transform.Height / 2 + delta.Y));
+            Viewport = new MapViewport(center, Viewport.Zoom);
+            e.Handled = true;
+        }
+    }
+
+    /// <inheritdoc />
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -403,8 +533,10 @@ public sealed class MapControl : Control
         DrawGrid(context, transform);
         DrawTiles(context, transform);
         DrawCircles(context, transform);
+        DrawTracks(context, transform);
         DrawMarkers(context, transform);
         DrawSelectedCoordinate(context, transform);
+        DrawStatus(context);
         DrawAttribution(context);
     }
 
@@ -451,6 +583,24 @@ public sealed class MapControl : Control
                 / transform.WorldPixels;
             var radiusPixels = overlay.Circle.RadiusMeters / metersPerPixel;
             context.DrawEllipse(CircleFill, CirclePen, center, radiusPixels, radiusPixels);
+        }
+    }
+
+    void DrawTracks(DrawingContext context, MapViewportTransform transform)
+    {
+        if (Tracks is not { Count: > 0 })
+            return;
+
+        foreach (var track in Tracks)
+        {
+            if (track.Points.Count < 2)
+                continue;
+
+            for (var index = 1; index < track.Points.Count; index++)
+                context.DrawLine(
+                    TrackPen,
+                    transform.GeoToScreen(track.Points[index - 1]),
+                    transform.GeoToScreen(track.Points[index]));
         }
     }
 
@@ -527,6 +677,30 @@ public sealed class MapControl : Control
             formatted.Height + padding * 2);
         context.FillRectangle(AttributionBackground, rect);
         context.DrawText(formatted, new Point(padding, Bounds.Height - formatted.Height - padding));
+    }
+
+    void DrawStatus(DrawingContext context)
+    {
+        if (!IsLoading && string.IsNullOrWhiteSpace(ErrorMessage))
+            return;
+
+        var text = IsLoading ? "Loading map…" : ErrorMessage!;
+        var typeface = new Typeface("Segoe UI,sans-serif");
+        var formatted = new FormattedText(
+            text,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            12,
+            LabelBrush);
+        var padding = 10;
+        var rect = new Rect(
+            10,
+            10,
+            formatted.Width + padding * 2,
+            formatted.Height + padding * 2);
+        context.FillRectangle(AttributionBackground, rect);
+        context.DrawText(formatted, new Point(10 + padding, 10 + padding));
     }
 
     MapMarker? HitTestMarker(Point point, MapViewportTransform transform)
