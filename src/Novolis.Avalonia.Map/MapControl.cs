@@ -24,6 +24,9 @@ public sealed class MapControl : Control
     static readonly IPen DefaultSelectedPen = new Pen(new SolidColorBrush(Color.Parse("#f4c37a")), 2);
 
     readonly Dictionary<MapTileKey, MapTile> _tiles = new();
+    CancellationTokenSource? _tileRefreshCancellation;
+    bool _isAttached;
+    bool _tileRefreshQueued;
     Point? _pointerDown;
     Point? _lastPointer;
     bool _isPanning;
@@ -70,6 +73,17 @@ public sealed class MapControl : Control
     {
         ClipToBounds = true;
         Focusable = true;
+        AttachedToVisualTree += (_, _) =>
+        {
+            _isAttached = true;
+            QueueTileRefresh();
+        };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            _isAttached = false;
+            _tileRefreshCancellation?.Cancel();
+        };
+        SizeChanged += (_, _) => QueueTileRefresh();
     }
 
     /// <summary>Map background used underneath raster tiles.</summary>
@@ -186,18 +200,93 @@ public sealed class MapControl : Control
         if (source is null)
             return;
 
-        foreach (var key in GetVisibleTileKeys())
+        using var refreshCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var previousCancellation = Interlocked.Exchange(
+            ref _tileRefreshCancellation,
+            refreshCancellation);
+        previousCancellation?.Cancel();
+
+        var pending = GetVisibleTileKeys()
+            .Where(key => !_tiles.ContainsKey(key))
+            .Select(key => LoadTileAsync(source, key, refreshCancellation.Token))
+            .ToList();
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (_tiles.ContainsKey(key))
-                continue;
+            while (pending.Count > 0)
+            {
+                refreshCancellation.Token.ThrowIfCancellationRequested();
+                var completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+                var tile = await completed;
+                if (tile is null)
+                    continue;
 
-            var tile = await source.GetTileAsync(key, cancellationToken);
-            if (tile is not null)
-                _tiles[key] = tile;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _tiles[tile.Key] = tile;
+                    InvalidateVisual();
+                });
+            }
         }
+        finally
+        {
+            if (ReferenceEquals(_tileRefreshCancellation, refreshCancellation))
+                _tileRefreshCancellation = null;
+            previousCancellation?.Dispose();
+        }
+    }
 
-        Dispatcher.UIThread.Post(InvalidateVisual);
+    async Task<MapTile?> LoadTileAsync(
+        IMapTileSource source,
+        MapTileKey key,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await source.GetTileAsync(key, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ViewportProperty || change.Property == TileSourceProperty)
+            QueueTileRefresh();
+    }
+
+    void QueueTileRefresh()
+    {
+        if (!_isAttached || _tileRefreshQueued)
+            return;
+
+        _tileRefreshQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _tileRefreshQueued = false;
+            _ = RefreshTilesSafelyAsync();
+        }, DispatcherPriority.Background);
+    }
+
+    async Task RefreshTilesSafelyAsync()
+    {
+        try
+        {
+            await RefreshTilesAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer viewport or size invalidated this request.
+        }
     }
 
     /// <summary>Zooms around a screen point while retaining the geographic anchor.</summary>
