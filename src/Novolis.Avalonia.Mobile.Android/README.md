@@ -46,7 +46,9 @@ SSID redaction are returned as explicit capability states.
 dotnet build novolis-apps/src/BooksMobile/BooksMobile.Android
 ```
 
-Host-side APK install / device stats: `Novolis.IO.Mobile.Android` + dogfood `AdbLab`.
+Host-side APK install / device diagnostics:
+`Novolis.IO.Mobile.Android`, the `novolis-android` PackAsTool, and the
+`d:\novolis\novolis-utilities\src\Adb` visual utility.
 
 ## Build / pack
 
