@@ -8,7 +8,7 @@ using Silk.NET.OpenGL;
 
 namespace Novolis.Avalonia.ThreeD.Ui;
 
-file sealed class SceneWireGlGpu : ISceneWireGlGpu
+sealed class SceneWireGlGpu : ISceneWireGlGpu
 {
     private const string Vs = """
         #version 330 core

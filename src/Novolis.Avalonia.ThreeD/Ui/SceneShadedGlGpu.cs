@@ -9,7 +9,7 @@ using Silk.NET.OpenGL;
 
 namespace Novolis.Avalonia.ThreeD.Ui;
 
-file sealed class SceneShadedGlGpu : ISceneShadedGlGpu
+sealed class SceneShadedGlGpu : ISceneShadedGlGpu
 {
     private const int MaxLights = 8;
 

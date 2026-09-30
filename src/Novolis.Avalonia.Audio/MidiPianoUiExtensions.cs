@@ -12,7 +12,7 @@ using Novolis.Audio.MusicTheory;
 
 namespace Novolis.Avalonia.Audio;
 
-file static class MidiPianoUiExtensions
+static class MidiPianoUiExtensions
 {
     public static T With<T>(this T control, Action<T> configure)
     {
