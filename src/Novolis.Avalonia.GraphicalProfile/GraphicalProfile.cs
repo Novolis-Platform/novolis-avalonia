@@ -143,9 +143,15 @@ public static class GraphicalProfile
     public static void ApplyWindowChrome(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
-        window.Background = BackgroundBrush;
-        window.Foreground = TextBrush;
         window.FontFamily = BodyFont;
+        GraphicalProfileBinding.Bind(
+            window,
+            Window.BackgroundProperty,
+            BackgroundResourceKey);
+        GraphicalProfileBinding.Bind(
+            window,
+            Window.ForegroundProperty,
+            TextResourceKey);
     }
 
     private static ResourceDictionary CreateThemeDictionary(bool light)
