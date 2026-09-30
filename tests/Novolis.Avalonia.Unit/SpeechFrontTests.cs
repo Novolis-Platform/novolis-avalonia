@@ -72,6 +72,44 @@ public sealed class SpeechFrontTests
         await Assert.That(store.Values.Single()).Contains("client-id");
     }
 
+    [Test]
+    public async Task Update_azure_voice_keeps_the_stored_key()
+    {
+        var store = new MemoryTokenStore();
+        var front = new SpeechFront(new CapturingVoice(), store);
+        await front.ConfigureAzureAsync(new AzureSpeechSetup
+        {
+            Endpoint = new Uri("https://speech.example.test/"),
+            ApiKey = "secret",
+            VoiceName = "en-US-AvaMultilingualNeural",
+        });
+
+        await front.UpdateAzureVoiceAsync("en-US-JennyNeural", "en-US");
+
+        await Assert.That(front.AzureConfiguration!.VoiceName)
+            .IsEqualTo("en-US-JennyNeural");
+        await Assert.That(front.AzureConfiguration.Locale).IsEqualTo("en-US");
+        await Assert.That(front.AzureConfiguration.ApiKey).IsNull();
+        await Assert.That(store.Values.Single()).Contains("secret");
+        await Assert.That(store.Values.Single()).Contains("en-US-JennyNeural");
+
+        var reloaded = new SpeechFront(new CapturingVoice(), store);
+        await reloaded.InitializeAsync();
+        await Assert.That(reloaded.AzureConfiguration!.VoiceName)
+            .IsEqualTo("en-US-JennyNeural");
+        await Assert.That(store.Values.Single()).Contains("secret");
+    }
+
+    [Test]
+    public async Task Update_azure_voice_requires_configuration()
+    {
+        var front = new SpeechFront(new CapturingVoice(), new MemoryTokenStore());
+
+        await Assert.That(async () =>
+                await front.UpdateAzureVoiceAsync("en-US-JennyNeural"))
+            .ThrowsExactly<SpeechCapabilityException>();
+    }
+
     sealed class CapturingVoice : IVoiceService
     {
         public string? SpokenText { get; private set; }

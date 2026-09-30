@@ -158,6 +158,43 @@ public sealed class SpeechFront
             .ConfigureAwait(false);
     }
 
+    /// <summary>Lists every voice available at the configured Speech resource.</summary>
+    public async Task<IReadOnlyList<AzureSpeechVoice>> ListVoicesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        EnsureAzureConfigured();
+        return await _azureClient!
+            .GetVoicesAsync(string.Empty, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Updates the persisted Azure voice without replacing credentials. The
+    /// in-memory API key is kept; <see cref="AzureConfiguration"/> stays redacted.
+    /// </summary>
+    public async Task UpdateAzureVoiceAsync(
+        string voiceName,
+        string? locale = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(voiceName);
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        EnsureAzureConfigured();
+
+        var next = _azureSetup! with
+        {
+            VoiceName = voiceName.Trim(),
+            Locale = string.IsNullOrWhiteSpace(locale)
+                ? _azureSetup.Locale
+                : locale.Trim(),
+        };
+        next.Validate();
+        _azureSetup = next;
+        await SaveStateAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Removes the stored Azure configuration and returns to device speech.</summary>
     public async Task RemoveAzureAsync(CancellationToken cancellationToken = default)
     {
