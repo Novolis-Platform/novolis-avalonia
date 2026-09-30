@@ -6,16 +6,6 @@ using Novolis.ThreeD;
 
 namespace Novolis.Avalonia.Ship.Design.Services;
 
-public sealed class ShipDesignEvaluationResult
-{
-    public required int ObjectCount { get; init; }
-    public required int CutoutCount { get; init; }
-    public required int MeshNodeCount { get; init; }
-    public required CadDocument FlatCad { get; init; }
-    public required SceneDocument Scene { get; init; }
-    public required string? ScenePath { get; init; }
-}
-
 /// <summary>
 /// Baseline rendering pipeline (§22):
 /// ShipDesign → per-object CadDocument → Cad.Evaluation → Math.Geometry cutouts → ThreeD.Scene.

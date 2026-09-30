@@ -8,7 +8,3 @@ public sealed record ChatRailItem(
     string SpaceName,
     ChannelId Channel,
     int UnreadCount = 0);
-
-/// <summary>One decrypted message projection for the thread view.</summary>
-/// <remarks>The body exists only at the consumer boundary; transport frames never carry it.</remarks>
-public sealed record ChatMessageDto(ChatFrame Frame, MarkdownBody Body);

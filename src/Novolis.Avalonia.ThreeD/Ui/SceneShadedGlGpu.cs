@@ -9,13 +9,6 @@ using Silk.NET.OpenGL;
 
 namespace Novolis.Avalonia.ThreeD.Ui;
 
-/// <summary>Registers Silk shaded GPU factory — loaded only when OpenGL init demands it.</summary>
-internal static class SceneShadedGlGpuFactory
-{
-    static SceneShadedGlGpuFactory() =>
-        SceneShadedGlBootstrap.CreateImpl = static gl => new SceneShadedGlGpu(gl);
-}
-
 file sealed class SceneShadedGlGpu : ISceneShadedGlGpu
 {
     private const int MaxLights = 8;

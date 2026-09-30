@@ -2,53 +2,6 @@ using System.Text.RegularExpressions;
 
 namespace Novolis.Avalonia.Markdown;
 
-/// <summary>Kinds of portable markdown highlight spans (mirrors editor highlighting).</summary>
-public enum MarkdownSpanKind
-{
-    /// <summary>Double-quoted dialogue.</summary>
-    Dialogue,
-    /// <summary>Markdown heading line.</summary>
-    Heading,
-    /// <summary>Markdown or URL link.</summary>
-    Link,
-    /// <summary>HTML comment.</summary>
-    Comment,
-    /// <summary>TK / TODO / FIXME marker.</summary>
-    Tk,
-    /// <summary>Metadata callout line (<c>&gt; [!key]</c>).</summary>
-    Metadata,
-    /// <summary>Metadata key token (<c>[!key]</c>).</summary>
-    MetadataKey
-}
-
-/// <summary>A highlight span in source text.</summary>
-/// <param name="Start">Zero-based start index.</param>
-/// <param name="Length">Span length.</param>
-/// <param name="Kind">Highlight kind.</param>
-public sealed record MarkdownSpan(int Start, int Length, MarkdownSpanKind Kind);
-
-/// <summary>Options for <see cref="MarkdownSpanAnalyzer"/>.</summary>
-public sealed class MarkdownSpanOptions
-{
-    /// <summary>Highlight headings.</summary>
-    public bool Headings { get; init; } = true;
-
-    /// <summary>Highlight links.</summary>
-    public bool Links { get; init; } = true;
-
-    /// <summary>Highlight HTML comments.</summary>
-    public bool Comments { get; init; } = true;
-
-    /// <summary>Highlight TK/TODO/FIXME.</summary>
-    public bool Tk { get; init; } = true;
-
-    /// <summary>Highlight double-quoted dialogue.</summary>
-    public bool Dialogue { get; init; } = true;
-
-    /// <summary>Highlight metadata callouts.</summary>
-    public bool Metadata { get; init; } = true;
-}
-
 /// <summary>Portable span analyzer for book-authoring markdown (no AvaloniaEdit dependency).</summary>
 public static class MarkdownSpanAnalyzer
 {

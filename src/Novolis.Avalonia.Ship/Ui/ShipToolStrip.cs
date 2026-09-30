@@ -55,22 +55,3 @@ internal static class ShipToolStrip
         return row;
     }
 }
-
-/// <summary>Formats topology + validation for inspector panes.</summary>
-public static class ShipInspectorText
-{
-    public static string Format(CadSessionService session)
-    {
-        var doc = session.Document.Document;
-        var topo = ShipTopology.Analyze(doc);
-        var val = ShipValidator.Validate(doc, topo);
-        var lines = new List<string>
-        {
-            $"Spaces: {topo.SpaceIds.Count} · sealed components: {topo.SealedComponents.Count} · venting: {topo.VentingToExterior.Count}",
-            $"Validation: {(val.Ok ? "OK" : "FAIL")} ({val.Issues.Count} issue(s))",
-        };
-        foreach (var i in val.Issues.Take(12))
-            lines.Add($"  [{i.Severity}] {i.Code}: {i.Message}");
-        return string.Join('\n', lines);
-    }
-}

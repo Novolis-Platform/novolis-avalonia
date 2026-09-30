@@ -12,10 +12,3 @@ public interface ISecureTokenStore
     /// <summary>Removes a secret if present.</summary>
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);
 }
-
-/// <summary>Well-known token store keys used by Novolis mobile apps.</summary>
-public static class SecureTokenKeys
-{
-    /// <summary>GitHub OAuth access token.</summary>
-    public const string GitHubOAuthAccessToken = "github.oauth.access_token";
-}

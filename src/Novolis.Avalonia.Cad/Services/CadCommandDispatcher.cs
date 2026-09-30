@@ -10,17 +10,6 @@ using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Cad.Services;
 
-public enum CadToolKind
-{
-    Select,
-    Line,
-    Circle,
-    Rect,
-    Spline,
-    Wall,
-    Dimension,
-}
-
 public sealed class CadCommandDispatcher
 {
     private readonly CadDocumentSession _session;

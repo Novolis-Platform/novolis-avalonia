@@ -1174,12 +1174,3 @@ public sealed class MidiPianoWorkspace : Border, IDisposable
             catch (Exception ex) { Toast(ex.Message); }
         };
 }
-
-file static class MidiPianoUiExtensions
-{
-    public static T With<T>(this T control, Action<T> configure)
-    {
-        configure(control);
-        return control;
-    }
-}

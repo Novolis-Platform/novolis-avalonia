@@ -10,12 +10,6 @@ using Novolis.Avalonia.ThreeD.Session;
 
 namespace Novolis.Avalonia.ThreeD.Ui;
 
-internal interface ISceneWireGlGpu : IDisposable
-{
-    void Render(SceneSessionService session, SceneViewportCamera camera, int framebuffer, int w, int h, bool rebuildLines);
-    void ReadRgba(Span<byte> rgba, int w, int h);
-}
-
 /// <summary>Native Avalonia OpenGL wireframe viewport — preferred over Raylib streaming.</summary>
 /// <remarks>
 /// Do not put Silk.NET types on this class. Loading Silk before Avalonia finishes

@@ -3,27 +3,6 @@ using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design.Plan;
 
-public enum ShipPlanConstraintSnapKind
-{
-    None,
-    Free,
-    Grid,
-    Vertex,
-    Midpoint,
-    Edge,
-    Ortho,
-    Angle15,
-    Guide,
-}
-
-public sealed record ShipPlanConstraintResult(
-    float X,
-    float Z,
-    ShipPlanConstraintSnapKind Kind,
-    IReadOnlyList<ShipPlanPaths.PlanGuideLine> Guides,
-    float? SegmentLengthM = null,
-    float? SegmentAngleDeg = null);
-
 /// <summary>ArchiCAD-style PLAN constraint resolve: object snap, grid, ortho/angle locks, guides.</summary>
 public static class ShipPlanConstraintResolver
 {

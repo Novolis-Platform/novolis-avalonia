@@ -3,29 +3,6 @@ using Novolis.Ship.Design;
 
 namespace Novolis.Avalonia.Ship.Design.Grips;
 
-public enum ShipGripKind
-{
-    Endpoint,
-    Segment,
-    Vertex,
-    InsertVertex,
-    Thickness,
-    Width,
-    Elevation,
-    Station,
-    Slide,
-    Resize,
-}
-
-/// <summary>Baseline §20 grip descriptors for selected semantic objects (PLAN direct manipulation).</summary>
-public sealed record ShipGrip(
-    ShipObjectId ObjectId,
-    ShipGripKind Kind,
-    float X,
-    float Y,
-    float Z,
-    string Label);
-
 public static class ShipGripCatalog
 {
     public static IReadOnlyList<ShipGrip> ForSelection(ShipDesign design, ShipObjectId? selected)

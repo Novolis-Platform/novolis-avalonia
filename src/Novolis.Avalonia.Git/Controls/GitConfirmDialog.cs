@@ -6,47 +6,6 @@ using Avalonia.Media.Immutable;
 
 namespace Novolis.Avalonia.Git;
 
-/// <summary>Severity for destructive / caution confirms.</summary>
-public enum GitConfirmSeverity
-{
-    /// <summary>Informational confirm (batch pull, push).</summary>
-    Info,
-
-    /// <summary>Caution (pop, dirty checkout).</summary>
-    Warning,
-
-    /// <summary>Irreversible / high risk (stash drop, branch-cut apply).</summary>
-    Danger,
-}
-
-/// <summary>Parameters for <see cref="GitConfirmDialog"/>.</summary>
-public sealed class GitConfirmRequest
-{
-    /// <summary>Window title.</summary>
-    public required string Title { get; init; }
-
-    /// <summary>Short summary (one or two sentences).</summary>
-    public required string Summary { get; init; }
-
-    /// <summary>Optional mono detail block.</summary>
-    public string? Detail { get; init; }
-
-    /// <summary>Risk level.</summary>
-    public GitConfirmSeverity Severity { get; init; } = GitConfirmSeverity.Warning;
-
-    /// <summary>Confirm button label.</summary>
-    public string ConfirmLabel { get; init; } = "Continue";
-
-    /// <summary>Cancel button label.</summary>
-    public string CancelLabel { get; init; } = "Cancel";
-
-    /// <summary>When set, user must type this exact phrase (case-insensitive) to enable Confirm.</summary>
-    public string? RequireTypedPhrase { get; init; }
-
-    /// <summary>Hint under the type-to-confirm box.</summary>
-    public string? TypedPhraseHint { get; init; }
-}
-
 /// <summary>Modal safety confirm for destructive Git chrome actions.</summary>
 public static class GitConfirmDialog
 {

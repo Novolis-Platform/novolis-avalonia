@@ -5,38 +5,6 @@ using Avalonia.Media;
 
 namespace Novolis.Avalonia.StarMap;
 
-/// <summary>A plotted star on the map (map units, typically light-years on XZ).</summary>
-public sealed class StarMapPoint
-{
-    /// <summary>Stable id.</summary>
-    public required string Id { get; init; }
-
-    /// <summary>Display label.</summary>
-    public string? Label { get; init; }
-
-    /// <summary>X map coordinate.</summary>
-    public double X { get; init; }
-
-    /// <summary>Y map coordinate (often catalog Z).</summary>
-    public double Y { get; init; }
-
-    /// <summary>Optional draw radius override (screen px); null uses defaults.</summary>
-    public double? Radius { get; init; }
-}
-
-/// <summary>A route edge between two point ids.</summary>
-public sealed class StarMapEdge
-{
-    /// <summary>From id.</summary>
-    public required string FromId { get; init; }
-
-    /// <summary>To id.</summary>
-    public required string ToId { get; init; }
-
-    /// <summary>Optional stroke band (e.g. lane / corridor class).</summary>
-    public string? BandTag { get; init; }
-}
-
 /// <summary>Pan/zoom star field with optional route edges and path highlight.</summary>
 public sealed class StarMapControl : Control
 {

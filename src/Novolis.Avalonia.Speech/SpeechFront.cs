@@ -283,15 +283,3 @@ public sealed class SpeechFront
         SpeechProvider Provider,
         AzureSpeechSetup? Azure);
 }
-
-/// <summary>Dependency-injection registration for the application speech front.</summary>
-public static class SpeechServiceCollectionExtensions
-{
-    /// <summary>Registers <see cref="SpeechFront"/>.</summary>
-    public static IServiceCollection AddNovolisSpeech(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        services.AddSingleton<SpeechFront>();
-        return services;
-    }
-}

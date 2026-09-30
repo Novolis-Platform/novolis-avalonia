@@ -303,10 +303,3 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
         _ => null,
     };
 }
-
-/// <summary>Per-frame update args for <see cref="TwoDSceneControl"/>.</summary>
-public sealed class TwoDFrameEventArgs(float deltaSeconds) : EventArgs
-{
-    /// <summary>Elapsed time since the previous frame in seconds.</summary>
-    public float DeltaSeconds { get; } = deltaSeconds;
-}
