@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Avalonia.Threading;
 using Novolis.Transports.Torrent;
 using Novolis.Transports.Torrent.TorrentEventArgs;
@@ -16,10 +17,10 @@ namespace Novolis.Avalonia.Torrent;
 /// </summary>
 public sealed class TorrentProgressView : Border
 {
-    static readonly IBrush Accent = new SolidColorBrush(Color.Parse("#2A9D8F"));
-    static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#A1A1AA"));
-    static readonly IBrush RowBorder = new SolidColorBrush(Color.Parse("#2E3A4A"));
-    static readonly IBrush SelectedBg = new SolidColorBrush(Color.Parse("#243447"));
+    static IBrush Accent => Profile.AccentBrush;
+    static IBrush Muted => Profile.MutedBrush;
+    static IBrush RowBorder => Profile.BorderBrush;
+    static IBrush SelectedBg => Profile.RaisedBrush;
 
     readonly TextBlock _name = new() { FontWeight = FontWeight.SemiBold, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis };
     readonly TextBlock _size = new() { FontSize = 12, Foreground = Muted };
@@ -171,10 +172,10 @@ public sealed class TorrentProgressView : Border
     static IBrush StatusBrush(string? status) => status switch
     {
         "Downloading" => Accent,
-        "Seeding" => new SolidColorBrush(Color.Parse("#5B9BD5")),
-        "Completed" => new SolidColorBrush(Color.Parse("#6FCF97")),
-        "Checking" => new SolidColorBrush(Color.Parse("#E9C46A")),
-        "Stalled" => new SolidColorBrush(Color.Parse("#E07A5F")),
+        "Seeding" => Profile.AccentFillBrush,
+        "Completed" => Profile.ActionSoftBrush,
+        "Checking" => Profile.WarningBrush,
+        "Stalled" => Profile.DangerBrush,
         "Stopped" => Muted,
         _ => Muted
     };
@@ -230,11 +231,11 @@ public sealed class TorrentProgressView : Border
 /// </summary>
 public sealed class TorrentSessionPanel : Border, IDisposable
 {
-    static readonly IBrush Bg = new SolidColorBrush(Color.Parse("#121820"));
-    static readonly IBrush Panel = new SolidColorBrush(Color.Parse("#182230"));
-    static readonly IBrush BorderTone = new SolidColorBrush(Color.Parse("#2E3A4A"));
-    static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#A1A1AA"));
-    static readonly IBrush Accent = new SolidColorBrush(Color.Parse("#2A9D8F"));
+    static IBrush Bg => Profile.BackgroundBrush;
+    static IBrush Panel => Profile.SurfaceBrush;
+    static IBrush BorderTone => Profile.BorderBrush;
+    static IBrush Muted => Profile.MutedBrush;
+    static IBrush Accent => Profile.AccentBrush;
 
     readonly TextBox _downloadDir;
     readonly NumericUpDown _port;

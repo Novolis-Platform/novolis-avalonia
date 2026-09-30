@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Analysis;
 using Novolis.Ship.Design;
@@ -82,8 +83,8 @@ public static class ShipAnalysisStatusStrip
 
     private static IBrush BrushFor(AnalysisSeverity severity) => severity switch
     {
-        AnalysisSeverity.Red => new SolidColorBrush(Color.Parse("#8b2e2e")),
-        AnalysisSeverity.Yellow => new SolidColorBrush(Color.Parse("#8a6a1a")),
-        _ => new SolidColorBrush(Color.Parse("#1f5c3a")),
+        AnalysisSeverity.Red => Profile.DangerBrush,
+        AnalysisSeverity.Yellow => Profile.WarningBrush,
+        _ => Profile.ActionSoftBrush,
     };
 }

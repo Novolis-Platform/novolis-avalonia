@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Novolis.Avalonia.GraphicalProfile\Novolis.Avalonia.GraphicalProfile.csproj" />
     <LibraryReference Include="Novolis.Chat.Abstractions" />
     <ProjectReference Include="..\Novolis.Avalonia.Markdown\Novolis.Avalonia.Markdown.csproj" />
   </ItemGroup>

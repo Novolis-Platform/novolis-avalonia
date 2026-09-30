@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Novolis.Avalonia.GraphicalProfile\Novolis.Avalonia.GraphicalProfile.csproj" />
     <LibraryReference Include="Novolis.Transports.Torrent" />
   </ItemGroup>
 </Project>

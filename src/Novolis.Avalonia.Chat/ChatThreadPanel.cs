@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Markdown;
 using Novolis.Chat.Abstractions;
 
@@ -23,7 +24,7 @@ public sealed class ChatThreadPanel : Border
 
     public ChatThreadPanel()
     {
-        Background = new SolidColorBrush(Color.Parse("#0f1c2e"));
+        Background = Profile.BackgroundBrush;
         Padding = new Thickness(12);
         Child = new ScrollViewer
         {
@@ -70,14 +71,14 @@ public sealed class ChatThreadPanel : Border
                 Content = new TextBlock
                 {
                     Text = FormatHeader(message.Frame),
-                    Foreground = new SolidColorBrush(Color.Parse("#c9853a")),
+                    Foreground = Profile.WarningBrush,
                     FontSize = 12,
                 },
             };
             header.Click += (_, _) => MessageSelected?.Invoke(this, message);
             _items.Children.Add(new Border
             {
-                BorderBrush = new SolidColorBrush(Color.Parse("#2a415c")),
+                BorderBrush = Profile.BorderBrush,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(0, 0, 0, 8),
                 Child = new StackPanel

@@ -4,6 +4,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Chat.Abstractions;
 
 namespace Novolis.Avalonia.Chat;
@@ -20,8 +21,8 @@ public sealed class ChatPresenceList : Border
 
     public ChatPresenceList()
     {
-        Background = new SolidColorBrush(Color.Parse("#162538"));
-        BorderBrush = new SolidColorBrush(Color.Parse("#2a415c"));
+        Background = Profile.SurfaceBrush;
+        BorderBrush = Profile.BorderBrush;
         BorderThickness = new Thickness(1);
         Padding = new Thickness(10);
         Child = new ScrollViewer
@@ -52,11 +53,11 @@ public sealed class ChatPresenceList : Border
         _items.Children.Clear();
         foreach (var entry in Presence.OrderBy(value => value.Nick, StringComparer.OrdinalIgnoreCase))
         {
-            var color = entry.Status switch
+            var fill = entry.Status switch
             {
-                ChatPresenceStatus.Online => "#3a9e8f",
-                ChatPresenceStatus.Away => "#c9853a",
-                _ => "#8aa0b8",
+                ChatPresenceStatus.Online => Profile.ActionSoftBrush,
+                ChatPresenceStatus.Away => Profile.WarningBrush,
+                _ => Profile.MutedBrush,
             };
             var row = new StackPanel
             {
@@ -68,13 +69,13 @@ public sealed class ChatPresenceList : Border
                     {
                         Width = 8,
                         Height = 8,
-                        Fill = new SolidColorBrush(Color.Parse(color)),
+                        Fill = fill,
                         VerticalAlignment = VerticalAlignment.Center,
                     },
                     new TextBlock
                     {
                         Text = entry.Nick,
-                        Foreground = new SolidColorBrush(Color.Parse("#d9e4f0")),
+                        Foreground = Profile.TextBrush,
                     },
                 },
             };

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
 
@@ -38,9 +39,9 @@ public static class ShipDeckNavigator
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     Padding = new Thickness(8, 4),
                     Background = active
-                        ? new SolidColorBrush(Color.Parse("#2a4a5a"))
+                        ? Profile.RaisedBrush
                         : Brushes.Transparent,
-                    Foreground = Brushes.WhiteSmoke,
+                    Foreground = Profile.TextBrush,
                 };
                 btn.Click += (_, _) =>
                 {

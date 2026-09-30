@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Cad.Session;
 using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Ship;
@@ -242,7 +243,7 @@ public static class ShipDesignChrome
         {
             Width = 360,
             Content = rightStack,
-            Background = new SolidColorBrush(Color.Parse("#1a1c20")),
+            Background = Profile.SurfaceBrush,
         };
 
         var centerHost = new Panel();

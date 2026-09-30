@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
 
@@ -15,7 +16,7 @@ public static class ShipPlanObjectList
         var tree = new TreeView
         {
             MinHeight = 220,
-            Background = new SolidColorBrush(Color.Parse("#14161a")),
+            Background = Profile.SurfaceBrush,
         };
         var syncing = false;
         var leaves = new Dictionary<Guid, TreeViewItem>();

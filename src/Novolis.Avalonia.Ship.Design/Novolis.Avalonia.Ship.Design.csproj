@@ -22,6 +22,7 @@
     <LibraryReference Include="Novolis.Ship.Analysis" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Novolis.Avalonia.GraphicalProfile\Novolis.Avalonia.GraphicalProfile.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Cad\Novolis.Avalonia.Cad.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Cad.Ship\Novolis.Avalonia.Cad.Ship.csproj" />
     <ProjectReference Include="..\Novolis.Avalonia.Ship\Novolis.Avalonia.Ship.csproj" />

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Avalonia.Ship.Design.Plan;
 using Novolis.Avalonia.Ship.Design.Session;
 using Novolis.Ship.Design;
@@ -31,8 +32,8 @@ public static class ShipObjectToolStrip
                 var on = session.ActiveTool == tool;
                 if (on)
                 {
-                    btn.Background = new SolidColorBrush(Color.Parse("#2a6f8f"));
-                    btn.Foreground = Brushes.White;
+                    btn.Background = Profile.AccentFillBrush;
+                    btn.Foreground = Profile.OnAccentFillBrush;
                 }
                 else
                 {

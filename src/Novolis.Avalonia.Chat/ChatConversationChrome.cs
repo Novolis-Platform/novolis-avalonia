@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Chat.Abstractions;
 
 namespace Novolis.Avalonia.Chat;
@@ -12,7 +13,7 @@ public sealed class ChatConversationChrome : Grid
     public ChatConversationChrome()
     {
         ColumnDefinitions = new ColumnDefinitions("190,*,190");
-        Background = new SolidColorBrush(Color.Parse("#0a1422"));
+        Background = Profile.BackgroundBrush;
 
         Rail = new ChatRail();
         Thread = new ChatThreadPanel();

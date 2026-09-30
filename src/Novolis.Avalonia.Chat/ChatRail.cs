@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using Novolis.Chat.Abstractions;
 
 namespace Novolis.Avalonia.Chat;
@@ -19,8 +20,8 @@ public sealed class ChatRail : Border
 
     public ChatRail()
     {
-        Background = new SolidColorBrush(Color.Parse("#102033"));
-        BorderBrush = new SolidColorBrush(Color.Parse("#2a415c"));
+        Background = Profile.SurfaceBrush;
+        BorderBrush = Profile.BorderBrush;
         BorderThickness = new Thickness(0, 0, 1, 0);
         Padding = new Thickness(10);
         Width = 190;
@@ -67,13 +68,13 @@ public sealed class ChatRail : Border
                         new TextBlock
                         {
                             Text = $"{item.SpaceName}  {item.Channel.NormalizedName}",
-                            Foreground = new SolidColorBrush(Color.Parse("#d9e4f0")),
+                            Foreground = Profile.TextBrush,
                             TextTrimming = TextTrimming.CharacterEllipsis,
                         },
                         new TextBlock
                         {
                             Text = item.UnreadCount > 0 ? item.UnreadCount.ToString() : string.Empty,
-                            Foreground = new SolidColorBrush(Color.Parse("#c9853a")),
+                            Foreground = Profile.ActionBrush,
                             HorizontalAlignment = HorizontalAlignment.Right,
                         },
                     },
