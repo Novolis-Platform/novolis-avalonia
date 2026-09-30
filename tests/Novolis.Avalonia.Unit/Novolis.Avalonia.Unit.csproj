@@ -36,5 +36,6 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Speech\Novolis.Avalonia.Speech.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Git\Novolis.Avalonia.Git.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.GraphicalProfile\Novolis.Avalonia.GraphicalProfile.csproj" />
   </ItemGroup>
 </Project>

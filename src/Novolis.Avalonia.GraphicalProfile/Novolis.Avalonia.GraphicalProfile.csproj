@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.GraphicalProfile</PackageId>
+    <RootNamespace>Novolis.Avalonia.GraphicalProfile</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Required Novolis graphical profile for Avalonia hosts: Merglyph palette, typography, geometry, and theme resources.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+</Project>

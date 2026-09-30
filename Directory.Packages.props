@@ -27,6 +27,7 @@
     <PackageVersion Include="Azure.Core" Version="1.62.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Novolis.Avalonia.Mobile" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Avalonia.GraphicalProfile" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.AzureSpeech" Version="2026.1.*" />
     <PackageVersion Include="Xamarin.AndroidX.Browser" Version="1.10.0.1" />
     <PackageVersion Include="Xamarin.AndroidX.Core" Version="1.19.0.1" />
