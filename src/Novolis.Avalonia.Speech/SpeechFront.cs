@@ -80,7 +80,7 @@ public sealed class SpeechFront
                     {
                         state.Azure.Validate();
                         _azureSetup = state.Azure;
-                        _azureClient = CreateClient(state.Azure);
+                        ReplaceAzureClient(CreateClient(state.Azure));
                         _provider = state.Provider == SpeechProvider.AzureSpeech
                             ? SpeechProvider.AzureSpeech
                             : SpeechProvider.DeviceVoice;
@@ -141,7 +141,7 @@ public sealed class SpeechFront
 
         var client = CreateClient(setup);
         _azureSetup = setup;
-        _azureClient = client;
+        ReplaceAzureClient(client);
         _provider = SpeechProvider.AzureSpeech;
         await SaveStateAsync(cancellationToken).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);
@@ -200,7 +200,7 @@ public sealed class SpeechFront
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
         _azureSetup = null;
-        _azureClient = null;
+        ReplaceAzureClient(null);
         _provider = SpeechProvider.DeviceVoice;
         await _secureStore.RemoveAsync(SecureStateKey, cancellationToken).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);
@@ -248,6 +248,14 @@ public sealed class SpeechFront
         return await _azureClient!
             .SynthesizeToMp3Async(text, options, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    void ReplaceAzureClient(AzureSpeechClient? client)
+    {
+        var previous = _azureClient;
+        _azureClient = client;
+        if (!ReferenceEquals(previous, client))
+            previous?.Dispose();
     }
 
     AzureSpeechClient CreateClient(AzureSpeechSetup setup)

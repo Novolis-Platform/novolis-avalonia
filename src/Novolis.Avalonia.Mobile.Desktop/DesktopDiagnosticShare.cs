@@ -21,9 +21,10 @@ public sealed class DesktopDiagnosticShare(IDiagnosticJournal journal) : IDiagno
         var info = new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
         {
             UseShellExecute = false,
-            CreateNoWindow = true,
+            CreateNoWindow = false,
         };
-        Process.Start(info)?.Dispose();
+        using var process = Process.Start(info)
+            ?? throw new InvalidOperationException("Explorer did not open the diagnostic file.");
         return Task.CompletedTask;
     }
 }
