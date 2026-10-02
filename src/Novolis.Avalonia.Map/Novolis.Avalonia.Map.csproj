@@ -9,5 +9,6 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <LibraryReference Include="Novolis.Math.Geometry" />
+    <LibraryReference Include="Novolis.IO.Maps" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-﻿using Avalonia.Media.Imaging;
+﻿using Avalonia.Media;
 using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Map;
@@ -8,4 +8,5 @@ public sealed record MapMarker(
     string Id,
     GeoCoordinate Position,
     string? Label = null,
-    double RadiusPixels = 6);
+    double RadiusPixels = 6,
+    Color? Ink = null);

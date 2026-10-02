@@ -1,4 +1,4 @@
-﻿using Avalonia.Media.Imaging;
+﻿using Avalonia.Media;
 using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Map;
@@ -7,4 +7,5 @@ namespace Novolis.Avalonia.Map;
 public sealed record MapCircleOverlay(
     string Id,
     GeoCircle Circle,
-    string? Label = null);
+    string? Label = null,
+    Color? Ink = null);

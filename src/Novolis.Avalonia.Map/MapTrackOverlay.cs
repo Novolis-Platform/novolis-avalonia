@@ -1,4 +1,4 @@
-﻿using Avalonia.Media.Imaging;
+﻿using Avalonia.Media;
 using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Map;
@@ -7,4 +7,6 @@ namespace Novolis.Avalonia.Map;
 public sealed record MapTrackOverlay(
     string Id,
     IReadOnlyList<GeoCoordinate> Points,
-    string? Label = null);
+    string? Label = null,
+    Color? FromInk = null,
+    Color? ToInk = null);

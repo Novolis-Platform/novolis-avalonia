@@ -57,6 +57,7 @@ map.PointSelected += coordinate => { /* application handles the selection */ };
 | `MapMarker` | Selectable geographic point and optional label |
 | `MapCircleOverlay` | Geographic radius overlay |
 | `IMapTileSource` | Application-owned asynchronous tile provider |
+| `RasterMapTileSource` | Decodes `Novolis.IO.Maps` raster bytes into Avalonia tiles |
 | `Attribution` | Visible provider attribution text |
 
 Use [Novolis.Math.Geometry](https://github.com/Novolis-Platform/novolis-math)

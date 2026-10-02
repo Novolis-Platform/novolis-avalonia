@@ -705,7 +705,13 @@ public sealed class MapControl : Control
                 * global::System.Math.Max(0.01, global::System.Math.Cos(latitudeRadians))
                 / transform.WorldPixels;
             var radiusPixels = overlay.Circle.RadiusMeters / metersPerPixel;
-            context.DrawEllipse(CircleFill, CirclePen, center, radiusPixels, radiusPixels);
+            var fill = overlay.Ink is { } ink
+                ? new SolidColorBrush(Color.FromArgb(48, ink.R, ink.G, ink.B))
+                : CircleFill;
+            var pen = overlay.Ink is { } stroke
+                ? new Pen(new SolidColorBrush(stroke), 2)
+                : CirclePen;
+            context.DrawEllipse(fill, pen, center, radiusPixels, radiusPixels);
         }
     }
 
@@ -719,11 +725,28 @@ public sealed class MapControl : Control
             if (track.Points.Count < 2)
                 continue;
 
+            var segments = track.Points.Count - 1;
             for (var index = 1; index < track.Points.Count; index++)
+            {
+                var pen = TrackPen;
+                if (track.FromInk is { } from && track.ToInk is { } to)
+                {
+                    var amount = segments <= 1 ? 1 : (index - 1) / (double)(segments - 1);
+                    pen = new Pen(
+                        new SolidColorBrush(MapInk.Lerp(from, to, amount)),
+                        3,
+                        lineCap: PenLineCap.Round);
+                }
+                else if (track.FromInk is { } solid)
+                {
+                    pen = new Pen(new SolidColorBrush(solid), 3, lineCap: PenLineCap.Round);
+                }
+
                 context.DrawLine(
-                    TrackPen,
+                    pen,
                     transform.GeoToScreen(track.Points[index - 1]),
                     transform.GeoToScreen(track.Points[index]));
+            }
         }
     }
 
@@ -740,8 +763,11 @@ public sealed class MapControl : Control
                 ? global::System.Math.Max(2, marker.RadiusPixels)
                 : 6;
             var selected = SelectedCoordinate == marker.Position;
+            var brush = marker.Ink is { } ink
+                ? new SolidColorBrush(ink)
+                : selected ? SelectedMarkerBrush : MarkerBrush;
             context.DrawEllipse(
-                selected ? SelectedMarkerBrush : MarkerBrush,
+                brush,
                 selected ? SelectedPen : null,
                 screen,
                 radius,
