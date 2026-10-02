@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Ndjson</PackageId>
+    <RootNamespace>Novolis.Avalonia.Ndjson</RootNamespace>
+    <Description>Avalonia slice chrome for large local NDJSON files.</Description>
+    <PackageTags>avalonia;ndjson;jsonl;viewer;novolis</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
+    <LibraryReference Include="Novolis.IO.Ndjson" />
+  </ItemGroup>
+</Project>
