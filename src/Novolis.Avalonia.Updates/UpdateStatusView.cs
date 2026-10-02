@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Novolis.Avalonia.GraphicalProfile;
 using Novolis.Registry.Primitives.Updates;
 using Novolis.Registry.Updates;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 
 namespace Novolis.Avalonia.Updates;
 
@@ -16,17 +17,21 @@ namespace Novolis.Avalonia.Updates;
 /// </summary>
 public sealed class UpdateStatusView : UserControl
 {
+    /// <summary>Styled property for <see cref="Coordinator"/>.</summary>
     public static readonly StyledProperty<UpdateCoordinator?> CoordinatorProperty =
         AvaloniaProperty.Register<UpdateStatusView, UpdateCoordinator?>(nameof(Coordinator));
 
+    /// <summary>Styled property for <see cref="HostActions"/>.</summary>
     public static readonly StyledProperty<IUpdateHostActions?> HostActionsProperty =
         AvaloniaProperty.Register<UpdateStatusView, IUpdateHostActions?>(nameof(HostActions));
 
+    /// <summary>Styled property for <see cref="NotificationMode"/>.</summary>
     public static readonly StyledProperty<UpdateNotificationMode> NotificationModeProperty =
         AvaloniaProperty.Register<UpdateStatusView, UpdateNotificationMode>(
             nameof(NotificationMode),
             UpdateNotificationMode.Inline);
 
+    /// <summary>Styled property for <see cref="ShowInline"/>.</summary>
     public static readonly StyledProperty<bool> ShowInlineProperty =
         AvaloniaProperty.Register<UpdateStatusView, bool>(nameof(ShowInline), true);
 
@@ -64,7 +69,7 @@ public sealed class UpdateStatusView : UserControl
         _candidateVersion.Classes.Add("ngp-page-title");
         _releaseNotes.Classes.Add("ngp-body");
         _error.Classes.Add("ngp-body");
-        GraphicalProfileBinding.Bind(_error, TextBlock.ForegroundProperty, GraphicalProfile.DangerResourceKey);
+        GraphicalProfileBinding.Bind(_error, TextBlock.ForegroundProperty, Profile.DangerResourceKey);
         _releaseNotes.TextWrapping = TextWrapping.Wrap;
         _error.TextWrapping = TextWrapping.Wrap;
 
@@ -116,8 +121,8 @@ public sealed class UpdateStatusView : UserControl
             Child = content,
         };
         card.Classes.Add("ngp-card");
-        GraphicalProfileBinding.Bind(card, Border.BackgroundProperty, GraphicalProfile.SurfaceResourceKey);
-        GraphicalProfileBinding.Bind(card, Border.BorderBrushProperty, GraphicalProfile.BorderResourceKey);
+        GraphicalProfileBinding.Bind(card, Border.BackgroundProperty, Profile.SurfaceResourceKey);
+        GraphicalProfileBinding.Bind(card, Border.BorderBrushProperty, Profile.BorderResourceKey);
         Content = card;
         IsVisible = ShowInline;
     }
@@ -155,11 +160,12 @@ public sealed class UpdateStatusView : UserControl
     {
         if (Content is Border card)
         {
-            GraphicalProfileBinding.Bind(card, Border.BackgroundProperty, GraphicalProfile.SurfaceResourceKey);
-            GraphicalProfileBinding.Bind(card, Border.BorderBrushProperty, GraphicalProfile.BorderResourceKey);
+            GraphicalProfileBinding.Bind(card, Border.BackgroundProperty, Profile.SurfaceResourceKey);
+            GraphicalProfileBinding.Bind(card, Border.BorderBrushProperty, Profile.BorderResourceKey);
         }
     }
 
+    /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -198,10 +204,10 @@ public sealed class UpdateStatusView : UserControl
 
     private void OnSnapshotChanged(UpdateSnapshot snapshot)
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        if (global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             Render(snapshot);
         else
-            Dispatcher.UIThread.Post(() => Render(snapshot));
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() => Render(snapshot));
     }
 
     private void Render(UpdateSnapshot snapshot)
