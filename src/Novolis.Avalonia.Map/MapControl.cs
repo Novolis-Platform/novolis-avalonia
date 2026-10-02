@@ -28,9 +28,23 @@ public sealed class MapControl : Control
     CancellationTokenSource? _tileRefreshCancellation;
     bool _isAttached;
     bool _tileRefreshQueued;
-    Point? _pointerDown;
-    Point? _lastPointer;
+    readonly Dictionary<int, Point> _contacts = new();
+    int? _panPointerId;
+    Point _panOrigin;
+    bool _panFromTouch;
     bool _isPanning;
+    bool _isPinching;
+    long _lastMoveTicks;
+    Vector _panVelocity;
+    double _pinchStartDistance;
+    MapViewport _pinchStartViewport;
+    GeoCoordinate _pinchAnchor;
+    bool _suspendTileRefresh;
+    bool _tilesStale;
+    DispatcherTimer? _inertiaTimer;
+    Vector _inertiaVelocity;
+    long _lastTapTicks;
+    Point _lastTapPoint;
 
     /// <summary>Viewport state.</summary>
     public static readonly StyledProperty<MapViewport> ViewportProperty =
@@ -354,8 +368,22 @@ public sealed class MapControl : Control
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == ViewportProperty || change.Property == TileSourceProperty)
+        if (change.Property == TileSourceProperty)
+        {
             QueueTileRefresh();
+            return;
+        }
+
+        if (change.Property != ViewportProperty)
+            return;
+
+        if (_suspendTileRefresh)
+        {
+            _tilesStale = true;
+            return;
+        }
+
+        QueueTileRefresh();
     }
 
     void QueueTileRefresh()
@@ -405,76 +433,145 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (!IsMapContact(e))
             return;
 
+        StopInertia();
+        e.PreventGestureRecognition();
         Focus();
-        _pointerDown = e.GetPosition(this);
-        _lastPointer = _pointerDown;
-        _isPanning = false;
+        var position = e.GetPosition(this);
+        _contacts[e.Pointer.Id] = position;
         e.Pointer.Capture(this);
         e.Handled = true;
+
+        if (_contacts.Count >= 2)
+        {
+            BeginPinch();
+            return;
+        }
+
+        _panPointerId = e.Pointer.Id;
+        _panOrigin = position;
+        _panFromTouch = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+        _isPanning = false;
+        _panVelocity = default;
+        _lastMoveTicks = Environment.TickCount64;
     }
 
     /// <inheritdoc />
     protected override void OnPointerMoved(PointerEventArgs e)
     {
-        if (_lastPointer is not { } last
-            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (!_contacts.ContainsKey(e.Pointer.Id))
             return;
 
+        e.PreventGestureRecognition();
         var current = e.GetPosition(this);
-        var delta = current - last;
-        if (!_isPanning
-            && _pointerDown is { } down
-            && ((current.X - down.X) * (current.X - down.X)
-                + (current.Y - down.Y) * (current.Y - down.Y)) > 16)
-            _isPanning = true;
+        var previous = _contacts[e.Pointer.Id];
+        _contacts[e.Pointer.Id] = current;
 
-        if (_isPanning)
+        if (_contacts.Count >= 2)
         {
-            var transform = CreateTransform();
-            var center = transform.ScreenToGeo(new Point(
-                transform.Width / 2 - delta.X,
-                transform.Height / 2 - delta.Y));
-            Viewport = new MapViewport(center, Viewport.Zoom);
+            if (!_isPinching)
+                BeginPinch();
+            ApplyPinch();
+            e.Handled = true;
+            return;
         }
 
-        _lastPointer = current;
+        if (_panPointerId != e.Pointer.Id)
+            return;
+
+        var delta = current - previous;
+        if (!_isPanning)
+        {
+            var movedX = current.X - _panOrigin.X;
+            var movedY = current.Y - _panOrigin.Y;
+            var slop = _panFromTouch ? 24d : 6d;
+            if (movedX * movedX + movedY * movedY < slop * slop)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _isPanning = true;
+            _suspendTileRefresh = true;
+        }
+
+        var now = Environment.TickCount64;
+        var elapsed = now - _lastMoveTicks;
+        if (elapsed is > 0 and < 80)
+            _panVelocity = delta / (elapsed / 1000d);
+        else
+            _panVelocity = default;
+
+        _lastMoveTicks = now;
+        TranslateBy(delta);
         e.Handled = true;
     }
 
     /// <inheritdoc />
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        if (_pointerDown is null)
+        if (!_contacts.Remove(e.Pointer.Id))
             return;
 
         var point = e.GetPosition(this);
         e.Pointer.Capture(null);
+        e.PreventGestureRecognition();
+        e.Handled = true;
 
-        if (!_isPanning)
+        if (_isPinching)
         {
-            var transform = CreateTransform();
-            var marker = HitTestMarker(point, transform);
-            if (marker is not null)
+            if (_contacts.Count >= 2)
+                return;
+
+            _isPinching = false;
+            if (_contacts.Count == 1)
             {
-                SelectedCoordinate = marker.Position;
-                MarkerSelected?.Invoke(marker);
-                PointSelected?.Invoke(marker.Position);
+                var remaining = _contacts.First();
+                _panPointerId = remaining.Key;
+                _panOrigin = remaining.Value;
+                _isPanning = true;
+                _panVelocity = default;
+                _lastMoveTicks = Environment.TickCount64;
+                return;
             }
-            else
-            {
-                var selected = transform.ScreenToGeo(point);
-                SelectedCoordinate = selected;
-                PointSelected?.Invoke(selected);
-            }
+
+            FinishGesture();
+            return;
         }
 
-        _pointerDown = null;
-        _lastPointer = null;
-        _isPanning = false;
-        e.Handled = true;
+        if (_panPointerId != e.Pointer.Id)
+            return;
+
+        _panPointerId = null;
+        if (_isPanning)
+        {
+            BeginInertia(_panVelocity);
+            return;
+        }
+
+        SelectAt(point);
+        FinishGesture();
+    }
+
+    /// <inheritdoc />
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        if (!_contacts.Remove(e.Pointer.Id))
+            return;
+
+        if (_panPointerId == e.Pointer.Id)
+            _panPointerId = null;
+
+        if (_contacts.Count < 2)
+            _isPinching = false;
+
+        if (_contacts.Count == 0)
+        {
+            StopInertia();
+            FinishGesture();
+        }
     }
 
     /// <inheritdoc />
@@ -702,6 +799,158 @@ public sealed class MapControl : Control
         context.FillRectangle(AttributionBackground, rect);
         context.DrawText(formatted, new Point(10 + padding, 10 + padding));
     }
+
+    bool IsMapContact(PointerEventArgs e)
+    {
+        if (e.Pointer.Type is PointerType.Touch or PointerType.Pen)
+            return true;
+
+        return e.GetCurrentPoint(this).Properties.IsLeftButtonPressed;
+    }
+
+    void BeginPinch()
+    {
+        if (!TryPinchPoints(out var first, out var second))
+            return;
+
+        _isPinching = true;
+        _isPanning = false;
+        _suspendTileRefresh = true;
+        _pinchStartViewport = Viewport;
+        _pinchStartDistance = global::System.Math.Max(1, Distance(first, second));
+        _pinchAnchor = CreateTransform().ScreenToGeo(Midpoint(first, second));
+    }
+
+    void ApplyPinch()
+    {
+        if (!TryPinchPoints(out var first, out var second))
+            return;
+
+        Viewport = MapViewportTransform.Pinch(
+            _pinchStartViewport,
+            global::System.Math.Max(1, Bounds.Width),
+            global::System.Math.Max(1, Bounds.Height),
+            _pinchAnchor,
+            Midpoint(first, second),
+            _pinchStartDistance,
+            Distance(first, second));
+    }
+
+    void TranslateBy(Vector screenDelta)
+    {
+        if (screenDelta.X == 0 && screenDelta.Y == 0)
+            return;
+
+        Viewport = CreateTransform().Translate(screenDelta);
+    }
+
+    void SelectAt(Point point)
+    {
+        var now = Environment.TickCount64;
+        if (now - _lastTapTicks is > 0 and < 280
+            && Distance(point, _lastTapPoint) < 28)
+        {
+            _lastTapTicks = 0;
+            ZoomAt(point, Viewport.Zoom + 1);
+            return;
+        }
+
+        _lastTapTicks = now;
+        _lastTapPoint = point;
+        var transform = CreateTransform();
+        var marker = HitTestMarker(point, transform);
+        if (marker is not null)
+        {
+            SelectedCoordinate = marker.Position;
+            MarkerSelected?.Invoke(marker);
+            PointSelected?.Invoke(marker.Position);
+            return;
+        }
+
+        var selected = transform.ScreenToGeo(point);
+        SelectedCoordinate = selected;
+        PointSelected?.Invoke(selected);
+    }
+
+    void BeginInertia(Vector pixelsPerSecond)
+    {
+        if (pixelsPerSecond.Length < 140)
+        {
+            FinishGesture();
+            return;
+        }
+
+        _inertiaVelocity = pixelsPerSecond;
+        _inertiaTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _inertiaTimer.Tick += OnInertiaTick;
+        _inertiaTimer.Start();
+    }
+
+    void OnInertiaTick(object? sender, EventArgs e)
+    {
+        TranslateBy(_inertiaVelocity * 0.016);
+        _inertiaVelocity *= 0.9;
+        if (_inertiaVelocity.Length >= 24)
+            return;
+
+        StopInertia();
+        FinishGesture();
+    }
+
+    void StopInertia()
+    {
+        if (_inertiaTimer is null)
+            return;
+
+        _inertiaTimer.Stop();
+        _inertiaTimer.Tick -= OnInertiaTick;
+        _inertiaTimer = null;
+        _inertiaVelocity = default;
+    }
+
+    void FinishGesture()
+    {
+        if (_contacts.Count > 0 || _inertiaTimer is not null)
+            return;
+
+        _suspendTileRefresh = false;
+        _isPanning = false;
+        _isPinching = false;
+        if (!_tilesStale)
+            return;
+
+        _tilesStale = false;
+        QueueTileRefresh();
+    }
+
+    bool TryPinchPoints(out Point first, out Point second)
+    {
+        first = default;
+        second = default;
+        if (_contacts.Count < 2)
+            return false;
+
+        using var enumerator = _contacts.Values.GetEnumerator();
+        if (!enumerator.MoveNext())
+            return false;
+
+        first = enumerator.Current;
+        if (!enumerator.MoveNext())
+            return false;
+
+        second = enumerator.Current;
+        return true;
+    }
+
+    static double Distance(Point first, Point second)
+    {
+        var deltaX = first.X - second.X;
+        var deltaY = first.Y - second.Y;
+        return global::System.Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+
+    static Point Midpoint(Point first, Point second) =>
+        new((first.X + second.X) / 2, (first.Y + second.Y) / 2);
 
     MapMarker? HitTestMarker(Point point, MapViewportTransform transform)
     {

@@ -110,6 +110,111 @@ public sealed class AndroidLocationReadingSource : ILocationReadingSource
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask<MobileLocationReading?> ReadFixAsync(
+        TimeSpan maximumAge,
+        CancellationToken cancellationToken = default)
+    {
+        if (maximumAge < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(maximumAge));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!GetStatus().IsAvailable)
+            return null;
+
+        var known = ReadLastKnown(maximumAge);
+        if (known is not null)
+            return known;
+
+        var channel = Channel.CreateBounded<MobileLocationReading>(1);
+        var listener = new ChannelLocationListener(channel.Writer);
+        try
+        {
+            _locationManager.RequestLocationUpdates(
+                GetProvider(),
+                0,
+                0,
+                listener,
+                Looper.MainLooper);
+        }
+        catch (global::Java.Lang.SecurityException)
+        {
+            return null;
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        try
+        {
+            return await channel.Reader.ReadAsync(timeout.Token);
+        }
+        catch (System.OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ReadLastKnown(TimeSpan.FromMinutes(15));
+        }
+        finally
+        {
+            try
+            {
+                _locationManager.RemoveUpdates(listener);
+            }
+            catch (global::Java.Lang.SecurityException)
+            {
+                // Permission may have been revoked while the fix was pending.
+            }
+
+            channel.Writer.TryComplete();
+        }
+    }
+
+    MobileLocationReading? ReadLastKnown(TimeSpan maximumAge)
+    {
+        global::Android.Locations.Location? best = null;
+        foreach (var provider in new[]
+                 {
+                     LocationManager.GpsProvider,
+                     LocationManager.NetworkProvider,
+                 })
+        {
+            try
+            {
+                if (!_locationManager.IsProviderEnabled(provider))
+                    continue;
+
+                var location = _locationManager.GetLastKnownLocation(provider);
+                if (location is null)
+                    continue;
+
+                if (best is null || location.Time > best.Time)
+                    best = location;
+            }
+            catch (global::Java.Lang.SecurityException)
+            {
+                // This provider is not readable. Try the other one.
+            }
+        }
+
+        if (best is null || best.Time <= 0)
+            return null;
+
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(best.Time);
+        if (DateTimeOffset.UtcNow - at > maximumAge)
+            return null;
+
+        var accuracy = best.Accuracy > 0 ? best.Accuracy : 1_000;
+        try
+        {
+            return new MobileLocationReading(
+                at,
+                new Novolis.Math.Geometry.GeoCoordinate(best.Latitude, best.Longitude),
+                accuracy);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
     bool HasLocationPermission() =>
         _context.CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation)
             == Permission.Granted

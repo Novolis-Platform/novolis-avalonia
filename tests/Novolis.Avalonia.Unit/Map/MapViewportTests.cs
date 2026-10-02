@@ -124,4 +124,44 @@ public sealed class MapViewportTests
         await Assert.That(map.Viewport.Zoom).IsGreaterThan(MapViewport.MinimumZoom);
         await Assert.That(map.Viewport.Zoom).IsLessThan(MapViewport.MaximumZoom);
     }
+
+    [Test]
+    public async Task Dragging_right_moves_the_center_coordinate_right_on_screen()
+    {
+        var center = new GeoCoordinate(58.14623, 7.99517);
+        var start = new MapViewport(center, 14);
+        var transform = new MapViewportTransform(start, 800, 600);
+
+        var shifted = new MapViewportTransform(transform.Translate(new Vector(120, -40)), 800, 600);
+        var screen = shifted.GeoToScreen(center);
+
+        await Assert.That(screen.X).IsEqualTo(520d).Within(1e-6);
+        await Assert.That(screen.Y).IsEqualTo(260d).Within(1e-6);
+        await Assert.That(shifted.Viewport.Zoom).IsEqualTo(14d);
+    }
+
+    [Test]
+    public async Task Pinch_doubles_distance_and_keeps_the_anchor_under_the_fingers()
+    {
+        var center = new GeoCoordinate(58.14623, 7.99517);
+        var start = new MapViewport(center, 10);
+        var before = new MapViewportTransform(start, 800, 600);
+        var midpoint = new Point(540, 220);
+        var anchor = before.ScreenToGeo(midpoint);
+
+        var pinched = MapViewportTransform.Pinch(
+            start,
+            800,
+            600,
+            anchor,
+            new Point(560, 250),
+            startDistance: 100,
+            distance: 200);
+        var after = new MapViewportTransform(pinched, 800, 600);
+        var screen = after.GeoToScreen(anchor);
+
+        await Assert.That(pinched.Zoom).IsEqualTo(11d).Within(1e-9);
+        await Assert.That(screen.X).IsEqualTo(560d).Within(1e-6);
+        await Assert.That(screen.Y).IsEqualTo(250d).Within(1e-6);
+    }
 }

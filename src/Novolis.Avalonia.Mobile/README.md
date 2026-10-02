@@ -46,5 +46,5 @@ Books Mobile (`novolis-apps/src/BooksMobile`) consumes this stack on Desktop and
 | Package | When to use |
 |---------|-------------|
 | `Novolis.Avalonia.Mobile.Desktop` | Windows Credential Manager + LocalAppData + system browser |
-| `Novolis.Avalonia.Mobile.Android` | Keystore-backed prefs + FilesDir + Custom Tabs |
+| `Novolis.Avalonia.Mobile.Android` | Keystore-backed prefs + Documents/Novolis app storage + Custom Tabs |
 

@@ -4,11 +4,12 @@
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <PackageId>Novolis.Avalonia.Mobile.Android</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Android implementations of Novolis.Avalonia.Mobile (EncryptedSharedPreferences, FilesDir, Custom Tabs).</Description>
+    <Description>Android implementations of Novolis.Avalonia.Mobile (EncryptedSharedPreferences, Documents/Novolis app storage, Custom Tabs).</Description>
     <RootNamespace>Novolis.Avalonia.Mobile.Android</RootNamespace>
   </PropertyGroup>
     <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <LibraryReference Include="Novolis.IO.Platform.Android" />
     <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Logging.Diagnostics" />
     <PackageReference Include="Xamarin.AndroidX.Browser" />

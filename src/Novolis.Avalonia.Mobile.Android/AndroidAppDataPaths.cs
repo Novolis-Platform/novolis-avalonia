@@ -1,12 +1,13 @@
 using Android.Content;
 using Novolis.Avalonia.Mobile;
+using Novolis.IO.Platform.Android;
 
 namespace Novolis.Avalonia.Mobile.Android;
 
-/// <summary>Private app <c>FilesDir/workspace</c> paths.</summary>
+/// <summary>Default Android app paths from <see cref="AndroidAppStorage"/>.</summary>
 public sealed class AndroidAppDataPaths : IAppDataPaths
 {
-    /// <summary>Creates paths under the application files directory.</summary>
+    /// <summary>Creates paths for the running application.</summary>
     public AndroidAppDataPaths(string productName = "BooksMobile")
         : this(
             global::Android.App.Application.Context
@@ -19,13 +20,10 @@ public sealed class AndroidAppDataPaths : IAppDataPaths
     public AndroidAppDataPaths(Context context, string productName = "BooksMobile")
     {
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentException.ThrowIfNullOrWhiteSpace(productName);
-        ProductName = productName.Trim();
-        var files = context.FilesDir?.AbsolutePath
-            ?? throw new InvalidOperationException("Context.FilesDir is null.");
-        RootDirectory = Path.Combine(files, ProductName);
-        WorkspaceDirectory = Path.Combine(RootDirectory, "workspace");
-        Directory.CreateDirectory(WorkspaceDirectory);
+        var locations = AndroidAppStorage.Open(context, productName);
+        ProductName = locations.ProductName;
+        RootDirectory = locations.RootDirectory;
+        WorkspaceDirectory = locations.WorkspaceDirectory;
     }
 
     /// <inheritdoc />

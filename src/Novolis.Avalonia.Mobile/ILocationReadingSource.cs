@@ -13,4 +13,12 @@ public interface ILocationReadingSource
         TimeSpan minimumInterval,
         double minimumDistanceMeters,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns one fix. A last-known reading inside <paramref name="maximumAge"/>
+    /// is used so callers can avoid waking GPS on every cycle.
+    /// </summary>
+    ValueTask<MobileLocationReading?> ReadFixAsync(
+        TimeSpan maximumAge,
+        CancellationToken cancellationToken = default);
 }

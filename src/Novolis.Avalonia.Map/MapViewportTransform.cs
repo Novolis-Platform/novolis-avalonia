@@ -146,6 +146,39 @@ public readonly struct MapViewportTransform
         return WebMercatorProjection.Unproject(new GeoProjectedPoint(centerX, centerY));
     }
 
+    /// <summary>Moves the viewport by a screen-pixel delta. Positive X follows a finger moving right.</summary>
+    public MapViewport Translate(Vector screenDelta)
+    {
+        var center = ScreenToGeo(new Point(
+            Width / 2 - screenDelta.X,
+            Height / 2 - screenDelta.Y));
+        return new MapViewport(center, Viewport.Zoom);
+    }
+
+    /// <summary>
+    /// Zooms from a gesture start so the anchor stays under the current pinch midpoint.
+    /// Distance is in screen pixels. Doubling the distance adds one zoom level.
+    /// </summary>
+    public static MapViewport Pinch(
+        MapViewport start,
+        double width,
+        double height,
+        GeoCoordinate anchor,
+        Point midpoint,
+        double startDistance,
+        double distance)
+    {
+        var safeStart = global::System.Math.Max(1, startDistance);
+        var safeDistance = global::System.Math.Max(1, distance);
+        var zoom = global::System.Math.Clamp(
+            start.Zoom + global::System.Math.Log(safeDistance / safeStart, 2),
+            MapViewport.MinimumZoom,
+            MapViewport.MaximumZoom);
+        var zoomed = new MapViewport(start.Center, zoom);
+        var center = CenterForAnchor(zoomed, width, height, anchor, midpoint);
+        return new MapViewport(center, zoom);
+    }
+
     static double WrapNormalized(double value)
     {
         var wrapped = value % 1d;

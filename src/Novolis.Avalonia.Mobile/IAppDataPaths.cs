@@ -1,6 +1,6 @@
 namespace Novolis.Avalonia.Mobile;
 
-/// <summary>Best-practice app-private storage roots (not shared Documents / SD card).</summary>
+/// <summary>Default app-data roots for a product. Android may use shared Documents when that tree is writable.</summary>
 public interface IAppDataPaths
 {
     /// <summary>Application product name used under the platform app-data root.</summary>

@@ -7,7 +7,8 @@
 # Novolis.Avalonia.Mobile.Android
 
 Android implementations of `Novolis.Avalonia.Mobile`: Android Keystore AES-GCM,
-private SharedPreferences, `{FilesDir}/{product}/workspace`, Custom Tabs, sparse
+private SharedPreferences, `Documents/Novolis/{product}/workspace` when that
+directory is writable (otherwise app-specific external files), Custom Tabs, sparse
 location readings, and connected-Wi-Fi observation.
 
 ## Install
@@ -22,7 +23,7 @@ dotnet add package Novolis.Avalonia.Mobile.Android
 using Novolis.Avalonia.Mobile.Android;
 
 services.AddNovolisMobileCore();
-services.AddNovolisMobileAndroid("BooksMobile"); // product folder under FilesDir
+services.AddNovolisMobileAndroid("BooksMobile"); // Documents/Novolis/BooksMobile when writable
 ```
 
 Requires `net10.0-android` and a running Android application context.
