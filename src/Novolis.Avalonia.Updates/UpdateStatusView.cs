@@ -37,11 +37,6 @@ public sealed class UpdateStatusView : UserControl
     private readonly TextBlock _error = CreateText("", "UpdateStatusView.ErrorText");
     private readonly ProgressBar _progress = new()
     {
-        AutomationProperties =
-        {
-            Name = "Update download progress",
-            AutomationId = "UpdateStatusView.Progress",
-        },
         Minimum = 0,
         Maximum = 100,
         IsVisible = false,
@@ -59,15 +54,17 @@ public sealed class UpdateStatusView : UserControl
     /// <summary>Creates the profile-bound update status surface.</summary>
     public UpdateStatusView()
     {
-        AutomationProperties.SetName(this, "Application updates");
-        AutomationProperties.SetAutomationId(this, "UpdateStatusView");
+        SetValue(AutomationProperties.NameProperty, "Application updates");
+        SetValue(AutomationProperties.AutomationIdProperty, "UpdateStatusView");
+        _progress.SetValue(AutomationProperties.NameProperty, "Update download progress");
+        _progress.SetValue(AutomationProperties.AutomationIdProperty, "UpdateStatusView.Progress");
 
         _status.Classes.Add("ngp-body");
         _currentVersion.Classes.Add("ngp-body");
         _candidateVersion.Classes.Add("ngp-page-title");
         _releaseNotes.Classes.Add("ngp-body");
         _error.Classes.Add("ngp-body");
-        _error.Foreground = new DynamicResource("Ngp.DangerBrush");
+        GraphicalProfileBinding.Bind(_error, TextBlock.ForegroundProperty, GraphicalProfile.DangerResourceKey);
         _releaseNotes.TextWrapping = TextWrapping.Wrap;
         _error.TextWrapping = TextWrapping.Wrap;
 
@@ -121,8 +118,8 @@ public sealed class UpdateStatusView : UserControl
         card.Classes.Add("ngp-card");
         GraphicalProfileBinding.Bind(card, Border.BackgroundProperty, GraphicalProfile.SurfaceResourceKey);
         GraphicalProfileBinding.Bind(card, Border.BorderBrushProperty, GraphicalProfile.BorderResourceKey);
-        GraphicalProfileBinding.Bind(card, Border.BorderThicknessProperty, GraphicalProfile.BorderResourceKey);
         Content = card;
+        IsVisible = ShowInline;
     }
 
     /// <summary>Coordinator supplying the neutral update snapshot.</summary>
@@ -169,8 +166,12 @@ public sealed class UpdateStatusView : UserControl
         if (change.Property == CoordinatorProperty)
         {
             Unsubscribe((UpdateCoordinator?)change.OldValue);
-            Subscribe((UpdateCoordinator?)change.NewValue);
-            Render((UpdateCoordinator?)change.NewValue?.Snapshot);
+            var coordinator = change.NewValue as UpdateCoordinator;
+            Subscribe(coordinator);
+            Render(coordinator?.Snapshot ?? new UpdateSnapshot
+            {
+                CurrentVersion = "unknown",
+            });
         }
         else if (change.Property == ShowInlineProperty)
         {
@@ -301,25 +302,23 @@ public sealed class UpdateStatusView : UserControl
     }
 
     private static TextBlock CreateText(string text, string automationId) =>
-        new()
+        SetAutomation(new TextBlock
         {
             Text = text,
-            AutomationProperties =
-            {
-                Name = text,
-                AutomationId = automationId,
-            },
-        };
+        }, text, automationId);
 
     private static Button CreateButton(string text, string automationId) =>
-        new()
+        SetAutomation(new Button
         {
             Content = text,
-            AutomationProperties =
-            {
-                Name = text,
-                AutomationId = automationId,
-            },
             MinWidth = 96,
-        };
+        }, text, automationId);
+
+    private static T SetAutomation<T>(T control, string name, string automationId)
+        where T : Control
+    {
+        control.SetValue(AutomationProperties.NameProperty, name);
+        control.SetValue(AutomationProperties.AutomationIdProperty, automationId);
+        return control;
+    }
 }
