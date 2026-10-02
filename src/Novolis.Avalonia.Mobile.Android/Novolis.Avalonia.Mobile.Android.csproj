@@ -12,6 +12,7 @@
     <LibraryReference Include="Novolis.IO.Platform.Android" />
     <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Logging.Diagnostics" />
+    <LibraryReference Include="Novolis.Logging.Ndjson" />
     <PackageReference Include="Xamarin.AndroidX.Browser" />
     <PackageReference Include="Xamarin.AndroidX.Core" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />

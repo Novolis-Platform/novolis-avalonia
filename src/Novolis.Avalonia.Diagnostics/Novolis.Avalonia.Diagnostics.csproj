@@ -8,5 +8,6 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <LibraryReference Include="Novolis.Logging.Diagnostics" />
+    <LibraryReference Include="Novolis.Logging.Ndjson" />
   </ItemGroup>
 </Project>

@@ -126,6 +126,24 @@ public sealed class MapViewportTests
     }
 
     [Test]
+    public async Task Fit_to_content_uses_the_short_antimeridian_span()
+    {
+        var map = new MapControl();
+        map.Measure(new Size(800, 600));
+        map.Arrange(new Rect(0, 0, 800, 600));
+
+        map.FitToContent(
+        [
+            new GeoCoordinate(10, 179.8),
+            new GeoCoordinate(10.2, -179.8),
+        ]);
+
+        await Assert.That(global::System.Math.Abs(map.Viewport.Center.Longitude))
+            .IsGreaterThan(179);
+        await Assert.That(map.Viewport.Zoom).IsGreaterThan(4);
+    }
+
+    [Test]
     public async Task Dragging_right_moves_the_center_coordinate_right_on_screen()
     {
         var center = new GeoCoordinate(58.14623, 7.99517);

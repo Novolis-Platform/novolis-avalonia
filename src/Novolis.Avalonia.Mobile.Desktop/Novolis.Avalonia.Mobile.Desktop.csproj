@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <LibraryReference Include="Novolis.Logging.Diagnostics" />
+    <LibraryReference Include="Novolis.Logging.Ndjson" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
   </ItemGroup>
   <ItemGroup>
