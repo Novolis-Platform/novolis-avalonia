@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -26,6 +27,7 @@ public sealed class MapControl : Control
 
     readonly Dictionary<MapTileKey, MapTile> _tiles = new();
     CancellationTokenSource? _tileRefreshCancellation;
+    long _tileRefreshGeneration;
     bool _isAttached;
     bool _tileRefreshQueued;
     readonly Dictionary<int, Point> _contacts = new();
@@ -85,6 +87,10 @@ public sealed class MapControl : Control
     public static readonly StyledProperty<string?> ErrorMessageProperty =
         AvaloniaProperty.Register<MapControl, string?>(nameof(ErrorMessage));
 
+    /// <summary>Whether one or more visible tiles came from a stale cache fallback.</summary>
+    public static readonly StyledProperty<bool> HasStaleTilesProperty =
+        AvaloniaProperty.Register<MapControl, bool>(nameof(HasStaleTiles));
+
     static MapControl()
     {
         AffectsRender<MapControl>(
@@ -96,7 +102,8 @@ public sealed class MapControl : Control
             AttributionProperty,
             TileSourceProperty,
             IsLoadingProperty,
-            ErrorMessageProperty);
+            ErrorMessageProperty,
+            HasStaleTilesProperty);
     }
 
     /// <summary>Creates a map control.</summary>
@@ -104,6 +111,7 @@ public sealed class MapControl : Control
     {
         ClipToBounds = true;
         Focusable = true;
+        SetValue(AutomationProperties.NameProperty, "Map");
         AttachedToVisualTree += (_, _) =>
         {
             _isAttached = true;
@@ -112,7 +120,10 @@ public sealed class MapControl : Control
         DetachedFromVisualTree += (_, _) =>
         {
             _isAttached = false;
+            Interlocked.Increment(ref _tileRefreshGeneration);
             _tileRefreshCancellation?.Cancel();
+            StopInertia();
+            ClearTiles();
         };
         SizeChanged += (_, _) => QueueTileRefresh();
     }
@@ -210,6 +221,13 @@ public sealed class MapControl : Control
         set => SetValue(ErrorMessageProperty, value);
     }
 
+    /// <summary>Whether a visible tile is being shown from an older cache entry.</summary>
+    public bool HasStaleTiles
+    {
+        get => GetValue(HasStaleTilesProperty);
+        private set => SetValue(HasStaleTilesProperty, value);
+    }
+
     /// <summary>Raised when the user selects a geographic coordinate.</summary>
     public event Action<GeoCoordinate>? PointSelected;
 
@@ -219,6 +237,16 @@ public sealed class MapControl : Control
     /// <summary>Sets the viewport center and zoom.</summary>
     public void SetViewport(GeoCoordinate center, double zoom) =>
         Viewport = new MapViewport(center, zoom);
+
+    /// <summary>Requests an immediate tile refresh after a provider or network failure.</summary>
+    public void RetryTiles()
+    {
+        ErrorMessage = null;
+        QueueTileRefresh(immediate: true);
+    }
+
+    /// <summary>Requests a redraw after a host mutates an overlay collection in place.</summary>
+    public void RequestRender() => InvalidateVisual();
 
     /// <summary>Zooms around the center by one accessible step.</summary>
     public void ZoomIn() => ZoomAt(
@@ -242,12 +270,10 @@ public sealed class MapControl : Control
 
         var minLatitude = points.Min(point => point.Latitude);
         var maxLatitude = points.Max(point => point.Latitude);
-        var minLongitude = points.Min(point => point.Longitude);
-        var maxLongitude = points.Max(point => point.Longitude);
+        var (centerLongitude, longitudeSpan) = LongitudeFrame(points);
         var center = new GeoCoordinate(
             (minLatitude + maxLatitude) / 2,
-            (minLongitude + maxLongitude) / 2);
-        var longitudeSpan = global::System.Math.Max(0.00001, maxLongitude - minLongitude);
+            centerLongitude);
         var latitudeSpan = global::System.Math.Max(0.00001, maxLatitude - minLatitude);
         var usableWidth = global::System.Math.Max(64, Bounds.Width - paddingPixels * 2);
         var usableHeight = global::System.Math.Max(64, Bounds.Height - paddingPixels * 2);
@@ -265,6 +291,45 @@ public sealed class MapControl : Control
                 MapViewport.MaximumZoom));
     }
 
+    static (double Center, double Span) LongitudeFrame(IReadOnlyList<GeoCoordinate> points)
+    {
+        var longitudes = points
+            .Select(point => point.Longitude < 0 ? point.Longitude + 360 : point.Longitude)
+            .OrderBy(longitude => longitude)
+            .ToArray();
+        if (longitudes.Length == 1)
+            return (NormalizeLongitude(longitudes[0]), 0.00001);
+
+        var largestGap = -1d;
+        var largestGapIndex = 0;
+        for (var index = 0; index < longitudes.Length; index++)
+        {
+            var next = index + 1 < longitudes.Length
+                ? longitudes[index + 1]
+                : longitudes[0] + 360;
+            var gap = next - longitudes[index];
+            if (gap > largestGap)
+            {
+                largestGap = gap;
+                largestGapIndex = index;
+            }
+        }
+
+        var start = longitudes[(largestGapIndex + 1) % longitudes.Length];
+        var span = global::System.Math.Clamp(360 - largestGap, 0.00001, 360);
+        return (NormalizeLongitude(start + span / 2), span);
+    }
+
+    static double NormalizeLongitude(double longitude)
+    {
+        var normalized = longitude % 360;
+        if (normalized > 180)
+            normalized -= 360;
+        if (normalized < -180)
+            normalized += 360;
+        return normalized;
+    }
+
     /// <summary>Returns the current screen/geographic transform.</summary>
     public MapViewportTransform CreateTransform() =>
         new(
@@ -280,17 +345,30 @@ public sealed class MapControl : Control
     public void SetTiles(IEnumerable<MapTile> tiles)
     {
         ArgumentNullException.ThrowIfNull(tiles);
+        DisposeTiles();
         _tiles.Clear();
         foreach (var tile in tiles)
             _tiles[tile.Key] = tile;
+        HasStaleTiles = _tiles.Values.Any(tile => tile.IsStale);
         InvalidateVisual();
     }
 
     /// <summary>Removes all decoded tiles.</summary>
     public void ClearTiles()
     {
+        DisposeTiles();
         _tiles.Clear();
+        HasStaleTiles = false;
         InvalidateVisual();
+    }
+
+    void DisposeTiles()
+    {
+        foreach (var tile in _tiles.Values)
+        {
+            if (tile.Image is IDisposable disposable)
+                disposable.Dispose();
+        }
     }
 
     /// <summary>Loads currently visible tiles from the configured provider.</summary>
@@ -300,6 +378,7 @@ public sealed class MapControl : Control
         if (source is null)
             return;
 
+        var generation = Interlocked.Increment(ref _tileRefreshGeneration);
         IsLoading = true;
         ErrorMessage = null;
         using var refreshCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -310,10 +389,12 @@ public sealed class MapControl : Control
 
         var visibleKeys = GetVisibleTileKeys();
         var pending = visibleKeys
-            .Where(key => !_tiles.ContainsKey(key))
+            .Where(key => !_tiles.TryGetValue(key, out var tile) || tile.IsStale)
             .Select(key => LoadTileAsync(source, key, refreshCancellation.Token))
             .ToList();
-        var requested = pending.Count;
+        var failed = 0;
+        var stale = visibleKeys.Count(key =>
+            _tiles.TryGetValue(key, out var tile) && tile.IsStale);
 
         try
         {
@@ -322,46 +403,101 @@ public sealed class MapControl : Control
                 refreshCancellation.Token.ThrowIfCancellationRequested();
                 var completed = await Task.WhenAny(pending);
                 pending.Remove(completed);
-                var tile = await completed;
-                if (tile is null)
+                var result = await completed;
+                if (!IsCurrentTileRefresh(source, generation))
+                    return;
+
+                if (result.Tile is null)
+                {
+                    if (result.Failed)
+                        failed++;
                     continue;
+                }
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _tiles[tile.Key] = tile;
+                    if (!IsCurrentTileRefresh(source, generation))
+                        return;
+
+                    ReplaceTile(result.Tile);
+                    if (result.Tile.IsStale)
+                        stale++;
+                    else
+                        stale = _tiles.Values.Count(tile => tile.IsStale);
                     InvalidateVisual();
                 });
             }
 
-            if (requested > 0
-                && visibleKeys.All(key => !_tiles.ContainsKey(key)))
-                ErrorMessage = "Map tiles are unavailable. Check the connection and retry.";
+            if (!IsCurrentTileRefresh(source, generation))
+                return;
+
+            HasStaleTiles = stale > 0;
+            if (failed > 0)
+            {
+                var loaded = visibleKeys.Count(key => _tiles.ContainsKey(key));
+                ErrorMessage = loaded > 0
+                    ? $"{failed} map tile{(failed == 1 ? string.Empty : "s")} unavailable. Retry."
+                    : "Map tiles are unavailable. Check the connection and retry.";
+            }
+        }
+        catch (OperationCanceledException) when (
+            refreshCancellation.IsCancellationRequested
+            || !IsCurrentTileRefresh(source, generation))
+        {
+            // A newer viewport, source, or host lifecycle superseded this refresh.
+        }
+        catch (Exception exception) when (IsCurrentTileRefresh(source, generation))
+        {
+            ErrorMessage = $"Map tiles are unavailable: {exception.Message}";
         }
         finally
         {
             if (ReferenceEquals(_tileRefreshCancellation, refreshCancellation))
+            {
                 _tileRefreshCancellation = null;
-            previousCancellation?.Dispose();
-            IsLoading = false;
+                IsLoading = false;
+                InvalidateVisual();
+            }
         }
     }
 
-    async Task<MapTile?> LoadTileAsync(
+    readonly record struct TileLoadResult(MapTile? Tile, bool Failed);
+
+    bool IsCurrentTileRefresh(IMapTileSource source, long generation) =>
+        ReferenceEquals(source, TileSource)
+        && Volatile.Read(ref _tileRefreshGeneration) == generation;
+
+    void ReplaceTile(MapTile tile)
+    {
+        if (_tiles.TryGetValue(tile.Key, out var previous)
+            && !ReferenceEquals(previous.Image, tile.Image)
+            && previous.Image is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        _tiles[tile.Key] = tile;
+        HasStaleTiles = _tiles.Values.Any(item => item.IsStale);
+    }
+
+    async Task<TileLoadResult> LoadTileAsync(
         IMapTileSource source,
         MapTileKey key,
         CancellationToken cancellationToken)
     {
         try
         {
-            return await source.GetTileAsync(key, cancellationToken);
+            return new TileLoadResult(
+                await source.GetTileAsync(key, cancellationToken),
+                Failed: false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw;
+            return new TileLoadResult(null, Failed: false);
         }
         catch
         {
-            return null;
+            return new TileLoadResult(null, Failed: true);
         }
     }
 
@@ -371,6 +507,9 @@ public sealed class MapControl : Control
         base.OnPropertyChanged(change);
         if (change.Property == TileSourceProperty)
         {
+            Interlocked.Increment(ref _tileRefreshGeneration);
+            _tileRefreshCancellation?.Cancel();
+            ClearTiles();
             QueueTileRefresh();
             return;
         }
@@ -387,7 +526,7 @@ public sealed class MapControl : Control
         QueueTileRefresh();
     }
 
-    void QueueTileRefresh()
+    void QueueTileRefresh(bool immediate = false)
     {
         if (!_isAttached || _tileRefreshQueued)
             return;
@@ -397,7 +536,7 @@ public sealed class MapControl : Control
         {
             _tileRefreshQueued = false;
             _ = RefreshTilesSafelyAsync();
-        }, DispatcherPriority.Background);
+        }, immediate ? DispatcherPriority.Input : DispatcherPriority.Background);
     }
 
     async Task RefreshTilesSafelyAsync()

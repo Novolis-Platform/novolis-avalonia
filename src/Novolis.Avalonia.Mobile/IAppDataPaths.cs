@@ -11,4 +11,7 @@ public interface IAppDataPaths
 
     /// <summary>Workspace mirror directory (e.g. books <c>content/</c> tree).</summary>
     string WorkspaceDirectory { get; }
+
+    /// <summary>Disposable cache directory for tiles and other rebuildable data.</summary>
+    string CacheDirectory { get; }
 }

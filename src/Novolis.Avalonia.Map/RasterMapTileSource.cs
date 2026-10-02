@@ -29,6 +29,6 @@ public sealed class RasterMapTileSource : IMapTileSource
             return null;
 
         await using var stream = new MemoryStream(raster.PngBytes, writable: false);
-        return new MapTile(key, new Bitmap(stream));
+        return new MapTile(key, new Bitmap(stream), raster.IsStale);
     }
 }

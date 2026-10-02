@@ -15,7 +15,9 @@ public sealed class DesktopAppDataPaths : IAppDataPaths
             "Novolis",
             ProductName);
         WorkspaceDirectory = Path.Combine(RootDirectory, "workspace");
+        CacheDirectory = Path.Combine(RootDirectory, "cache");
         Directory.CreateDirectory(WorkspaceDirectory);
+        Directory.CreateDirectory(CacheDirectory);
     }
 
     /// <inheritdoc />
@@ -26,4 +28,7 @@ public sealed class DesktopAppDataPaths : IAppDataPaths
 
     /// <inheritdoc />
     public string WorkspaceDirectory { get; }
+
+    /// <inheritdoc />
+    public string CacheDirectory { get; }
 }

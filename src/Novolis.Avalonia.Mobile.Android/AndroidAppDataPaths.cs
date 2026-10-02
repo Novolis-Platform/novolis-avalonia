@@ -24,6 +24,7 @@ public sealed class AndroidAppDataPaths : IAppDataPaths
         ProductName = locations.ProductName;
         RootDirectory = locations.RootDirectory;
         WorkspaceDirectory = locations.WorkspaceDirectory;
+        CacheDirectory = locations.CacheDirectory;
     }
 
     /// <inheritdoc />
@@ -34,4 +35,7 @@ public sealed class AndroidAppDataPaths : IAppDataPaths
 
     /// <inheritdoc />
     public string WorkspaceDirectory { get; }
+
+    /// <inheritdoc />
+    public string CacheDirectory { get; }
 }
