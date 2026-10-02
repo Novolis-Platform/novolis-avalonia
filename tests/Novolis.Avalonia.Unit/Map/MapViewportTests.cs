@@ -144,6 +144,37 @@ public sealed class MapViewportTests
     }
 
     [Test]
+    public async Task Fit_to_content_handles_a_single_point_and_padding()
+    {
+        var map = new MapControl();
+        map.Measure(new Size(800, 600));
+        map.Arrange(new Rect(0, 0, 800, 600));
+        var point = new GeoCoordinate(58.14623, 7.99517);
+
+        map.FitToContent([point], paddingPixels: 160);
+
+        await Assert.That(map.Viewport.Center).IsEqualTo(point);
+        await Assert.That(map.Viewport.Zoom).IsGreaterThan(1);
+        await Assert.That(map.Viewport.Zoom).IsLessThanOrEqualTo(MapViewport.MaximumZoom);
+    }
+
+    [Test]
+    public async Task Fit_to_content_reduces_zoom_for_a_wider_geographic_extent()
+    {
+        var map = new MapControl();
+        map.Measure(new Size(800, 600));
+        map.Arrange(new Rect(0, 0, 800, 600));
+
+        map.FitToContent(
+        [
+            new GeoCoordinate(-70, -30),
+            new GeoCoordinate(70, 30),
+        ]);
+
+        await Assert.That(map.Viewport.Zoom).IsLessThan(2);
+    }
+
+    [Test]
     public async Task Dragging_right_moves_the_center_coordinate_right_on_screen()
     {
         var center = new GeoCoordinate(58.14623, 7.99517);
@@ -206,5 +237,120 @@ public sealed class MapViewportTests
         await Assert.That(panned.Zoom).IsEqualTo(12d);
         await Assert.That(screen.X).IsEqualTo(470d).Within(1e-6);
         await Assert.That(screen.Y).IsEqualTo(260d).Within(1e-6);
+    }
+
+    [Test]
+    public async Task Map_control_refreshes_exactly_the_current_visible_tile_set()
+    {
+        var map = new MapControl();
+        map.Measure(new Size(512, 512));
+        map.Arrange(new Rect(0, 0, 512, 512));
+        var source = new RecordingTileSource
+        {
+            Handler = (_, _) => ValueTask.FromResult<MapTile?>(null),
+        };
+        map.TileSource = source;
+
+        await map.RefreshTilesAsync();
+
+        await Assert.That(source.Requests).IsEquivalentTo(map.GetVisibleTileKeys());
+        await Assert.That(map.ErrorMessage).IsNotNull();
+    }
+
+    [Test]
+    public async Task Map_control_source_replacement_discards_the_superseded_refresh()
+    {
+        var firstStarted = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = new RecordingTileSource
+        {
+            Handler = async (_, cancellationToken) =>
+            {
+                firstStarted.TrySetResult(true);
+                await releaseFirst.Task.WaitAsync(cancellationToken);
+                return (MapTile?)null;
+            },
+        };
+        var second = new RecordingTileSource
+        {
+            Handler = (_, _) => ValueTask.FromResult<MapTile?>(null),
+        };
+        var map = new MapControl();
+        map.Measure(new Size(512, 512));
+        map.Arrange(new Rect(0, 0, 512, 512));
+        map.TileSource = first;
+
+        var firstRefresh = map.RefreshTilesAsync();
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        map.TileSource = second;
+        releaseFirst.TrySetResult(true);
+        await map.RefreshTilesAsync();
+        await firstRefresh;
+
+        await Assert.That(second.Requests).IsEquivalentTo(map.GetVisibleTileKeys());
+        await Assert.That(map.TileSource).IsSameReferenceAs(second);
+    }
+
+    [Test]
+    public async Task Map_control_opt_in_drawing_and_copy_return_developer_data()
+    {
+        var first = new GeoCoordinate(58.14, 7.99);
+        var second = new GeoCoordinate(58.15, 8.01);
+        var map = new MapControl
+        {
+            InteractionOptions = new MapInteractionOptions
+            {
+                EnableDrawing = true,
+                EnableClipboardShortcuts = true,
+            },
+        };
+        GeoDrawing? completed = null;
+        string? copied = null;
+        map.DrawingCompleted += drawing => completed = drawing;
+        map.ClipboardWriter = (text, _) =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+
+        await Assert.That(map.BeginDrawing(GeoDrawingKind.Polyline)).IsTrue();
+        await Assert.That(map.AddDrawingPoint(first)).IsTrue();
+        await Assert.That(map.AddDrawingPoint(second)).IsTrue();
+        await Assert.That(map.CompleteDrawing()).IsNotNull();
+        await Assert.That(completed!.LengthMeters).IsGreaterThan(1_000d);
+
+        map.Markers =
+        [
+            new MapMarker(
+                "office",
+                first,
+                "Office",
+                Metadata: new Dictionary<string, string> { ["kind"] = "poi" }),
+        ];
+        map.SelectedCoordinate = first;
+        await Assert.That(await map.CopySelectedCoordinateAsync()).IsTrue();
+        await Assert.That(copied).IsEqualTo("58.140000, 7.990000");
+        await Assert.That(await map.CopySelectedJsonAsync()).IsTrue();
+        await Assert.That(copied).Contains("\"id\": \"office\"");
+    }
+
+    sealed class RecordingTileSource : IMapTileSource
+    {
+        public List<MapTileKey> Requests { get; } = [];
+
+        public Func<MapTileKey, CancellationToken, ValueTask<MapTile?>>? Handler { get; init; }
+
+        public ValueTask<MapTile?> GetTileAsync(
+            MapTileKey key,
+            CancellationToken cancellationToken = default)
+        {
+            Requests.Add(key);
+            return Handler is null
+                ? ValueTask.FromResult<MapTile?>(null)
+                : Handler(key, cancellationToken);
+        }
     }
 }

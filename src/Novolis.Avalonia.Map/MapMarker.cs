@@ -9,4 +9,6 @@ public sealed record MapMarker(
     GeoCoordinate Position,
     string? Label = null,
     double RadiusPixels = 6,
-    Color? Ink = null);
+    Color? Ink = null,
+    IReadOnlyDictionary<string, string>? Metadata = null,
+    object? Tag = null);

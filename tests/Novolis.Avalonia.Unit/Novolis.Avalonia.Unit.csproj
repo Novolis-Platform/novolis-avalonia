@@ -4,6 +4,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Updates\Novolis.Avalonia.Updates.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Map\Novolis.Avalonia.Map.csproj" />
   </ItemGroup>
   <ItemGroup>

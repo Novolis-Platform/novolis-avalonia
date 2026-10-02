@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Novolis.Math.Geometry;
@@ -36,7 +37,9 @@ public sealed class MapControl : Control
     bool _tileRefreshQueued;
     readonly Dictionary<int, Point> _contacts = new();
     readonly Dictionary<int, IPointer> _pointers = new();
+    readonly List<GeoCoordinate> _drawingPoints = [];
     int? _panPointerId;
+    int? _drawingPointerId;
     Point _panOrigin;
     bool _panFromTouch;
     bool _isPanning;
@@ -48,6 +51,7 @@ public sealed class MapControl : Control
     GeoCoordinate _pinchAnchor;
     bool _suspendTileRefresh;
     bool _tilesStale;
+    GeoDrawingKind? _drawingKind;
     DispatcherTimer? _inertiaTimer;
     Vector _inertiaVelocity;
     long _lastTapTicks;
@@ -70,6 +74,10 @@ public sealed class MapControl : Control
     /// <summary>Connected geographic tracks rendered below markers.</summary>
     public static readonly StyledProperty<IReadOnlyList<MapTrackOverlay>?> TracksProperty =
         AvaloniaProperty.Register<MapControl, IReadOnlyList<MapTrackOverlay>?>(nameof(Tracks));
+
+    /// <summary>Polygon overlays rendered over the map.</summary>
+    public static readonly StyledProperty<IReadOnlyList<MapPolygonOverlay>?> PolygonsProperty =
+        AvaloniaProperty.Register<MapControl, IReadOnlyList<MapPolygonOverlay>?>(nameof(Polygons));
 
     /// <summary>Selected geographic coordinate, if any.</summary>
     public static readonly StyledProperty<GeoCoordinate?> SelectedCoordinateProperty =
@@ -102,6 +110,7 @@ public sealed class MapControl : Control
             MarkersProperty,
             CirclesProperty,
             TracksProperty,
+            PolygonsProperty,
             SelectedCoordinateProperty,
             AttributionProperty,
             TileSourceProperty,
@@ -188,6 +197,13 @@ public sealed class MapControl : Control
         set => SetValue(TracksProperty, value);
     }
 
+    /// <summary>Polygon overlays rendered over the map.</summary>
+    public IReadOnlyList<MapPolygonOverlay>? Polygons
+    {
+        get => GetValue(PolygonsProperty);
+        set => SetValue(PolygonsProperty, value);
+    }
+
     /// <summary>Selected geographic coordinate.</summary>
     public GeoCoordinate? SelectedCoordinate
     {
@@ -236,9 +252,147 @@ public sealed class MapControl : Control
     /// <summary>Raised when the user selects a marker.</summary>
     public event Action<MapMarker>? MarkerSelected;
 
+    /// <summary>Raised when a drawing session is completed.</summary>
+    public event Action<GeoDrawing>? DrawingCompleted;
+
+    /// <summary>Raised when the selected marker or coordinate changes.</summary>
+    public event Action? SelectionChanged;
+
+    /// <summary>Optional capabilities enabled by the host.</summary>
+    public MapInteractionOptions InteractionOptions { get; set; } =
+        MapInteractionOptions.Disabled;
+
+    /// <summary>Optional host-provided clipboard writer used by tests or product policy.</summary>
+    public Func<string, CancellationToken, Task>? ClipboardWriter { get; set; }
+
+    /// <summary>Currently selected marker, if the selected coordinate came from one.</summary>
+    public MapMarker? SelectedMarker { get; private set; }
+
+    /// <summary>Whether a host-started geographic drawing session is active.</summary>
+    public bool IsDrawing => _drawingKind is not null;
+
+    /// <summary>Vertices collected by the active drawing session.</summary>
+    public IReadOnlyList<GeoCoordinate> DrawingPoints => _drawingPoints;
+
     /// <summary>Sets the viewport center and zoom.</summary>
     public void SetViewport(GeoCoordinate center, double zoom) =>
         Viewport = new MapViewport(center, zoom);
+
+    /// <summary>Copies the selected coordinate using the configured host clipboard.</summary>
+    public Task<bool> CopySelectedCoordinateAsync(
+        CancellationToken cancellationToken = default) =>
+        CopySelectionAsync(
+            SelectedMarker is { } marker
+                ? GeoCoordinateText.Format(marker.Position)
+                : SelectedCoordinate is { } coordinate
+                    ? GeoCoordinateText.Format(coordinate)
+                    : null,
+            cancellationToken);
+
+    /// <summary>Copies the selected coordinate and marker identity as JSON.</summary>
+    public Task<bool> CopySelectedJsonAsync(
+        CancellationToken cancellationToken = default) =>
+        CopySelectionAsync(
+            SelectedCoordinate is not { } coordinate
+                ? null
+                : GeoCoordinateText.ToJson(
+                    coordinate,
+                    SelectedMarker?.Id,
+                    SelectedMarker?.Label,
+                    SelectedMarker?.Metadata),
+            cancellationToken);
+
+    /// <summary>Executes a host-mapped keyboard command.</summary>
+    public async Task<bool> ExecuteKeyboardCommandAsync(
+        MapKeyboardCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        switch (command)
+        {
+            case MapKeyboardCommand.CopyCoordinate:
+                return await CopySelectedCoordinateAsync(cancellationToken);
+            case MapKeyboardCommand.CopyJson:
+                return await CopySelectedJsonAsync(cancellationToken);
+            case MapKeyboardCommand.ZoomIn:
+                ZoomIn();
+                return true;
+            case MapKeyboardCommand.ZoomOut:
+                ZoomOut();
+                return true;
+            case MapKeyboardCommand.PanLeft:
+                Viewport = CreateTransform().Translate(new Vector(80, 0));
+                return true;
+            case MapKeyboardCommand.PanRight:
+                Viewport = CreateTransform().Translate(new Vector(-80, 0));
+                return true;
+            case MapKeyboardCommand.PanUp:
+                Viewport = CreateTransform().Translate(new Vector(0, 80));
+                return true;
+            case MapKeyboardCommand.PanDown:
+                Viewport = CreateTransform().Translate(new Vector(0, -80));
+                return true;
+            case MapKeyboardCommand.CompleteDrawing:
+                return CompleteDrawing() is not null;
+            case MapKeyboardCommand.CancelDrawing:
+                CancelDrawing();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Starts a host-enabled geographic drawing session.</summary>
+    public bool BeginDrawing(GeoDrawingKind kind)
+    {
+        if (!InteractionOptions.EnableDrawing)
+            return false;
+
+        _drawingKind = kind;
+        _drawingPoints.Clear();
+        InvalidateVisual();
+        return true;
+    }
+
+    /// <summary>Adds a vertex to the active drawing session.</summary>
+    public bool AddDrawingPoint(GeoCoordinate coordinate)
+    {
+        if (_drawingKind is not { } kind)
+            return false;
+
+        _drawingPoints.Add(coordinate);
+        InvalidateVisual();
+        if (kind == GeoDrawingKind.Point)
+            CompleteDrawing();
+        return true;
+    }
+
+    /// <summary>Completes the active drawing and raises <see cref="DrawingCompleted"/>.</summary>
+    public GeoDrawing? CompleteDrawing()
+    {
+        if (_drawingKind is not { } kind
+            || !HasEnoughDrawingPoints(kind, _drawingPoints.Count))
+        {
+            return null;
+        }
+
+        var drawing = new GeoDrawing(kind, _drawingPoints);
+        _drawingKind = null;
+        _drawingPoints.Clear();
+        InvalidateVisual();
+        DrawingCompleted?.Invoke(drawing);
+        return drawing;
+    }
+
+    /// <summary>Cancels the active drawing without raising completion.</summary>
+    public void CancelDrawing()
+    {
+        if (_drawingKind is null)
+            return;
+
+        _drawingKind = null;
+        _drawingPoints.Clear();
+        InvalidateVisual();
+    }
 
     /// <summary>Requests an immediate tile refresh after a provider or network failure.</summary>
     public void RetryTiles()
@@ -548,7 +702,7 @@ public sealed class MapControl : Control
                 return new TileLoadResult(null, Failed: false);
             }
 
-            return new TileLoadResult(tile, Failed: false);
+            return new TileLoadResult(tile, Failed: tile is null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -568,6 +722,21 @@ public sealed class MapControl : Control
         {
             ClearTiles();
             QueueTileRefresh();
+            return;
+        }
+
+        if (change.Property == SelectedCoordinateProperty)
+        {
+            SelectedMarker = Markers?.FirstOrDefault(
+                marker => marker.Position == SelectedCoordinate);
+            SelectionChanged?.Invoke();
+            return;
+        }
+
+        if (change.Property == MarkersProperty)
+        {
+            SelectedMarker = Markers?.FirstOrDefault(
+                marker => marker.Position == SelectedCoordinate);
             return;
         }
 
@@ -633,6 +802,28 @@ public sealed class MapControl : Control
         if (!IsMapContact(e))
             return;
 
+        if (InteractionOptions.EnableDrawing
+            && IsDrawing)
+        {
+            var drawingPosition = e.GetPosition(this);
+            var coordinate = CreateTransform().ScreenToGeo(drawingPosition);
+            Focus();
+            e.PreventGestureRecognition();
+            e.Handled = true;
+            if (_drawingKind == GeoDrawingKind.Circle)
+            {
+                _drawingPointerId = e.Pointer.Id;
+                e.Pointer.Capture(this);
+                AddDrawingPoint(coordinate);
+            }
+            else
+            {
+                AddDrawingPoint(coordinate);
+            }
+
+            return;
+        }
+
         StopInertia();
         var position = e.GetPosition(this);
         _contacts[e.Pointer.Id] = position;
@@ -675,6 +866,20 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnPointerMoved(PointerEventArgs e)
     {
+        if (_drawingPointerId == e.Pointer.Id
+            && _drawingKind == GeoDrawingKind.Circle
+            && _drawingPoints.Count > 0)
+        {
+            var coordinate = CreateTransform().ScreenToGeo(e.GetPosition(this));
+            if (_drawingPoints.Count == 1)
+                _drawingPoints.Add(coordinate);
+            else
+                _drawingPoints[1] = coordinate;
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
         if (!_contacts.ContainsKey(e.Pointer.Id))
             return;
 
@@ -724,6 +929,24 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
+        if (_drawingPointerId == e.Pointer.Id)
+        {
+            _drawingPointerId = null;
+            var coordinate = CreateTransform().ScreenToGeo(e.GetPosition(this));
+            if (_drawingKind == GeoDrawingKind.Circle)
+            {
+                if (_drawingPoints.Count == 1)
+                    _drawingPoints.Add(coordinate);
+                else
+                    _drawingPoints[1] = coordinate;
+            }
+
+            e.Pointer.Capture(null);
+            CompleteDrawing();
+            e.Handled = true;
+            return;
+        }
+
         if (!_contacts.Remove(e.Pointer.Id))
             return;
 
@@ -793,6 +1016,13 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
+        if (_drawingPointerId == e.Pointer.Id)
+        {
+            _drawingPointerId = null;
+            CancelDrawing();
+            return;
+        }
+
         if (!_contacts.Remove(e.Pointer.Id))
             return;
 
@@ -827,6 +1057,39 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        if (InteractionOptions.EnableClipboardShortcuts
+            && control
+            && e.Key == Key.C)
+        {
+            _ = shift
+                ? CopySelectedJsonAsync()
+                : CopySelectedCoordinateAsync();
+            e.Handled = true;
+            return;
+        }
+
+        if (InteractionOptions.EnableDrawing && IsDrawing)
+        {
+            if (e.Key == Key.Escape)
+            {
+                CancelDrawing();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter)
+            {
+                CompleteDrawing();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (!InteractionOptions.EnableKeyboardNavigation)
+            return;
+
         switch (e.Key)
         {
             case Key.Add:
@@ -872,9 +1135,12 @@ public sealed class MapControl : Control
         DrawGrid(context, transform);
         DrawTiles(context, transform);
         DrawCircles(context, transform);
+        DrawPolygons(context, transform);
         DrawTracks(context, transform);
         DrawMarkers(context, transform);
         DrawSelectedCoordinate(context, transform);
+        DrawDrawingPreview(context, transform);
+        DrawDrawingStatus(context);
         DrawStatus(context);
         DrawAttribution(context);
     }
@@ -967,6 +1233,114 @@ public sealed class MapControl : Control
                     transform.GeoToScreen(track.Points[index - 1]),
                     transform.GeoToScreen(track.Points[index]));
             }
+        }
+    }
+
+    void DrawPolygons(DrawingContext context, MapViewportTransform transform)
+    {
+        if (Polygons is not { Count: > 0 })
+            return;
+
+        foreach (var polygon in Polygons)
+        {
+            if (polygon.Points.Count < 2)
+                continue;
+
+            if (polygon.Fill is { } fill && polygon.Points.Count >= 3)
+            {
+                var points = polygon.Points
+                    .Select(transform.GeoToScreen)
+                    .ToList();
+                if (points[0] != points[^1])
+                    points.Add(points[0]);
+                context.DrawGeometry(
+                    new SolidColorBrush(fill),
+                    null,
+                    new PolylineGeometry(points, isFilled: true));
+            }
+
+            var pen = polygon.Ink is { } ink
+                ? new Pen(new SolidColorBrush(ink), 2)
+                : TrackPen;
+            for (var index = 1; index < polygon.Points.Count; index++)
+            {
+                context.DrawLine(
+                    pen,
+                    transform.GeoToScreen(polygon.Points[index - 1]),
+                    transform.GeoToScreen(polygon.Points[index]));
+            }
+
+            if (polygon.Points[0] != polygon.Points[^1])
+            {
+                context.DrawLine(
+                    pen,
+                    transform.GeoToScreen(polygon.Points[^1]),
+                    transform.GeoToScreen(polygon.Points[0]));
+            }
+        }
+    }
+
+    void DrawDrawingStatus(DrawingContext context)
+    {
+        if (!InteractionOptions.ShowMeasurementResults
+            || _drawingKind is not { } kind)
+        {
+            return;
+        }
+
+        var text = GeoMeasurementText.ForDrawing(kind, _drawingPoints);
+        var typeface = new Typeface("Segoe UI,sans-serif");
+        var formatted = new FormattedText(
+            text,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            12,
+            LabelBrush);
+        var padding = 10;
+        var y = global::System.Math.Max(
+            48,
+            Bounds.Height - (string.IsNullOrWhiteSpace(Attribution) ? 48 : 78));
+        var rect = new Rect(
+            10,
+            y,
+            formatted.Width + padding * 2,
+            formatted.Height + padding * 2);
+        context.FillRectangle(AttributionBackground, rect);
+        context.DrawText(formatted, new Point(10 + padding, y + padding));
+    }
+
+    void DrawDrawingPreview(
+        DrawingContext context,
+        MapViewportTransform transform)
+    {
+        if (_drawingKind is not { } kind || _drawingPoints.Count == 0)
+            return;
+
+        var pen = new Pen(new SolidColorBrush(Color.Parse("#d28b38")), 3);
+        if (kind == GeoDrawingKind.Circle && _drawingPoints.Count >= 2)
+        {
+            var center = transform.GeoToScreen(_drawingPoints[0]);
+            var edge = transform.GeoToScreen(_drawingPoints[1]);
+            var radius = Distance(center, edge);
+            context.DrawEllipse(null, pen, center, radius, radius);
+            return;
+        }
+
+        for (var index = 1; index < _drawingPoints.Count; index++)
+        {
+            context.DrawLine(
+                pen,
+                transform.GeoToScreen(_drawingPoints[index - 1]),
+                transform.GeoToScreen(_drawingPoints[index]));
+        }
+
+        if (kind == GeoDrawingKind.Polygon && _drawingPoints.Count >= 3)
+        {
+            context.DrawLine(
+                pen,
+                transform.GeoToScreen(_drawingPoints[^1]),
+                transform.GeoToScreen(_drawingPoints[0]));
         }
     }
 
@@ -1153,6 +1527,7 @@ public sealed class MapControl : Control
         if (marker is not null)
         {
             SelectedCoordinate = marker.Position;
+            SelectedMarker = marker;
             MarkerSelected?.Invoke(marker);
             PointSelected?.Invoke(marker.Position);
             return;
@@ -1160,6 +1535,7 @@ public sealed class MapControl : Control
 
         var selected = transform.ScreenToGeo(point);
         SelectedCoordinate = selected;
+        SelectedMarker = null;
         PointSelected?.Invoke(selected);
     }
 
@@ -1242,6 +1618,38 @@ public sealed class MapControl : Control
 
     static Point Midpoint(Point first, Point second) =>
         new((first.X + second.X) / 2, (first.Y + second.Y) / 2);
+
+    async Task<bool> CopySelectionAsync(
+        string? text,
+        CancellationToken cancellationToken)
+    {
+        if (text is null)
+            return false;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ClipboardWriter is not null)
+        {
+            await ClipboardWriter(text, cancellationToken);
+            return true;
+        }
+
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+            return false;
+
+        await clipboard.SetTextAsync(text);
+        return true;
+    }
+
+    static bool HasEnoughDrawingPoints(GeoDrawingKind kind, int count) =>
+        kind switch
+        {
+            GeoDrawingKind.Point => count >= 1,
+            GeoDrawingKind.Circle => count >= 2,
+            GeoDrawingKind.Polyline => count >= 2,
+            GeoDrawingKind.Polygon => count >= 3,
+            _ => false,
+        };
 
     MapMarker? HitTestMarker(Point point, MapViewportTransform transform)
     {
