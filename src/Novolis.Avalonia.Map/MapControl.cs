@@ -591,10 +591,15 @@ public sealed class MapControl : Control
 
         if (touch)
         {
+            e.PreventGestureRecognition();
+            e.Pointer.Capture(this);
+            e.Handled = true;
             _panPointerId = e.Pointer.Id;
             _panOrigin = position;
             _panFromTouch = true;
             _isPanning = false;
+            _panVelocity = default;
+            _lastMoveTicks = Environment.TickCount64;
             return;
         }
 
@@ -628,9 +633,6 @@ public sealed class MapControl : Control
             ApplyPinch();
             return;
         }
-
-        if (IsTouch(e))
-            return;
 
         if (_panPointerId != e.Pointer.Id)
             return;
@@ -680,6 +682,16 @@ public sealed class MapControl : Control
                 return;
 
             _isPinching = false;
+            if (_contacts.Count == 1)
+            {
+                var remaining = _contacts.Keys.First();
+                _panPointerId = remaining;
+                _panOrigin = _contacts[remaining];
+                _panFromTouch = true;
+                _isPanning = false;
+                _panVelocity = default;
+                _lastMoveTicks = Environment.TickCount64;
+            }
             FinishGesture();
             return;
         }
@@ -693,8 +705,16 @@ public sealed class MapControl : Control
             var movedY = point.Y - _panOrigin.Y;
             _panPointerId = null;
             _panFromTouch = false;
+            if (_isPanning)
+            {
+                e.Handled = true;
+                BeginInertia(_panVelocity);
+                return;
+            }
+
             if (movedX * movedX + movedY * movedY < 576)
                 SelectAt(point);
+            FinishGesture();
             return;
         }
 
@@ -815,8 +835,11 @@ public sealed class MapControl : Control
 
     void DrawTiles(DrawingContext context, MapViewportTransform transform)
     {
-        foreach (var tile in _tiles.Values)
+        foreach (var key in transform.GetVisibleTileKeys())
         {
+            if (!_tiles.TryGetValue(key, out var tile))
+                continue;
+
             var destination = transform.TileToScreenRect(tile.Key);
             if (!destination.Intersects(new Rect(0, 0, transform.Width, transform.Height)))
                 continue;
@@ -946,12 +969,15 @@ public sealed class MapControl : Control
 
     void DrawAttribution(DrawingContext context)
     {
-        if (string.IsNullOrWhiteSpace(Attribution))
+        var attribution = string.IsNullOrWhiteSpace(Attribution)
+            ? (TileSource as RasterMapTileSource)?.Attribution
+            : Attribution;
+        if (string.IsNullOrWhiteSpace(attribution))
             return;
 
         var typeface = new Typeface("Segoe UI,sans-serif");
         var formatted = new FormattedText(
-            Attribution,
+            attribution,
             System.Globalization.CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
             typeface,
@@ -969,10 +995,14 @@ public sealed class MapControl : Control
 
     void DrawStatus(DrawingContext context)
     {
-        if (!IsLoading && string.IsNullOrWhiteSpace(ErrorMessage))
+        if (!IsLoading
+            && string.IsNullOrWhiteSpace(ErrorMessage)
+            && !HasStaleTiles)
             return;
 
-        var text = IsLoading ? "Loading map…" : ErrorMessage!;
+        var text = IsLoading
+            ? "Loading map…"
+            : ErrorMessage ?? "Using cached map tiles";
         var typeface = new Typeface("Segoe UI,sans-serif");
         var formatted = new FormattedText(
             text,
