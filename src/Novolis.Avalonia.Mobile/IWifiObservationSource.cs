@@ -8,7 +8,12 @@ public interface IWifiObservationSource
     /// <summary>Returns the current platform capability state.</summary>
     MobileSourceStatus GetStatus();
 
-    /// <summary>Reads one current Wi-Fi sample.</summary>
+    /// <summary>Reads one current Wi-Fi sample, including networks already heard.</summary>
     ValueTask<MobileWifiReading> ReadAsync(
         CancellationToken cancellationToken = default);
+
+    /// <summary>Asks the platform for a fresh scan when it allows one, then reads.</summary>
+    ValueTask<MobileWifiReading> RefreshVisibleAsync(
+        CancellationToken cancellationToken = default) =>
+        ReadAsync(cancellationToken);
 }

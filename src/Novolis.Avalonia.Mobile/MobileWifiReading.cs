@@ -6,4 +6,5 @@ namespace Novolis.Avalonia.Mobile;
 public sealed record MobileWifiReading(
     DateTimeOffset At,
     string? ConnectedSsid,
-    MobileObservationStatus Status);
+    MobileObservationStatus Status,
+    IReadOnlyList<MobileWifiNetwork>? Visible = null);
