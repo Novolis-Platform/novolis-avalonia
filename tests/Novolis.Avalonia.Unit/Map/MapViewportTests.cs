@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Media;
 using Novolis.Avalonia.Map;
 using Novolis.Math.Geometry;
 
@@ -106,6 +107,49 @@ public sealed class MapViewportTests
         await Assert.That(map.Tracks).Count().IsEqualTo(1);
         await Assert.That(map.Tracks![0].Points).Count().IsEqualTo(2);
         await Assert.That(map.ErrorMessage).IsEqualTo("Tiles unavailable");
+    }
+
+    [Test]
+    public async Task Map_control_overlay_models_preserve_labels_and_styling()
+    {
+        var first = new GeoCoordinate(58.14, 7.99);
+        var second = new GeoCoordinate(58.15, 8.01);
+        var map = new MapControl
+        {
+            Circles =
+            [
+                new MapCircleOverlay(
+                    "area",
+                    new GeoCircle(first, 200),
+                    "Area",
+                    Color.FromRgb(255, 0, 0)),
+            ],
+            Tracks =
+            [
+                new MapTrackOverlay(
+                    "route",
+                    [first, second],
+                    "Route",
+                    Color.FromRgb(0, 0, 255),
+                    Color.FromRgb(0, 255, 0)),
+            ],
+            Polygons =
+            [
+                new MapPolygonOverlay(
+                    "zone",
+                    [first, second, new GeoCoordinate(58.16, 8.02)],
+                    "Zone",
+                    Color.FromRgb(128, 0, 128),
+                    Color.FromRgb(255, 255, 0)),
+            ],
+        };
+
+        await Assert.That(map.Circles![0].Label).IsEqualTo("Area");
+        await Assert.That(map.Tracks![0].Label).IsEqualTo("Route");
+        await Assert.That(map.Tracks[0].FromInk).IsNotNull();
+        await Assert.That(map.Tracks[0].ToInk).IsNotNull();
+        await Assert.That(map.Polygons![0].Label).IsEqualTo("Zone");
+        await Assert.That(map.Polygons[0].Fill).IsNotNull();
     }
 
     [Test]
