@@ -56,6 +56,7 @@ public sealed class MapControl : Control
     Vector _inertiaVelocity;
     long _lastTapTicks;
     Point _lastTapPoint;
+    bool _suppressSelectionChanged;
 
     /// <summary>Viewport state.</summary>
     public static readonly StyledProperty<MapViewport> ViewportProperty =
@@ -268,6 +269,20 @@ public sealed class MapControl : Control
     /// <summary>Currently selected marker, if the selected coordinate came from one.</summary>
     public MapMarker? SelectedMarker { get; private set; }
 
+    /// <summary>Selects a coordinate as a user-facing map interaction.</summary>
+    public void SelectCoordinate(GeoCoordinate coordinate)
+    {
+        var marker = Markers?.FirstOrDefault(item => item.Position == coordinate);
+        ApplyInteractionSelection(coordinate, marker);
+    }
+
+    /// <summary>Selects a marker and retains its metadata and host tag.</summary>
+    public void SelectMarker(MapMarker marker)
+    {
+        ArgumentNullException.ThrowIfNull(marker);
+        ApplyInteractionSelection(marker.Position, marker);
+    }
+
     /// <summary>Whether a host-started geographic drawing session is active.</summary>
     public bool IsDrawing => _drawingKind is not null;
 
@@ -310,30 +325,50 @@ public sealed class MapControl : Control
         switch (command)
         {
             case MapKeyboardCommand.CopyCoordinate:
+                if (!InteractionOptions.EnableClipboardShortcuts)
+                    return false;
                 return await CopySelectedCoordinateAsync(cancellationToken);
             case MapKeyboardCommand.CopyJson:
+                if (!InteractionOptions.EnableClipboardShortcuts)
+                    return false;
                 return await CopySelectedJsonAsync(cancellationToken);
             case MapKeyboardCommand.ZoomIn:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 ZoomIn();
                 return true;
             case MapKeyboardCommand.ZoomOut:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 ZoomOut();
                 return true;
             case MapKeyboardCommand.PanLeft:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 Viewport = CreateTransform().Translate(new Vector(80, 0));
                 return true;
             case MapKeyboardCommand.PanRight:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 Viewport = CreateTransform().Translate(new Vector(-80, 0));
                 return true;
             case MapKeyboardCommand.PanUp:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 Viewport = CreateTransform().Translate(new Vector(0, 80));
                 return true;
             case MapKeyboardCommand.PanDown:
+                if (!InteractionOptions.EnableKeyboardNavigation)
+                    return false;
                 Viewport = CreateTransform().Translate(new Vector(0, -80));
                 return true;
             case MapKeyboardCommand.CompleteDrawing:
+                if (!InteractionOptions.EnableDrawing)
+                    return false;
                 return CompleteDrawing() is not null;
             case MapKeyboardCommand.CancelDrawing:
+                if (!InteractionOptions.EnableDrawing || !IsDrawing)
+                    return false;
                 CancelDrawing();
                 return true;
             default:
@@ -359,7 +394,17 @@ public sealed class MapControl : Control
         if (_drawingKind is not { } kind)
             return false;
 
-        _drawingPoints.Add(coordinate);
+        if (kind == GeoDrawingKind.Circle && _drawingPoints.Count >= 1)
+        {
+            if (_drawingPoints.Count == 1)
+                _drawingPoints.Add(coordinate);
+            else
+                _drawingPoints[1] = coordinate;
+        }
+        else
+        {
+            _drawingPoints.Add(coordinate);
+        }
         InvalidateVisual();
         if (kind == GeoDrawingKind.Point)
             CompleteDrawing();
@@ -727,9 +772,14 @@ public sealed class MapControl : Control
 
         if (change.Property == SelectedCoordinateProperty)
         {
+            var oldCoordinate = change.GetOldValue<GeoCoordinate?>();
             SelectedMarker = Markers?.FirstOrDefault(
                 marker => marker.Position == SelectedCoordinate);
-            SelectionChanged?.Invoke();
+            if (oldCoordinate != SelectedCoordinate
+                && !_suppressSelectionChanged)
+            {
+                SelectionChanged?.Invoke();
+            }
             return;
         }
 
@@ -1526,17 +1576,12 @@ public sealed class MapControl : Control
         var marker = HitTestMarker(point, transform);
         if (marker is not null)
         {
-            SelectedCoordinate = marker.Position;
-            SelectedMarker = marker;
-            MarkerSelected?.Invoke(marker);
-            PointSelected?.Invoke(marker.Position);
+            SelectMarker(marker);
             return;
         }
 
         var selected = transform.ScreenToGeo(point);
-        SelectedCoordinate = selected;
-        SelectedMarker = null;
-        PointSelected?.Invoke(selected);
+        SelectCoordinate(selected);
     }
 
     void BeginInertia(Vector pixelsPerSecond)
@@ -1627,18 +1672,53 @@ public sealed class MapControl : Control
             return false;
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (ClipboardWriter is not null)
+        try
         {
-            await ClipboardWriter(text, cancellationToken);
+            if (ClipboardWriter is not null)
+            {
+                await ClipboardWriter(text, cancellationToken);
+                return true;
+            }
+
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard is null)
+                return false;
+
+            await clipboard.SetTextAsync(text);
             return true;
         }
-
-        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-        if (clipboard is null)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
             return false;
+        }
+    }
 
-        await clipboard.SetTextAsync(text);
-        return true;
+    void ApplyInteractionSelection(
+        GeoCoordinate coordinate,
+        MapMarker? marker)
+    {
+        var changed = SelectedCoordinate != coordinate
+            || !ReferenceEquals(SelectedMarker, marker);
+        _suppressSelectionChanged = true;
+        try
+        {
+            SelectedCoordinate = coordinate;
+            SelectedMarker = marker;
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+
+        if (marker is not null)
+            MarkerSelected?.Invoke(marker);
+        PointSelected?.Invoke(coordinate);
+        if (changed)
+            SelectionChanged?.Invoke();
     }
 
     static bool HasEnoughDrawingPoints(GeoDrawingKind kind, int count) =>
