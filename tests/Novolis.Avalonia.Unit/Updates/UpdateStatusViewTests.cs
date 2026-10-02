@@ -34,4 +34,29 @@ public sealed class UpdateStatusViewTests
         await Assert.That(view.NotificationMode).IsEqualTo(UpdateNotificationMode.Popup);
         await Assert.That(view.Content).IsNotNull();
     }
+
+    [Test]
+    public async Task View_exposes_all_user_actions_with_stable_accessibility_ids()
+    {
+        var view = new UpdateStatusView();
+        var card = (Border)view.Content!;
+        var content = (StackPanel)card.Child!;
+        var actions = content.Children.OfType<StackPanel>().Single();
+        var buttons = actions.Children.OfType<Button>().ToList();
+
+        await Assert.That(buttons).Count().IsEqualTo(6);
+        await Assert.That(buttons.Select(button =>
+                button.GetValue(AutomationProperties.AutomationIdProperty)))
+            .Contains("UpdateStatusView.ReleaseButton");
+        await Assert.That(buttons.Select(button =>
+                button.GetValue(AutomationProperties.AutomationIdProperty)))
+            .Contains("UpdateStatusView.DownloadButton");
+        await Assert.That(buttons.Select(button =>
+                button.GetValue(AutomationProperties.AutomationIdProperty)))
+            .Contains("UpdateStatusView.ApplyButton");
+        await Assert.That(buttons.All(button =>
+                !string.IsNullOrWhiteSpace(
+                    button.GetValue(AutomationProperties.NameProperty) as string)))
+            .IsTrue();
+    }
 }
