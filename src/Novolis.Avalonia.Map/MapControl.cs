@@ -29,6 +29,7 @@ public sealed class MapControl : Control
     bool _isAttached;
     bool _tileRefreshQueued;
     readonly Dictionary<int, Point> _contacts = new();
+    readonly Dictionary<int, IPointer> _pointers = new();
     int? _panPointerId;
     Point _panOrigin;
     bool _panFromTouch;
@@ -437,22 +438,34 @@ public sealed class MapControl : Control
             return;
 
         StopInertia();
-        e.PreventGestureRecognition();
-        Focus();
         var position = e.GetPosition(this);
         _contacts[e.Pointer.Id] = position;
-        e.Pointer.Capture(this);
-        e.Handled = true;
+        _pointers[e.Pointer.Id] = e.Pointer;
+        var touch = IsTouch(e);
 
-        if (_contacts.Count >= 2)
+        if (touch && _contacts.Count >= 2)
         {
+            OwnTwoFingerGesture(e);
             BeginPinch();
             return;
         }
 
+        if (touch)
+        {
+            _panPointerId = e.Pointer.Id;
+            _panOrigin = position;
+            _panFromTouch = true;
+            _isPanning = false;
+            return;
+        }
+
+        Focus();
+        e.PreventGestureRecognition();
+        e.Pointer.Capture(this);
+        e.Handled = true;
         _panPointerId = e.Pointer.Id;
         _panOrigin = position;
-        _panFromTouch = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+        _panFromTouch = false;
         _isPanning = false;
         _panVelocity = default;
         _lastMoveTicks = Environment.TickCount64;
@@ -464,7 +477,6 @@ public sealed class MapControl : Control
         if (!_contacts.ContainsKey(e.Pointer.Id))
             return;
 
-        e.PreventGestureRecognition();
         var current = e.GetPosition(this);
         var previous = _contacts[e.Pointer.Id];
         _contacts[e.Pointer.Id] = current;
@@ -473,10 +485,13 @@ public sealed class MapControl : Control
         {
             if (!_isPinching)
                 BeginPinch();
+            OwnTwoFingerGesture(e);
             ApplyPinch();
-            e.Handled = true;
             return;
         }
+
+        if (IsTouch(e))
+            return;
 
         if (_panPointerId != e.Pointer.Id)
             return;
@@ -486,8 +501,7 @@ public sealed class MapControl : Control
         {
             var movedX = current.X - _panOrigin.X;
             var movedY = current.Y - _panOrigin.Y;
-            var slop = _panFromTouch ? 24d : 6d;
-            if (movedX * movedX + movedY * movedY < slop * slop)
+            if (movedX * movedX + movedY * movedY < 36)
             {
                 e.Handled = true;
                 return;
@@ -515,32 +529,37 @@ public sealed class MapControl : Control
         if (!_contacts.Remove(e.Pointer.Id))
             return;
 
+        _pointers.Remove(e.Pointer.Id);
         var point = e.GetPosition(this);
         e.Pointer.Capture(null);
-        e.PreventGestureRecognition();
-        e.Handled = true;
 
         if (_isPinching)
         {
+            e.PreventGestureRecognition();
+            e.Handled = true;
             if (_contacts.Count >= 2)
                 return;
 
             _isPinching = false;
-            if (_contacts.Count == 1)
-            {
-                var remaining = _contacts.First();
-                _panPointerId = remaining.Key;
-                _panOrigin = remaining.Value;
-                _isPanning = true;
-                _panVelocity = default;
-                _lastMoveTicks = Environment.TickCount64;
-                return;
-            }
-
             FinishGesture();
             return;
         }
 
+        if (_panFromTouch)
+        {
+            if (_panPointerId != e.Pointer.Id)
+                return;
+
+            var movedX = point.X - _panOrigin.X;
+            var movedY = point.Y - _panOrigin.Y;
+            _panPointerId = null;
+            _panFromTouch = false;
+            if (movedX * movedX + movedY * movedY < 576)
+                SelectAt(point);
+            return;
+        }
+
+        e.Handled = true;
         if (_panPointerId != e.Pointer.Id)
             return;
 
@@ -561,6 +580,7 @@ public sealed class MapControl : Control
         if (!_contacts.Remove(e.Pointer.Id))
             return;
 
+        _pointers.Remove(e.Pointer.Id);
         if (_panPointerId == e.Pointer.Id)
             _panPointerId = null;
 
@@ -577,8 +597,14 @@ public sealed class MapControl : Control
     /// <inheritdoc />
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
-        var step = e.Delta.Y > 0 ? 0.5 : -0.5;
-        ZoomAt(e.GetPosition(this), Viewport.Zoom + step);
+        var delta = e.Delta.Y;
+        if (global::System.Math.Abs(delta) < 0.01)
+            return;
+
+        var zoomDelta = global::System.Math.Abs(delta) >= 1
+            ? global::System.Math.Sign(delta) * 0.5
+            : delta * 0.35;
+        ZoomAt(e.GetPosition(this), Viewport.Zoom + zoomDelta);
         e.Handled = true;
     }
 
@@ -798,6 +824,18 @@ public sealed class MapControl : Control
             formatted.Height + padding * 2);
         context.FillRectangle(AttributionBackground, rect);
         context.DrawText(formatted, new Point(10 + padding, 10 + padding));
+    }
+
+    static bool IsTouch(PointerEventArgs e) =>
+        e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+
+    void OwnTwoFingerGesture(PointerEventArgs e)
+    {
+        e.PreventGestureRecognition();
+        foreach (var pointer in _pointers.Values)
+            pointer.Capture(this);
+        e.Handled = true;
+        Focus();
     }
 
     bool IsMapContact(PointerEventArgs e)

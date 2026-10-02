@@ -164,4 +164,29 @@ public sealed class MapViewportTests
         await Assert.That(screen.X).IsEqualTo(560d).Within(1e-6);
         await Assert.That(screen.Y).IsEqualTo(250d).Within(1e-6);
     }
+
+    [Test]
+    public async Task Two_finger_pan_follows_the_midpoint_without_changing_zoom()
+    {
+        var center = new GeoCoordinate(58.14623, 7.99517);
+        var start = new MapViewport(center, 12);
+        var before = new MapViewportTransform(start, 800, 600);
+        var startMidpoint = new Point(400, 300);
+        var anchor = before.ScreenToGeo(startMidpoint);
+
+        var panned = MapViewportTransform.Pinch(
+            start,
+            800,
+            600,
+            anchor,
+            new Point(470, 260),
+            startDistance: 140,
+            distance: 140);
+        var after = new MapViewportTransform(panned, 800, 600);
+        var screen = after.GeoToScreen(anchor);
+
+        await Assert.That(panned.Zoom).IsEqualTo(12d);
+        await Assert.That(screen.X).IsEqualTo(470d).Within(1e-6);
+        await Assert.That(screen.Y).IsEqualTo(260d).Within(1e-6);
+    }
 }
