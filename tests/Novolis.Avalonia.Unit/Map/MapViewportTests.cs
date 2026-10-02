@@ -153,6 +153,50 @@ public sealed class MapViewportTests
     }
 
     [Test]
+    public async Task Map_control_bounds_concurrent_requests_and_records_visible_work()
+    {
+        var active = 0;
+        var peak = 0;
+        var source = new RecordingTileSource
+        {
+            Handler = async (_, cancellationToken) =>
+            {
+                var current = Interlocked.Increment(ref active);
+                while (true)
+                {
+                    var observed = Volatile.Read(ref peak);
+                    if (current <= observed
+                        || Interlocked.CompareExchange(ref peak, current, observed) == observed)
+                    {
+                        break;
+                    }
+                }
+
+                await Task.Delay(5, cancellationToken);
+                Interlocked.Decrement(ref active);
+                return null;
+            },
+        };
+        var map = new MapControl
+        {
+            TileSource = source,
+            Viewport = new MapViewport(new GeoCoordinate(0, 0), 8),
+        };
+        map.Measure(new Size(2_048, 2_048));
+        map.Arrange(new Rect(0, 0, 2_048, 2_048));
+
+        await map.RefreshTilesAsync();
+
+        await Assert.That(peak).IsLessThanOrEqualTo(6);
+        await Assert.That(map.PerformanceCounters.VisibleTileCalculations).IsGreaterThan(0);
+        await Assert.That(map.PerformanceCounters.TileRequestsStarted)
+            .IsEqualTo(source.Requests.Count);
+        await Assert.That(map.PerformanceCounters.TileRequestsCompleted)
+            .IsEqualTo(source.Requests.Count);
+        await Assert.That(map.PerformanceCounters.DuplicateTileRequests).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Fit_to_content_centers_and_clamps_the_viewport()
     {
         var map = new MapControl();

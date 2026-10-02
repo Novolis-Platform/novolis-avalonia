@@ -389,7 +389,7 @@ public sealed class MapControl : Control
 
         _drawingKind = kind;
         _drawingPoints.Clear();
-        InvalidateVisual();
+        InvalidateMapVisual();
         return true;
     }
 
@@ -410,7 +410,7 @@ public sealed class MapControl : Control
         {
             _drawingPoints.Add(coordinate);
         }
-        InvalidateVisual();
+        InvalidateMapVisual();
         if (kind == GeoDrawingKind.Point)
             CompleteDrawing();
         return true;
@@ -428,7 +428,7 @@ public sealed class MapControl : Control
         var drawing = new GeoDrawing(kind, _drawingPoints);
         _drawingKind = null;
         _drawingPoints.Clear();
-        InvalidateVisual();
+        InvalidateMapVisual();
         DrawingCompleted?.Invoke(drawing);
         return drawing;
     }
@@ -441,7 +441,7 @@ public sealed class MapControl : Control
 
         _drawingKind = null;
         _drawingPoints.Clear();
-        InvalidateVisual();
+        InvalidateMapVisual();
     }
 
     /// <summary>Requests an immediate tile refresh after a provider or network failure.</summary>
@@ -452,7 +452,7 @@ public sealed class MapControl : Control
     }
 
     /// <summary>Requests a redraw after a host mutates an overlay collection in place.</summary>
-    public void RequestRender() => InvalidateVisual();
+    public void RequestRender() => InvalidateMapVisual();
 
     /// <summary>Zooms around the center by one accessible step.</summary>
     public void ZoomIn() => ZoomAt(
@@ -566,7 +566,7 @@ public sealed class MapControl : Control
         }
         TrimTiles(GetVisibleTileKeys());
         HasStaleTiles = _tiles.Values.Any(tile => tile.IsStale);
-        InvalidateVisual();
+        InvalidateMapVisual();
     }
 
     /// <summary>Removes all decoded tiles.</summary>
@@ -579,13 +579,19 @@ public sealed class MapControl : Control
         _tileLastUsed.Clear();
         _tilesStale = false;
         HasStaleTiles = false;
-        InvalidateVisual();
+        InvalidateMapVisual();
     }
 
     void DisposeTiles()
     {
         foreach (var tile in _tiles.Values)
             DisposeTile(tile, stored: true);
+    }
+
+    void InvalidateMapVisual()
+    {
+        PerformanceCounters.RecordRedrawRequest();
+        InvalidateVisual();
     }
 
     void DisposeTile(MapTile? tile, bool stored = false)
@@ -655,7 +661,7 @@ public sealed class MapControl : Control
 
                     ReplaceTile(result.Tile);
                     _tileLastUsed[result.Tile.Key] = ++_tileUseCounter;
-                    InvalidateVisual();
+                    InvalidateMapVisual();
                 });
             }
 
@@ -691,7 +697,7 @@ public sealed class MapControl : Control
             {
                 _tileRefreshCancellation = null;
                 IsLoading = false;
-                InvalidateVisual();
+                InvalidateMapVisual();
             }
         }
     }
@@ -950,7 +956,7 @@ public sealed class MapControl : Control
                 _drawingPoints.Add(coordinate);
             else
                 _drawingPoints[1] = coordinate;
-            InvalidateVisual();
+                InvalidateMapVisual();
             e.Handled = true;
             return;
         }
