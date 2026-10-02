@@ -765,14 +765,14 @@ public sealed class MapControl : Control
         try
         {
             var tile = await source.GetTileAsync(key, cancellationToken);
+            if (tile is not null)
+                PerformanceCounters.RecordDecodedTileCreated();
             if (cancellationToken.IsCancellationRequested)
             {
                 DisposeTile(tile);
                 return new TileLoadResult(null, Failed: false);
             }
 
-            if (tile is not null)
-                PerformanceCounters.RecordDecodedTileCreated();
             return new TileLoadResult(tile, Failed: tile is null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
