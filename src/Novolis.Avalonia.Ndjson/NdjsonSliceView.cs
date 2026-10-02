@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Avalonia.GraphicalProfile;
@@ -24,13 +25,13 @@ public sealed class NdjsonSliceView : Border
     private readonly ComboBox _takePicker;
     private readonly StackPanel _records = new() { Spacing = 8 };
     private INdjsonDocument? _document;
-    private NdjsonSliceState _state = new(0, 100, null, false, null);
+    private ViewerState _state = new(0, 100, null, false, null);
 
     /// <summary>Creates the profile-bound NDJSON slice view.</summary>
     public NdjsonSliceView()
     {
-        GraphicalProfileBinding.Bind(this, Border.BackgroundProperty, GraphicalProfile.BackgroundResourceKey);
-        GraphicalProfileBinding.Bind(this, Border.BorderBrushProperty, GraphicalProfile.BorderResourceKey);
+        GraphicalProfileBinding.Bind(this, Border.BackgroundProperty, Profile.BackgroundResourceKey);
+        GraphicalProfileBinding.Bind(this, Border.BorderBrushProperty, Profile.BorderResourceKey);
         BorderThickness = new Thickness(1);
         CornerRadius = new CornerRadius(GraphicalProfileColors.CardRadius);
         Padding = new Thickness(GraphicalProfileColors.CardPadding);
@@ -49,7 +50,7 @@ public sealed class NdjsonSliceView : Border
         _jumpButton = CreateButton("Jump", JumpAsync, "action-button");
         _jumpEntry = new TextBox
         {
-            Watermark = "Record number",
+            PlaceholderText = "Record number",
             Width = 140,
             FontFamily = Profile.BodyFont,
         };
@@ -113,7 +114,7 @@ public sealed class NdjsonSliceView : Border
                 Cell(controls, 0, 2),
                 Cell(new ScrollViewer
                 {
-                    VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                    VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
                     Content = _records,
                 }, 0, 3),
             },
@@ -162,8 +163,8 @@ public sealed class NdjsonSliceView : Border
     /// <summary>Applies profile brushes to code-created chrome.</summary>
     public void ApplyTheme()
     {
-        GraphicalProfileBinding.Bind(this, Border.BackgroundProperty, GraphicalProfile.BackgroundResourceKey);
-        GraphicalProfileBinding.Bind(this, Border.BorderBrushProperty, GraphicalProfile.BorderResourceKey);
+        GraphicalProfileBinding.Bind(this, Border.BackgroundProperty, Profile.BackgroundResourceKey);
+        GraphicalProfileBinding.Bind(this, Border.BorderBrushProperty, Profile.BorderResourceKey);
         _documentMeta.Foreground = Profile.MutedBrush;
         _rangeLabel.Foreground = Profile.TextBrush;
         _emptyLabel.Foreground = Profile.MutedBrush;
@@ -174,7 +175,7 @@ public sealed class NdjsonSliceView : Border
         if (_document is null)
             return;
 
-        _state = _state with { IsRefreshing = true, Error = null };
+        _state = ViewerNavigation.BeginRefresh(_state);
         SetBusy(true);
         try
         {
@@ -192,7 +193,7 @@ public sealed class NdjsonSliceView : Border
         }
         finally
         {
-            _state = _state with { IsRefreshing = false };
+            _state = ViewerNavigation.CompleteRefresh(_state);
             SetBusy(false);
         }
     }
@@ -202,7 +203,7 @@ public sealed class NdjsonSliceView : Border
         if (_document is null)
             return;
 
-        _state = Previous(_state);
+        _state = ViewerNavigation.Previous(_state);
         await TryLoadSliceAsync();
     }
 
@@ -211,7 +212,7 @@ public sealed class NdjsonSliceView : Border
         if (_document is null)
             return;
 
-        _state = Next(_state);
+        _state = ViewerNavigation.Next(_state);
         await TryLoadSliceAsync();
     }
 
@@ -226,7 +227,7 @@ public sealed class NdjsonSliceView : Border
             return;
         }
 
-        _state = _state with { Skip = skip, Error = null };
+        _state = ViewerNavigation.Jump(_state, skip);
         await TryLoadSliceAsync();
     }
 
@@ -235,7 +236,7 @@ public sealed class NdjsonSliceView : Border
         if (_takePicker.SelectedItem is not int take)
             return;
 
-        _state = _state with { Take = take, Error = null };
+        _state = ViewerNavigation.ChangeTake(_state, take);
         await TryLoadSliceAsync();
     }
 
@@ -300,16 +301,20 @@ public sealed class NdjsonSliceView : Border
     {
         var details = new TextBlock
         {
-            Text = record.Details,
             IsVisible = false,
             FontFamily = Profile.MonoFont,
             FontSize = GraphicalProfileColors.DebugSize,
             TextWrapping = TextWrapping.Wrap,
         };
-        var expand = CreateButton("Expand", () =>
+        Button? expand = null;
+        expand = CreateButton("Expand", async () =>
         {
+            if (!details.IsVisible)
+                details.Text = await Task.Run(() => record.Details);
+
             details.IsVisible = !details.IsVisible;
-            return Task.CompletedTask;
+            if (expand is { } button)
+                button.Content = details.IsVisible ? "Collapse" : "Expand";
         }, "nav-button");
         var copy = CreateButton("Copy", async () =>
         {
@@ -420,40 +425,29 @@ public sealed class NdjsonSliceView : Border
         return $"{value:0.##} {units[unit]}";
     }
 
-    private static NdjsonSliceState Previous(NdjsonSliceState state) =>
-        state with { Skip = Math.Max(0, state.Skip - state.Take), Error = null };
-
-    private static NdjsonSliceState Next(NdjsonSliceState state) =>
-        state.Slice is not { HasMore: true }
-            ? state
-            : state with { Skip = checked(state.Skip + state.Take), Error = null };
-
-    private sealed record NdjsonSliceState(
-        long Skip,
-        int Take,
-        NdjsonSlice? Slice,
-        bool IsRefreshing,
-        Exception? Error);
-
     private sealed class NdjsonRecordDisplay
     {
         private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
 
         public NdjsonRecordDisplay(NdjsonRecord record)
         {
+            Record = record;
             Number = record.Number;
             Status = record.IsValid ? "VALID" : "MALFORMED";
-            Preview = record.Json is { } json ? json.GetRawText() : record.Raw ?? string.Empty;
-            Details = record.Json is { } value
-                ? JsonSerializer.Serialize(value, PrettyJson)
-                : $"{record.Raw ?? string.Empty}\n\n{record.Error?.Message}";
+            var preview = record.Json is { } json ? json.GetRawText() : record.Raw ?? string.Empty;
+            Preview = preview.Length <= 4_096 ? preview : $"{preview[..4_096]}…";
             CopyText = record.Json is { } copy ? copy.GetRawText() : record.Raw ?? string.Empty;
         }
 
         public long Number { get; }
         public string Status { get; }
         public string Preview { get; }
-        public string Details { get; }
+        public string Details => _details ??= Record.Json is { } value
+            ? JsonSerializer.Serialize(value, PrettyJson)
+            : $"{Record.Raw ?? string.Empty}\n\n{Record.Error?.Message}";
         public string CopyText { get; }
+
+        private string? _details;
+        private NdjsonRecord Record { get; }
     }
 }
