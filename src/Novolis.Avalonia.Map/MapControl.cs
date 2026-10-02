@@ -15,6 +15,7 @@ namespace Novolis.Avalonia.Map;
 public sealed class MapControl : Control
 {
     const int MaximumCachedTiles = 128;
+    const int MaximumConcurrentTileRequests = 6;
 
     static readonly IBrush DefaultBackgroundBrush = new SolidColorBrush(Color.Parse("#e7eef2"));
     static readonly IBrush DefaultGridBrush = new SolidColorBrush(Color.FromArgb(48, 75, 105, 120));
@@ -30,6 +31,7 @@ public sealed class MapControl : Control
 
     readonly Dictionary<MapTileKey, MapTile> _tiles = new();
     readonly Dictionary<MapTileKey, long> _tileLastUsed = new();
+    readonly SemaphoreSlim _tileRequestGate = new(MaximumConcurrentTileRequests);
     long _tileUseCounter;
     CancellationTokenSource? _tileRefreshCancellation;
     long _tileRefreshGeneration;
@@ -265,6 +267,9 @@ public sealed class MapControl : Control
 
     /// <summary>Optional host-provided clipboard writer used by tests or product policy.</summary>
     public Func<string, CancellationToken, Task>? ClipboardWriter { get; set; }
+
+    /// <summary>Deterministic work and resource counters for diagnostics and tests.</summary>
+    public MapPerformanceCounters PerformanceCounters { get; } = new();
 
     /// <summary>Currently selected marker, if the selected coordinate came from one.</summary>
     public MapMarker? SelectedMarker { get; private set; }
@@ -539,8 +544,11 @@ public sealed class MapControl : Control
             global::System.Math.Max(1, Bounds.Height));
 
     /// <summary>Returns the tile keys visible in the current viewport.</summary>
-    public IReadOnlyList<MapTileKey> GetVisibleTileKeys() =>
-        CreateTransform().GetVisibleTileKeys();
+    public IReadOnlyList<MapTileKey> GetVisibleTileKeys()
+    {
+        PerformanceCounters.RecordVisibleTileCalculation();
+        return CreateTransform().GetVisibleTileKeys();
+    }
 
     /// <summary>Replaces decoded tiles held by the control.</summary>
     public void SetTiles(IEnumerable<MapTile> tiles)
@@ -553,6 +561,8 @@ public sealed class MapControl : Control
         {
             _tiles[tile.Key] = tile;
             _tileLastUsed[tile.Key] = ++_tileUseCounter;
+            PerformanceCounters.RecordDecodedTileCreated();
+            PerformanceCounters.RecordDecodedTileStored();
         }
         TrimTiles(GetVisibleTileKeys());
         HasStaleTiles = _tiles.Values.Any(tile => tile.IsStale);
@@ -575,16 +585,18 @@ public sealed class MapControl : Control
     void DisposeTiles()
     {
         foreach (var tile in _tiles.Values)
-        {
-            if (tile.Image is IDisposable disposable)
-                disposable.Dispose();
-        }
+            DisposeTile(tile, stored: true);
     }
 
-    static void DisposeTile(MapTile? tile)
+    void DisposeTile(MapTile? tile, bool stored = false)
     {
         if (tile?.Image is IDisposable disposable)
+        {
             disposable.Dispose();
+            PerformanceCounters.RecordDecodedTileDisposed();
+            if (stored)
+                PerformanceCounters.RecordDecodedTileRemoved();
+        }
     }
 
     /// <summary>Loads currently visible tiles from the configured provider.</summary>
@@ -666,6 +678,7 @@ public sealed class MapControl : Control
             refreshCancellation.IsCancellationRequested
             || !IsCurrentTileRefresh(source, generation))
         {
+            PerformanceCounters.RecordRefreshCancellation();
             // A newer viewport, source, or host lifecycle superseded this refresh.
         }
         catch (Exception exception) when (IsCurrentTileRefresh(source, generation))
@@ -696,10 +709,13 @@ public sealed class MapControl : Control
             && previous.Image is IDisposable disposable)
         {
             disposable.Dispose();
+            PerformanceCounters.RecordDecodedTileDisposed();
+            PerformanceCounters.RecordDecodedTileRemoved();
         }
 
         _tiles[tile.Key] = tile;
         _tileLastUsed[tile.Key] = ++_tileUseCounter;
+        PerformanceCounters.RecordDecodedTileStored();
         HasStaleTiles = _tiles.Values.Any(item => item.IsStale);
     }
 
@@ -726,8 +742,8 @@ public sealed class MapControl : Control
 
             if (_tiles.Remove(victim, out var tile))
             {
-                if (tile.Image is IDisposable disposable)
-                    disposable.Dispose();
+                DisposeTile(tile, stored: true);
+                PerformanceCounters.RecordCacheEviction();
                 _tileLastUsed.Remove(victim);
             }
         }
@@ -738,6 +754,8 @@ public sealed class MapControl : Control
         MapTileKey key,
         CancellationToken cancellationToken)
     {
+        await _tileRequestGate.WaitAsync(cancellationToken);
+        PerformanceCounters.RecordTileRequestStarted(key);
         try
         {
             var tile = await source.GetTileAsync(key, cancellationToken);
@@ -747,6 +765,8 @@ public sealed class MapControl : Control
                 return new TileLoadResult(null, Failed: false);
             }
 
+            if (tile is not null)
+                PerformanceCounters.RecordDecodedTileCreated();
             return new TileLoadResult(tile, Failed: tile is null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -756,6 +776,11 @@ public sealed class MapControl : Control
         catch
         {
             return new TileLoadResult(null, Failed: true);
+        }
+        finally
+        {
+            PerformanceCounters.RecordTileRequestCompleted(key);
+            _tileRequestGate.Release();
         }
     }
 
