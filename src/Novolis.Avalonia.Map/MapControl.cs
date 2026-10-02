@@ -1248,6 +1248,7 @@ public sealed class MapControl : Control
                 ? new Pen(new SolidColorBrush(stroke), 2)
                 : CirclePen;
             context.DrawEllipse(fill, pen, center, radiusPixels, radiusPixels);
+            DrawLabel(context, overlay.Label, center);
         }
     }
 
@@ -1261,6 +1262,12 @@ public sealed class MapControl : Control
             if (track.Points.Count < 2)
                 continue;
 
+            var pixels = WebMercatorTiles.GeoPathToPixels(
+                Viewport.Center,
+                Viewport.Zoom,
+                transform.Width,
+                transform.Height,
+                track.Points);
             var segments = track.Points.Count - 1;
             for (var index = 1; index < track.Points.Count; index++)
             {
@@ -1280,9 +1287,12 @@ public sealed class MapControl : Control
 
                 context.DrawLine(
                     pen,
-                    transform.GeoToScreen(track.Points[index - 1]),
-                    transform.GeoToScreen(track.Points[index]));
+                    new Point(pixels[index - 1].X, pixels[index - 1].Y),
+                    new Point(pixels[index].X, pixels[index].Y));
             }
+
+            var labelPoint = pixels[pixels.Count / 2];
+            DrawLabel(context, track.Label, new Point(labelPoint.X, labelPoint.Y));
         }
     }
 
@@ -1298,8 +1308,13 @@ public sealed class MapControl : Control
 
             if (polygon.Fill is { } fill && polygon.Points.Count >= 3)
             {
-                var points = polygon.Points
-                    .Select(transform.GeoToScreen)
+                var points = WebMercatorTiles.GeoPathToPixels(
+                        Viewport.Center,
+                        Viewport.Zoom,
+                        transform.Width,
+                        transform.Height,
+                        polygon.Points)
+                    .Select(point => new Point(point.X, point.Y))
                     .ToList();
                 if (points[0] != points[^1])
                     points.Add(points[0]);
@@ -1309,6 +1324,12 @@ public sealed class MapControl : Control
                     new PolylineGeometry(points, isFilled: true));
             }
 
+            var pathPixels = WebMercatorTiles.GeoPathToPixels(
+                Viewport.Center,
+                Viewport.Zoom,
+                transform.Width,
+                transform.Height,
+                polygon.Points);
             var pen = polygon.Ink is { } ink
                 ? new Pen(new SolidColorBrush(ink), 2)
                 : TrackPen;
@@ -1316,17 +1337,22 @@ public sealed class MapControl : Control
             {
                 context.DrawLine(
                     pen,
-                    transform.GeoToScreen(polygon.Points[index - 1]),
-                    transform.GeoToScreen(polygon.Points[index]));
+                    new Point(pathPixels[index - 1].X, pathPixels[index - 1].Y),
+                    new Point(pathPixels[index].X, pathPixels[index].Y));
             }
 
             if (polygon.Points[0] != polygon.Points[^1])
             {
                 context.DrawLine(
                     pen,
-                    transform.GeoToScreen(polygon.Points[^1]),
-                    transform.GeoToScreen(polygon.Points[0]));
+                    new Point(pathPixels[^1].X, pathPixels[^1].Y),
+                    new Point(pathPixels[0].X, pathPixels[0].Y));
             }
+
+            var labelPoint = new Point(
+                pathPixels.Average(point => point.X),
+                pathPixels.Average(point => point.Y));
+            DrawLabel(context, polygon.Label, labelPoint);
         }
     }
 
@@ -1377,21 +1403,44 @@ public sealed class MapControl : Control
             return;
         }
 
-        for (var index = 1; index < _drawingPoints.Count; index++)
+        var pixels = WebMercatorTiles.GeoPathToPixels(
+            Viewport.Center,
+            Viewport.Zoom,
+            transform.Width,
+            transform.Height,
+            _drawingPoints);
+        for (var index = 1; index < pixels.Count; index++)
         {
             context.DrawLine(
                 pen,
-                transform.GeoToScreen(_drawingPoints[index - 1]),
-                transform.GeoToScreen(_drawingPoints[index]));
+                new Point(pixels[index - 1].X, pixels[index - 1].Y),
+                new Point(pixels[index].X, pixels[index].Y));
         }
 
-        if (kind == GeoDrawingKind.Polygon && _drawingPoints.Count >= 3)
+        if (kind == GeoDrawingKind.Polygon && pixels.Count >= 3)
         {
             context.DrawLine(
                 pen,
-                transform.GeoToScreen(_drawingPoints[^1]),
-                transform.GeoToScreen(_drawingPoints[0]));
+                new Point(pixels[^1].X, pixels[^1].Y),
+                new Point(pixels[0].X, pixels[0].Y));
         }
+    }
+
+    void DrawLabel(DrawingContext context, string? label, Point anchor)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+            return;
+
+        var formatted = new FormattedText(
+            label,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI,sans-serif"),
+            11,
+            LabelBrush);
+        context.DrawText(
+            formatted,
+            new Point(anchor.X + 6, anchor.Y - formatted.Height / 2));
     }
 
     void DrawMarkers(DrawingContext context, MapViewportTransform transform)
