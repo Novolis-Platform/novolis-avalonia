@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Novolis.IO.Maps;
 
 namespace Novolis.Avalonia.StarMap;
 
@@ -31,6 +32,7 @@ public sealed class StarMapControl : Control
     double _offsetX;
     double _offsetY;
     double _scale = 8;
+    IReadOnlyDictionary<string, ProjectedScenePoint>? _projectedScenePoints;
 
     /// <summary>Chart field fill (game UIs may warm this without forking render).</summary>
     public IBrush FieldBrush { get; set; } = DefaultFieldBrush;
@@ -113,6 +115,8 @@ public sealed class StarMapControl : Control
         AffectsRender<StarMapControl>(
             PointsProperty, EdgesProperty, HighlightedEdgesProperty, SelectedIdProperty,
             ShipWorldXProperty, ShipWorldYProperty, ShipVisibleProperty);
+        PointsProperty.Changed.AddClassHandler<StarMapControl>(
+            (control, _) => control._projectedScenePoints = null);
     }
 
     /// <summary>Creates the control.</summary>
@@ -177,12 +181,57 @@ public sealed class StarMapControl : Control
     /// <summary>Raised when the user selects a star.</summary>
     public event Action<string>? StarSelected;
 
+    /// <summary>
+    /// Raised when a projected-scene point is selected, retaining its neutral
+    /// metadata and source payload for the host.
+    /// </summary>
+    public event Action<ProjectedScenePoint>? ProjectedPointSelected;
+
+    /// <summary>
+    /// Selected provider-neutral scene point when <see cref="SetProjectedScene"/>
+    /// populated this control; otherwise null.
+    /// </summary>
+    public ProjectedScenePoint? SelectedProjectedPoint =>
+        SelectedId is { } id
+        && _projectedScenePoints?.TryGetValue(id, out var point) == true
+            ? point
+            : null;
+
     /// <summary>Sets points and edges and invalidates.</summary>
     public void SetMap(IReadOnlyList<StarMapPoint> points, IReadOnlyList<StarMapEdge>? edges = null)
     {
+        _projectedScenePoints = null;
         Points = points;
         Edges = edges;
         InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Adapts provider-neutral projected scene points without making this
+    /// Avalonia control depend on an Astro catalog package.
+    /// </summary>
+    public void SetProjectedScene(
+        IReadOnlyList<ProjectedScenePoint> points,
+        IReadOnlyList<StarMapEdge>? edges = null)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        var sourcePoints = new Dictionary<string, ProjectedScenePoint>(
+            StringComparer.Ordinal);
+        SetMap(
+            points.Select(point =>
+            {
+                sourcePoints[point.Id] = point;
+                return new StarMapPoint
+                {
+                    Id = point.Id,
+                    Label = point.Label,
+                    X = point.X,
+                    Y = point.Y,
+                    Radius = point.RadiusPixels,
+                };
+            }).ToArray(),
+            edges);
+        _projectedScenePoints = sourcePoints;
     }
 
     /// <summary>Sets or clears the highlighted route path.</summary>
@@ -254,6 +303,8 @@ public sealed class StarMapControl : Control
             {
                 SelectedId = hit;
                 StarSelected?.Invoke(hit);
+                if (_projectedScenePoints?.TryGetValue(hit, out var projected) == true)
+                    ProjectedPointSelected?.Invoke(projected);
                 InvalidateVisual();
                 e.Handled = true;
                 return;

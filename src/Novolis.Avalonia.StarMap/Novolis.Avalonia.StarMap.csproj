@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <LibraryReference Include="Novolis.IO.Maps" />
   </ItemGroup>
 </Project>
