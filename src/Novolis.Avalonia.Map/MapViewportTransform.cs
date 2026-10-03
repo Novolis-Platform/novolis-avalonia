@@ -1,4 +1,5 @@
 using Avalonia;
+using Novolis.IO.Maps;
 using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Map;

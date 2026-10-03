@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media;
 using Novolis.Avalonia.Map;
+using Novolis.IO.Maps;
 using Novolis.Math.Geometry;
 
 namespace Novolis.Avalonia.Unit.Map;
@@ -484,6 +485,78 @@ public sealed class MapViewportTests
         await Assert.That(drawing).IsNotNull();
         await Assert.That(drawing!.Points).Count().IsEqualTo(2);
         await Assert.That(drawing.Points[1]).IsEqualTo(latestEdge);
+    }
+
+    [Test]
+    public async Task Map_control_selects_type_qualified_overlays_and_requests_host_erasure()
+    {
+        var marker = new MapMarker(
+            "shared",
+            new GeoCoordinate(58.14, 7.99),
+            "Marker");
+        var circle = new MapCircleOverlay(
+            "shared",
+            new GeoCircle(new GeoCoordinate(58.15, 8.01), 300),
+            "Circle");
+        var map = new MapControl
+        {
+            Markers = [marker],
+            Circles = [circle],
+        };
+        MapOverlayKey? eraseRequest = null;
+        map.OverlayEraseRequested += key => eraseRequest = key;
+
+        await Assert.That(map.SelectOverlay(
+                new MapOverlayKey(MapOverlayKind.Circle, "shared")))
+            .IsTrue();
+        await Assert.That(map.SelectedOverlay)
+            .IsEqualTo(new MapOverlayKey(MapOverlayKind.Circle, "shared"));
+        await Assert.That(map.SelectedMarker).IsNull();
+        await Assert.That(map.SelectedCoordinate).IsEqualTo(circle.Circle.Center);
+
+        await Assert.That(map.RequestEraseSelectedOverlay()).IsTrue();
+        await Assert.That(eraseRequest)
+            .IsEqualTo(new MapOverlayKey(MapOverlayKind.Circle, "shared"));
+
+        map.Circles = [];
+        await Assert.That(map.SelectedOverlay).IsNull();
+        await Assert.That(map.SelectedCoordinate).IsNull();
+    }
+
+    [Test]
+    public async Task Map_control_rectangle_drawing_and_keyboard_erase_are_opt_in()
+    {
+        var first = new GeoCoordinate(58.14, 7.99);
+        var opposite = new GeoCoordinate(58.16, 8.03);
+        var marker = new MapMarker("office", first);
+        var map = new MapControl
+        {
+            Markers = [marker],
+            InteractionOptions = new MapInteractionOptions
+            {
+                EnableDrawing = true,
+                EnableOverlayErasure = true,
+            },
+        };
+        MapOverlayKey? eraseRequest = null;
+        map.OverlayEraseRequested += key => eraseRequest = key;
+
+        await Assert.That(map.BeginDrawing(GeoDrawingKind.Rectangle)).IsTrue();
+        await Assert.That(map.ActiveDrawingKind).IsEqualTo(GeoDrawingKind.Rectangle);
+        await Assert.That(map.AddDrawingPoint(first)).IsTrue();
+        await Assert.That(map.AddDrawingPoint(opposite)).IsTrue();
+        var drawing = map.CompleteDrawing();
+
+        await Assert.That(drawing).IsNotNull();
+        await Assert.That(drawing!.Statistics.VertexCount).IsEqualTo(4);
+        await Assert.That(map.ActiveDrawingKind).IsNull();
+
+        map.SelectMarker(marker);
+        await Assert.That(await map.ExecuteKeyboardCommandAsync(
+                MapKeyboardCommand.EraseSelectedOverlay))
+            .IsTrue();
+        await Assert.That(eraseRequest)
+            .IsEqualTo(new MapOverlayKey(MapOverlayKind.Marker, "office"));
     }
 
     sealed class RecordingTileSource : IMapTileSource

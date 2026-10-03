@@ -1,5 +1,5 @@
 ﻿using Avalonia.Media.Imaging;
-using Novolis.Math.Geometry;
+using Novolis.IO.Maps;
 
 namespace Novolis.Avalonia.Map;
 
