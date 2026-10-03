@@ -11,5 +11,28 @@ Avalonia record-slice chrome over an
 
 The control owns navigation, bounded reads, refresh, malformed-line
 presentation, expansion, and copy. Hosts retain file selection and document
-lifetime. Install `Novolis.Avalonia.GraphicalProfile` in the application before
-placing the control in a window.
+lifetime.
+
+## Install
+
+```powershell
+dotnet add package Novolis.Avalonia.Ndjson
+```
+
+Requires .NET 10, Avalonia, `Novolis.IO.Ndjson`, and
+`Novolis.Avalonia.GraphicalProfile`. Install the profile in the application
+before placing the control in a window.
+
+## Quick start
+
+```csharp
+using Novolis.Avalonia.Ndjson;
+
+var slice = new NdjsonSliceView
+{
+    RefreshDocumentAsync = cancellationToken => OpenDocumentAsync(cancellationToken),
+};
+```
+
+`OpenDocumentAsync` returns the host-owned `INdjsonDocument`. The view does not
+choose the file or dispose the document.
