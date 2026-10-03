@@ -260,12 +260,15 @@ public sealed class StarMapControl : Control
         var maxX = points.Max(p => p.X);
         var minY = points.Min(p => p.Y);
         var maxY = points.Max(p => p.Y);
-        var spanX = Math.Max(maxX - minX, 1e-6);
-        var spanY = Math.Max(maxY - minY, 1e-6);
-        var pad = Math.Clamp(paddingFraction, 0, 0.4);
+        var spanX = global::System.Math.Max(maxX - minX, 1e-6);
+        var spanY = global::System.Math.Max(maxY - minY, 1e-6);
+        var pad = global::System.Math.Clamp(paddingFraction, 0, 0.4);
         var usableW = Bounds.Width * (1 - 2 * pad);
         var usableH = Bounds.Height * (1 - 2 * pad);
-        _scale = Math.Clamp(Math.Min(usableW / spanX, usableH / spanY), minScale, maxScale);
+        _scale = global::System.Math.Clamp(
+            global::System.Math.Min(usableW / spanX, usableH / spanY),
+            minScale,
+            maxScale);
         var cx = (minX + maxX) / 2;
         var cy = (minY + maxY) / 2;
         _offsetX = -cx * _scale;
@@ -276,7 +279,7 @@ public sealed class StarMapControl : Control
     /// <summary>Sets camera center (world) and scale explicitly.</summary>
     public void SetCamera(double worldCenterX, double worldCenterY, double scale)
     {
-        _scale = Math.Clamp(scale, 0.5, 200);
+        _scale = global::System.Math.Clamp(scale, 0.5, 200);
         _offsetX = -worldCenterX * _scale;
         _offsetY = worldCenterY * _scale;
         InvalidateVisual();
@@ -287,7 +290,7 @@ public sealed class StarMapControl : Control
     {
         var delta = e.Delta.Y;
         var factor = delta > 0 ? 1.1 : 1 / 1.1;
-        _scale = Math.Clamp(_scale * factor, 0.5, 200);
+        _scale = global::System.Math.Clamp(_scale * factor, 0.5, 200);
         InvalidateVisual();
         e.Handled = true;
     }
