@@ -22,14 +22,13 @@ public sealed class Pcm16BitToSampleProvider : ISampleProvider
 
     public WaveFormat WaveFormat { get; }
 
-    public int Read(float[] buffer, int offset, int count)
+    public int Read(Span<float> buffer)
     {
-        var bytesNeeded = count * 2;
         var totalSamples = 0;
-        while (totalSamples < count)
+        while (totalSamples < buffer.Length)
         {
-            var toRead = Math.Min(_buffer.Length, (count - totalSamples) * 2);
-            var read = _source.Read(_buffer, 0, toRead);
+            var toRead = Math.Min(_buffer.Length, (buffer.Length - totalSamples) * 2);
+            var read = _source.Read(_buffer.AsSpan(0, toRead));
             if (read <= 0)
                 break;
             if ((read & 1) != 0)
@@ -37,7 +36,7 @@ public sealed class Pcm16BitToSampleProvider : ISampleProvider
             for (var i = 0; i < read; i += 2)
             {
                 var sample = (short)(_buffer[i] | (_buffer[i + 1] << 8));
-                buffer[offset + totalSamples] = sample / 32768f;
+                buffer[totalSamples] = sample / 32768f;
                 totalSamples++;
             }
         }

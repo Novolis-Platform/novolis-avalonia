@@ -9,7 +9,9 @@ public sealed class MidiPreviewMixer : IDisposable
 {
     readonly object _gate = new();
     readonly List<OneShot> _active = [];
-    WaveOutEvent? _waveOut;
+#pragma warning disable CS0618
+    WasapiOut? _waveOut;
+#pragma warning restore CS0618
     MixingSampleProvider? _mixer;
     bool _disposed;
 
@@ -92,7 +94,9 @@ public sealed class MidiPreviewMixer : IDisposable
 
         var waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(format.SampleRate, format.Channels);
         _mixer = new MixingSampleProvider(waveFormat) { ReadFully = true };
-        _waveOut = new WaveOutEvent { DesiredLatency = 80 };
+#pragma warning disable CS0618
+        _waveOut = new WasapiOut();
+#pragma warning restore CS0618
         _waveOut.Init(_mixer);
     }
 
@@ -105,20 +109,20 @@ public sealed class MidiPreviewMixer : IDisposable
         public WaveFormat WaveFormat => _source.WaveFormat;
         public bool Finished { get; private set; }
 
-        public int Read(float[] buffer, int offset, int count)
+        public int Read(Span<float> buffer)
         {
             if (Finished)
             {
-                Array.Clear(buffer, offset, count);
-                return count;
+                buffer.Clear();
+                return buffer.Length;
             }
 
-            var read = _source.Read(buffer, offset, count);
-            if (read < count)
+            var read = _source.Read(buffer);
+            if (read < buffer.Length)
             {
-                Array.Clear(buffer, offset + read, count - read);
+                buffer[read..].Clear();
                 Finished = true;
-                return count; // keep mixer happy while ReadFully
+                return buffer.Length;
             }
 
             return read;

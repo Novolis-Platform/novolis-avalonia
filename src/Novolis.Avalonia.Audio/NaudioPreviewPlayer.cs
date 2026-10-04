@@ -7,7 +7,9 @@ namespace Novolis.Avalonia.Audio;
 /// <summary>WaveOut preview for arrangement mixdowns (same Int16→float path as piano preview).</summary>
 public sealed class NaudioPreviewPlayer : IDisposable
 {
-    WaveOutEvent? _waveOut;
+#pragma warning disable CS0618
+    WasapiOut? _waveOut;
+#pragma warning restore CS0618
     WaveStream? _stream;
     bool _disposed;
 
@@ -33,7 +35,9 @@ public sealed class NaudioPreviewPlayer : IDisposable
             16);
         _stream = new RawSourceWaveStream(new MemoryStream(pcm.Samples.ToArray()), format);
         var samples = new Pcm16BitToSampleProvider(_stream);
-        _waveOut = new WaveOutEvent { DesiredLatency = 80 };
+#pragma warning disable CS0618
+        _waveOut = new WasapiOut();
+#pragma warning restore CS0618
         _waveOut.Init(samples);
         _waveOut.Play();
     }

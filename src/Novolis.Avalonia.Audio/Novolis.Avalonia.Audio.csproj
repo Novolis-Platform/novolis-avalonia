@@ -5,11 +5,12 @@
     <Description>Avalonia multi-track audio editor chrome (Music Maker / Audacity–style lightweight).</Description>
     <RootNamespace>Novolis.Avalonia.Audio</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CS0618;CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="NAudio" />
+    <PackageReference Include="NAudio.Wasapi" />
     <LibraryReference Include="Novolis.Audio.Core" />
     <LibraryReference Include="Novolis.Audio.Catalog" />
     <LibraryReference Include="Novolis.Audio.Edit" />
