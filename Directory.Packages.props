@@ -37,8 +37,8 @@
     <PackageVersion Include="Xamarin.AndroidX.Browser" Version="1.10.0.1" />
     <PackageVersion Include="Xamarin.AndroidX.Core" Version="1.19.0.1" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.3" />
-    <PackageVersion Include="TUnit" Version="1.72.4" />
-    <PackageVersion Include="MessagePack" Version="3.1.10" />
+    <PackageVersion Include="TUnit" Version="1.72.16" />
+    <PackageVersion Include="MessagePack" Version="3.1.11" />
     <PackageVersion Include="Novolis.Transports.LocalIpc" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Transports.Torrent" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Math.Geometry" Version="2026.1.*" />
