@@ -27,6 +27,7 @@ internal sealed class RaylibHostSession : IDisposable
     private CancellationTokenSource? _cts;
     private DateTimeOffset _lastFrameAt = DateTimeOffset.MinValue;
     private object? _onDemandHost;
+    private Exception? _fault;
 
     public RaylibHostSession(RaylibEmbeddedOptions options, IRaylibFrameRenderer renderer)
     {
@@ -52,9 +53,14 @@ internal sealed class RaylibHostSession : IDisposable
         });
     }
 
+    /// <summary>Test hook: replace <see cref="RaylibEmbeddedHost.Create"/> without opening GLFW.</summary>
+    internal static Func<RaylibEmbeddedOptions, object>? CreateOnDemandHost { get; set; }
+
     public bool IsRunning => _thread is { IsAlive: true };
 
     public DateTimeOffset LastFrameAt => _lastFrameAt;
+
+    public Exception? Fault => _fault;
 
     public void Start()
     {
@@ -110,8 +116,14 @@ internal sealed class RaylibHostSession : IDisposable
     {
         try
         {
-            if (OnDemandHostType is not null && TryRunOnDemandLoop(cancellationToken))
-                return;
+            if (CreateOnDemandHost is not null || OnDemandHostType is not null)
+            {
+                if (TryRunOnDemandLoop(cancellationToken))
+                    return;
+
+                if (_fault is not null)
+                    return;
+            }
 
             RunLegacyStreamLoop(cancellationToken);
         }
@@ -119,15 +131,28 @@ internal sealed class RaylibHostSession : IDisposable
         {
             // Expected on stop.
         }
+        catch (Exception ex)
+        {
+            _fault = Unwrap(ex);
+        }
     }
 
     private bool TryRunOnDemandLoop(CancellationToken cancellationToken)
     {
-        var create = OnDemandHostType!.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
-        if (create is null)
+        try
+        {
+            _onDemandHost = CreateOnDemandHost is not null
+                ? CreateOnDemandHost(CloneOptions())
+                : OnDemandHostType!
+                    .GetMethod("Create", BindingFlags.Public | BindingFlags.Static)
+                    ?.Invoke(null, [CloneOptions()]);
+        }
+        catch (Exception ex)
+        {
+            _fault = Unwrap(ex);
             return false;
+        }
 
-        _onDemandHost = create.Invoke(null, [CloneOptions()]);
         if (_onDemandHost is null)
             return false;
 
@@ -140,9 +165,9 @@ internal sealed class RaylibHostSession : IDisposable
                     break;
 
                 if (work == HostRenderRequestKind.Resize)
-                    OnDemandHostType.GetMethod("Resize")?.Invoke(_onDemandHost, [CloneOptions()]);
+                    OnDemandHostType?.GetMethod("Resize")?.Invoke(_onDemandHost, [CloneOptions()]);
 
-                OnDemandHostType.GetMethod("TryRenderOneFrame")?.Invoke(
+                OnDemandHostType?.GetMethod("TryRenderOneFrame")?.Invoke(
                     _onDemandHost,
                     [_renderer, (Action<RaylibEmbeddedFrame>)OnEmbeddedFrame]);
             }
@@ -204,6 +229,11 @@ internal sealed class RaylibHostSession : IDisposable
 
         return resize ? HostRenderRequestKind.Resize : HostRenderRequestKind.Redraw;
     }
+
+    private static Exception Unwrap(Exception ex) =>
+        ex is TargetInvocationException { InnerException: { } inner }
+            ? Unwrap(inner)
+            : ex;
 
     private RaylibEmbeddedOptions CloneOptions() =>
         new()

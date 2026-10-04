@@ -57,11 +57,7 @@ public class RaylibHostControl : Panel
         Children.Add(_image);
         _presentTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) => PresentLatestFrame());
         _resizeDebounceTimer = new DispatcherTimer(ResizeDebounce, DispatcherPriority.Background, (_, _) => ApplyDebouncedResize());
-        LayoutUpdated += (_, _) =>
-        {
-            if (_hostActiveRequested)
-                EnsureHostStarted();
-        };
+        LayoutUpdated += (_, _) => SyncHostToEffectiveVisibility();
     }
 
     /// <summary>Internal render width in pixels.</summary>
@@ -125,6 +121,9 @@ public class RaylibHostControl : Panel
     /// <summary>True when at least one Raylib frame has been presented into the Avalonia bitmap.</summary>
     public bool HasPresentedFrame => _bitmap is not null;
 
+    /// <summary>Last fault from the host thread (GLFW lock, display), or <c>null</c>.</summary>
+    public Exception? LastHostError => _session?.Fault;
+
     /// <summary>
     /// Raised on the Raylib render thread between <c>BeginDrawing</c> and <c>EndDrawing</c>.
     /// Only invoke Raylib draw APIs from this handler.
@@ -138,10 +137,11 @@ public class RaylibHostControl : Panel
             _session.RequestRedraw();
     }
 
-    /// <summary>Starts the host when attached, sized, and active; safe to call repeatedly.</summary>
+    /// <summary>Starts the host when attached, sized, visible, and active; safe to call repeatedly.</summary>
     public void EnsureHostStarted()
     {
-        if (!_hostActiveRequested || VisualRoot is null)
+        if (!_hostActiveRequested
+            || !RaylibHostActivation.ShouldStartHost(VisualRoot is not null, IsEffectivelyVisible))
             return;
 
         var width = System.Math.Clamp(FrameWidth, 64, 8192);
@@ -167,7 +167,7 @@ public class RaylibHostControl : Panel
             EnsureHostStarted();
             if (IsHostRunning)
                 _presentTimer.Start();
-            else
+            else if (VisualRoot is not null)
                 Dispatcher.UIThread.Post(EnsureHostStarted, DispatcherPriority.Loaded);
         }
         else
@@ -182,7 +182,7 @@ public class RaylibHostControl : Panel
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        SetHostActive(true);
+        SyncHostToEffectiveVisibility();
     }
 
     /// <inheritdoc />
@@ -199,6 +199,12 @@ public class RaylibHostControl : Panel
     {
         base.OnPropertyChanged(change);
 
+        if (change.Property == IsVisibleProperty)
+        {
+            SyncHostToEffectiveVisibility();
+            return;
+        }
+
         if (change.Property == FrameWidthProperty
             || change.Property == FrameHeightProperty
             || change.Property == TargetFpsProperty)
@@ -209,6 +215,25 @@ public class RaylibHostControl : Panel
             _resizeDebounceTimer.Stop();
             _resizeDebounceTimer.Start();
         }
+    }
+
+    private void SyncHostToEffectiveVisibility()
+    {
+        if (VisualRoot is null)
+            return;
+
+        var want = RaylibHostActivation.ShouldStartHost(attachedToVisualTree: true, IsEffectivelyVisible);
+        if (want)
+        {
+            if (!_hostActiveRequested || !IsHostRunning)
+                SetHostActive(true);
+            else
+                EnsureHostStarted();
+            return;
+        }
+
+        if (_hostActiveRequested || IsHostRunning)
+            SetHostActive(false);
     }
 
     private void ApplyDebouncedResize()

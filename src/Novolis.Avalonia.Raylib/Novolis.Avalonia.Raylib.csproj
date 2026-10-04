@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Rendering\Novolis.Avalonia.Rendering.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Novolis.Avalonia.Unit" />
+  </ItemGroup>
 </Project>
