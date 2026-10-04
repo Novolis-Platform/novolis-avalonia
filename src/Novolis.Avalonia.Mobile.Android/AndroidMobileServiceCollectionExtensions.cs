@@ -27,6 +27,20 @@ public static class AndroidMobileServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>Registers the shared Android wake lock and MP3 player for speech hosts.</summary>
+    public static IServiceCollection AddNovolisMobileAndroidSpeech(
+        this IServiceCollection services,
+        Func<global::Android.App.Activity?> currentActivity)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(currentActivity);
+        services.AddSingleton<IScreenWakeLock>(_ => new AndroidScreenWakeLock(currentActivity));
+        services.AddSingleton<AndroidMp3Player>();
+        services.AddSingleton<Novolis.Manuscript.Export.Audio.IAudioPlayer>(
+            sp => sp.GetRequiredService<AndroidMp3Player>());
+        return services;
+    }
+
     /// <summary>Registers Android diagnostic sharing for a journal created before host startup.</summary>
     public static IServiceCollection AddNovolisMobileAndroidDiagnostics(
         this IServiceCollection services,
