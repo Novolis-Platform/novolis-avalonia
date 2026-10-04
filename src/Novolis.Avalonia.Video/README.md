@@ -18,7 +18,8 @@ dotnet add package Novolis.Avalonia.Video
 
 ```csharp
 var surface = new VideoSurface();
-surface.Present(frame); // Novolis.Video.Rtc.VideoFrame
+surface.Present(rtcFrame); // Novolis.Video.Rtc.VideoFrame
+surface.Present(rawFrame); // Novolis.Video.RawVideoFrame, letterboxed
 ```
 
 ## Quick start — full edit workspace

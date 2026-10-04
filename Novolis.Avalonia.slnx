@@ -36,7 +36,6 @@
     <Project Path="src/Novolis.Avalonia.GraphicalProfile/Novolis.Avalonia.GraphicalProfile.csproj" />
     <Project Path="src/Novolis.Avalonia.Ndjson/Novolis.Avalonia.Ndjson.csproj" />
     <Project Path="src/Novolis.Avalonia.Updates/Novolis.Avalonia.Updates.csproj" />
-    <Project Path="src/Novolis.Avalonia.Reach/Novolis.Avalonia.Reach.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Novolis.Avalonia.Unit/Novolis.Avalonia.Unit.csproj" />
