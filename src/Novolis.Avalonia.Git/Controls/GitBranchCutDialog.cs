@@ -57,8 +57,8 @@ public sealed class GitBranchCutDialog : UserControl
         ArgumentNullException.ThrowIfNull(plan);
         var lines = plan.Steps.Select(s =>
             s.BlockReason is null
-                ? $"OK  {s.Repo.Name}  {string.Join(' ', s.PlannedArgs)}"
-                : $"SKIP {s.Repo.Name}  {s.BlockReason}");
+                ? $"OK  {s.Repo.RepositoryName}  {string.Join(' ', s.PlannedArgs)}"
+                : $"SKIP {s.Repo.RepositoryName}  {s.BlockReason}");
         _preview.Text = string.Join('\n', lines);
     }
 }

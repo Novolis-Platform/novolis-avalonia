@@ -15,7 +15,7 @@ public sealed class GitRepoVisualizer : UserControl
         SelectionMode = SelectionMode.Multiple,
     };
 
-    WorkspaceStatusMatrix? _matrix;
+    GitStatusMatrix? _matrix;
     bool _suppressOpen;
 
     /// <summary>Selection changed.</summary>
@@ -46,11 +46,11 @@ public sealed class GitRepoVisualizer : UserControl
     }
 
     /// <summary>Binds a status matrix.</summary>
-    public void SetMatrix(WorkspaceStatusMatrix matrix)
+    public void SetMatrix(GitStatusMatrix matrix)
     {
         ArgumentNullException.ThrowIfNull(matrix);
         _matrix = matrix;
-        var previous = GetSelection().Selected.Select(r => r.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var previous = GetSelection().Selected.Select(r => r.Root.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _suppressOpen = true;
         try
         {
@@ -58,7 +58,7 @@ public sealed class GitRepoVisualizer : UserControl
             _list.ItemsSource = rows;
             foreach (var row in rows)
             {
-                if (previous.Contains(row.Row.Repo.Path))
+                if (previous.Contains(row.Row.Repo.Root.FullName))
                     _list.SelectedItems?.Add(row);
             }
         }
@@ -76,7 +76,7 @@ public sealed class GitRepoVisualizer : UserControl
         if (_list.ItemsSource is not IEnumerable<RepoRow> rows)
             return;
         var match = rows.FirstOrDefault(r =>
-            string.Equals(r.Row.Repo.Path, path, StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Row.Repo.Root.FullName, path, StringComparison.OrdinalIgnoreCase));
         if (match is null)
             return;
         _suppressOpen = true;
@@ -129,14 +129,14 @@ public sealed class GitRepoVisualizer : UserControl
         {
             var s = Row.Status;
             if (s is null)
-                return $"{Row.Repo.Name}  ({Row.Error ?? "no status"})";
+                return $"{Row.Repo.RepositoryName}  ({Row.Error ?? "no status"})";
             var flags = new List<string>();
             if (s.Dirty) flags.Add("dirty");
             if (s.Behind > 0) flags.Add($"↓{s.Behind}");
             if (s.Ahead > 0) flags.Add($"↑{s.Ahead}");
             if (Row.StashCount > 0) flags.Add($"stash:{Row.StashCount}");
             var suffix = flags.Count == 0 ? "ok" : string.Join(' ', flags);
-            return $"{Row.Repo.Name}  [{s.Branch}]  {suffix}";
+            return $"{Row.Repo.RepositoryName}  [{s.Branch}]  {suffix}";
         }
     }
 }

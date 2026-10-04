@@ -6,8 +6,8 @@ namespace Novolis.Avalonia.Git;
 public sealed class RepoOpenEventArgs : EventArgs
 {
     /// <summary>Creates args.</summary>
-    public RepoOpenEventArgs(RepoEntry repo) => Repo = repo;
+    public RepoOpenEventArgs(GitRepositoryWorkspace repo) => Repo = repo;
 
     /// <summary>Repo.</summary>
-    public RepoEntry Repo { get; }
+    public GitRepositoryWorkspace Repo { get; }
 }
