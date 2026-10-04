@@ -106,6 +106,14 @@ internal static class ShipSessionActions
         });
     }
 
+    public static void Unregister(CadSessionService session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        session.RemoveAction(ShipChrome.ValidateShipActionId);
+        session.RemoveAction(ShipChrome.RefreshAirtightActionId);
+        session.RemoveAction(ShipChrome.PlaceHatchActionId);
+    }
+
     private static CadCommandResultDto Fail(string id, string message, string code) =>
         new() { ActionId = id, Ok = false, Message = message, ErrorCode = code };
 

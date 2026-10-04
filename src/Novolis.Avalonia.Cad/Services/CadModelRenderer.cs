@@ -37,6 +37,9 @@ public sealed class CadModelRenderer
 
     public CadModelEvaluator? Evaluator { get; set; }
 
+    /// <summary>Optional exterior renderer scoped to this CAD editor session.</summary>
+    public CadExteriorHooks? ExteriorHooks { get; set; }
+
     public CadWorkspace Workspace { get; set; } = CadWorkspace.Preview;
 
     public CadModelRenderer(CadDocumentSession session, CadEditorSettings? settings = null)
@@ -98,12 +101,13 @@ public sealed class CadModelRenderer
         World.DrawGrid((int)System.Math.Clamp(gridExtent, 16, 128), 1f);
         DrawGrid(gridExtent);
 
-        var useExterior = CadExteriorHooks.ShouldUse?.Invoke(_session.Document) == true
+        var exterior = ExteriorHooks;
+        var useExterior = exterior?.ShouldUse?.Invoke(_session.Document) == true
                           && !_settings.Settings.IsolateLevel
-                          && CadExteriorHooks.Draw is not null;
+                          && exterior.Draw is not null;
         if (useExterior)
         {
-            CadExteriorHooks.Draw!(_session.Document);
+            exterior!.Draw!(_session.Document);
         }
         else
         {
@@ -139,7 +143,7 @@ public sealed class CadModelRenderer
         };
         if (useExterior)
         {
-            var hud = CadExteriorHooks.HudLines?.Invoke(_session.Document);
+            var hud = exterior?.HudLines?.Invoke(_session.Document);
             var title = hud?.Title ?? "exterior";
             var hint = hud?.Hint ?? "Isolate ON = deck CAD · Isolate OFF = exterior · MMB orbit";
             Graphics.DrawText(

@@ -12,12 +12,38 @@ public static class ShipChrome
     public const string PlaceHatchActionId = "placehatch";
     public const string RefreshAirtightActionId = "refreshairtight";
 
-    /// <summary>Attach freighter exterior hooks and ship-designer session actions.</summary>
-    public static void Attach(CadSessionService session)
+    /// <summary>
+    /// Attach freighter exterior hooks and ship-designer session actions.
+    /// Dispose the returned attachment when Ship mode is no longer active.
+    /// </summary>
+    public static IDisposable Attach(CadSessionService session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        CadShipChrome.Attach(session);
+        var cadAttachment = CadShipChrome.Attach(session);
         ShipSessionActions.Register(session);
+        return new Attachment(session, cadAttachment);
+    }
+
+    private sealed class Attachment : IDisposable
+    {
+        private readonly CadSessionService _session;
+        private readonly IDisposable _cadAttachment;
+        private bool _disposed;
+
+        public Attachment(CadSessionService session, IDisposable cadAttachment)
+        {
+            _session = session;
+            _cadAttachment = cadAttachment;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            ShipSessionActions.Unregister(_session);
+            _cadAttachment.Dispose();
+        }
     }
 
     /// <summary>Build a compact tool strip for Ship Designer (validate / airtight / deck).</summary>

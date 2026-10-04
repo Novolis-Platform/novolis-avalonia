@@ -2,6 +2,7 @@ using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
+using Novolis.Avalonia.Cad.Ship;
 using Novolis.Avalonia.Cad.Ship.Services;
 using Novolis.Cad.Primitives;
 
@@ -35,5 +36,43 @@ public sealed class CadShipExteriorTests
 
         var plain = CadDocumentSession.CreateStarter();
         await Assert.That(CadShipExterior.ShouldUseExterior(plain)).IsFalse();
+    }
+
+    [Test]
+    public async Task ShipChromeAttachmentIsScopedToOneCadSession()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "novolis-cad-ship-hooks-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var settings = new CadEditorSettings(root);
+            var document = new CadDocumentSession(settings);
+            var bus = new CadCommandBus(document);
+            var dispatcher = new CadCommandDispatcher(document, bus, settings);
+            var cad = new CadSessionService(document, settings, bus, dispatcher);
+
+            using (var attachment = CadShipChrome.Attach(cad))
+            {
+                await Assert.That(cad.ExteriorHooks).IsNotNull();
+                await Assert.That(cad.Actions().Actions.Any(
+                    action => action.Id == CadShipChrome.ImportShipActionId)).IsTrue();
+            }
+
+            await Assert.That(cad.ExteriorHooks).IsNull();
+            await Assert.That(cad.Actions().Actions.Any(
+                action => action.Id == CadShipChrome.ImportShipActionId)).IsFalse();
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+            }
+        }
     }
 }

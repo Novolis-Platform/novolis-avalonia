@@ -16,6 +16,7 @@ public sealed class ShipDesignSession
     private readonly List<float[]> _placePoints = [];
     private readonly Stack<ShipDesign> _undo = new();
     private IReadOnlyList<ShipObjectId> _highlighted = [];
+    private bool _isDirty;
 
     public ShipDesignSession(string dataRoot)
     {
@@ -35,6 +36,9 @@ public sealed class ShipDesignSession
     public bool HasShip { get; private set; }
 
     public string? Path => _path;
+
+    /// <summary>Whether the current ship design has unsaved document changes.</summary>
+    public bool IsDirty => _isDirty;
 
     public ShipObjectId? SelectedObjectId { get; private set; }
 
@@ -108,6 +112,7 @@ public sealed class ShipDesignSession
         ActiveLoadCaseId = null;
         BreachCompartmentId = null;
         _placePoints.Clear();
+        _isDirty = true;
         Notify();
     }
 
@@ -121,6 +126,7 @@ public sealed class ShipDesignSession
         ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         _placePoints.Clear();
+        _isDirty = true;
         Notify();
     }
 
@@ -131,6 +137,7 @@ public sealed class ShipDesignSession
         _path = path;
         HasShip = design.Decks.Count > 0 && design.Hull.Geometry.Entities.Count > 0;
         ActiveLoadCaseId ??= _design.LoadCases.FirstOrDefault()?.Id;
+        _isDirty = false;
         Notify();
     }
 
@@ -140,6 +147,7 @@ public sealed class ShipDesignSession
         if (!HasShip)
             return;
         _design = mutator(_design);
+        _isDirty = true;
         Notify();
     }
 
@@ -156,6 +164,7 @@ public sealed class ShipDesignSession
             return false;
         _design = _undo.Pop();
         HasShip = _design.Decks.Count > 0 && _design.Hull.Geometry.Entities.Count > 0;
+        _isDirty = true;
         Notify();
         return true;
     }
@@ -248,6 +257,7 @@ public sealed class ShipDesignSession
             return;
         ShipDesignStore.Save(_design, path);
         _path = path;
+        _isDirty = false;
         Notify();
     }
 
@@ -261,6 +271,7 @@ public sealed class ShipDesignSession
         ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         _placePoints.Clear();
+        _isDirty = false;
         Notify();
     }
 
@@ -274,6 +285,7 @@ public sealed class ShipDesignSession
         ActiveTool = ShipDesignTool.Select;
         ActiveLoadCaseId = _design.LoadCases.FirstOrDefault()?.Id;
         _placePoints.Clear();
+        _isDirty = true;
         Notify();
     }
 

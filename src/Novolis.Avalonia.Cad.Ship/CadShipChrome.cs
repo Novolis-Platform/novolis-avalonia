@@ -11,15 +11,23 @@ public static class CadShipChrome
     /// <summary>Action id for ship workspace import (same string as historical Cad session).</summary>
     public const string ImportShipActionId = "importship";
 
-    /// <summary>Wires exterior hooks and registers <see cref="ImportShipActionId"/> on <paramref name="session"/>.</summary>
-    public static void Attach(CadSessionService session)
+    /// <summary>
+    /// Wires exterior hooks and registers <see cref="ImportShipActionId"/> on
+    /// <paramref name="session"/>. Dispose the returned attachment when Ship mode
+    /// is no longer active.
+    /// </summary>
+    public static IDisposable Attach(CadSessionService session)
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        CadExteriorHooks.ShouldUse = CadShipExterior.ShouldUseExterior;
-        CadExteriorHooks.Draw = CadShipExterior.Draw;
-        CadExteriorHooks.HudLines = doc =>
-            ("transport exterior", "Isolate ON = deck CAD · Isolate OFF = sealed freighter · MMB orbit");
+        var hooks = new CadExteriorHooks
+        {
+            ShouldUse = CadShipExterior.ShouldUseExterior,
+            Draw = CadShipExterior.Draw,
+            HudLines = doc =>
+                ("transport exterior", "Isolate ON = deck CAD · Isolate OFF = sealed freighter · MMB orbit"),
+        };
+        session.ExteriorHooks = hooks;
 
         session.RegisterAction(ImportShipActionId, command =>
         {
@@ -48,5 +56,30 @@ public static class CadShipChrome
                 };
             }
         });
+
+        return new Attachment(session, hooks);
+    }
+
+    private sealed class Attachment : IDisposable
+    {
+        private readonly CadSessionService _session;
+        private readonly CadExteriorHooks _hooks;
+        private bool _disposed;
+
+        public Attachment(CadSessionService session, CadExteriorHooks hooks)
+        {
+            _session = session;
+            _hooks = hooks;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _session.RemoveAction(ImportShipActionId);
+            if (ReferenceEquals(_session.ExteriorHooks, _hooks))
+                _session.ExteriorHooks = null;
+        }
     }
 }

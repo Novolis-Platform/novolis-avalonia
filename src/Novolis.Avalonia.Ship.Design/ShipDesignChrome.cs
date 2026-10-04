@@ -20,11 +20,11 @@ namespace Novolis.Avalonia.Ship.Design;
 /// <summary>Object-first ship architect chrome: PLAN deck viewport + MODEL CAD + ANALYZE.</summary>
 public static class ShipDesignChrome
 {
-    public static void Attach(CadSessionService cad, ShipDesignSession design)
+    public static IDisposable Attach(CadSessionService cad, ShipDesignSession design)
     {
         ArgumentNullException.ThrowIfNull(cad);
         ArgumentNullException.ThrowIfNull(design);
-        ShipChrome.Attach(cad);
+        var shipAttachment = ShipChrome.Attach(cad);
 
         var syncDepth = 0;
 
@@ -48,8 +48,7 @@ public static class ShipDesignChrome
             }
         }
 
-        design.Changed += SyncCadForModel;
-        cad.Document.Changed += () =>
+        void SyncDesignForCad()
         {
             if (syncDepth > 0 || !design.HasShip)
                 return;
@@ -73,7 +72,45 @@ public static class ShipDesignChrome
             {
                 syncDepth--;
             }
-        };
+        }
+
+        design.Changed += SyncCadForModel;
+        cad.Document.Changed += SyncDesignForCad;
+        return new Attachment(cad, design, SyncCadForModel, SyncDesignForCad, shipAttachment);
+    }
+
+    private sealed class Attachment : IDisposable
+    {
+        private readonly CadSessionService _cad;
+        private readonly ShipDesignSession _design;
+        private readonly Action _syncCadForModel;
+        private readonly Action _syncDesignForCad;
+        private readonly IDisposable _shipAttachment;
+        private bool _disposed;
+
+        public Attachment(
+            CadSessionService cad,
+            ShipDesignSession design,
+            Action syncCadForModel,
+            Action syncDesignForCad,
+            IDisposable shipAttachment)
+        {
+            _cad = cad;
+            _design = design;
+            _syncCadForModel = syncCadForModel;
+            _syncDesignForCad = syncDesignForCad;
+            _shipAttachment = shipAttachment;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            _design.Changed -= _syncCadForModel;
+            _cad.Document.Changed -= _syncDesignForCad;
+            _shipAttachment.Dispose();
+        }
     }
 
     public static Control CreateShell(
@@ -94,7 +131,7 @@ public static class ShipDesignChrome
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(8),
         };
-        status ??= new TextBlock { Text = "PLAN", Margin = new Thickness(8, 4), Foreground = Brushes.LightGray };
+        status ??= new TextBlock { Text = "PLAN", Margin = new Thickness(8, 4), Foreground = Profile.TextBrush };
 
         var toolsController = new ShipArchitectToolController(design);
         var planViewport = new ShipDeckPlanViewport(design, toolsController);

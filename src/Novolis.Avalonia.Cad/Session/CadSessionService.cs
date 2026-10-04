@@ -65,6 +65,20 @@ public sealed class CadSessionService : ICadSession
     /// <summary>App-level Draft2D/Draft3D/Model/Stage switch (Cad Studio 3D host).</summary>
     public event Action<string>? StudioWorkspaceRequested;
 
+    /// <summary>Optional exterior renderer owned by this CAD session.</summary>
+    public CadExteriorHooks? ExteriorHooks
+    {
+        get => _exteriorHooks;
+        set
+        {
+            _exteriorHooks = value;
+            if (_editor is not null)
+                _editor.ModelRenderer.ExteriorHooks = value;
+        }
+    }
+
+    private CadExteriorHooks? _exteriorHooks;
+
     public CadEditorSurface? Editor
     {
         get => _editor;
@@ -75,6 +89,7 @@ public sealed class CadSessionService : ICadSession
             _editor = value;
             if (_editor is not null)
             {
+                _editor.ModelRenderer.ExteriorHooks = _exteriorHooks;
                 _editor.ToolRequested += OnEditorTool;
                 _editor.Tools.SessionExecute = Execute;
                 _editor.PropertyPanel.SessionService = this;
@@ -115,6 +130,9 @@ public sealed class CadSessionService : ICadSession
 
     public void RegisterAction(string actionId, Func<CadCommandDto, CadCommandResultDto> handler) =>
         _extra[actionId] = handler;
+
+    /// <summary>Removes an optional action previously registered by a mode.</summary>
+    public bool RemoveAction(string actionId) => _extra.Remove(actionId);
 
     public CadHelloResponseDto Hello() => new()
     {
