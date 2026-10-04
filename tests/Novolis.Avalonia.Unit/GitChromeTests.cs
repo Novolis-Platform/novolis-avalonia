@@ -35,11 +35,11 @@ public sealed class GitChromeTests
     [Test]
     public async Task Repo_open_and_selection_event_args()
     {
-        var repo = GitRepositoryWorkspace.Open(@"d:\novolis\novolis-io");
+        var repo = GitRepositoryWorkspace.Open(Path.Combine(Path.GetTempPath(), "novolis-io"));
         var open = new RepoOpenEventArgs(repo);
         var sel = new RepoSelectionChangedEventArgs(new RepoSelection
         {
-            Root = @"d:\novolis",
+            Root = Path.GetTempPath(),
             Selected = [repo],
         });
         await Assert.That(open.Repo.RepositoryName).IsEqualTo("novolis-io");
@@ -54,12 +54,12 @@ public sealed class GitChromeTests
             Id = "abc",
             Name = "feat/x",
             BaseRef = "main",
-            WorkspaceRoot = @"d:\novolis",
+            WorkspaceRoot = Path.GetTempPath(),
             Steps =
             [
                 new BranchCutRepoStep
                 {
-                    Repo = GitRepositoryWorkspace.Open(@"d:\novolis\novolis-io"),
+                    Repo = GitRepositoryWorkspace.Open(Path.Combine(Path.GetTempPath(), "novolis-io")),
                     PlannedArgs = ["checkout", "-B", "feat/x", "main"],
                 },
             ],
