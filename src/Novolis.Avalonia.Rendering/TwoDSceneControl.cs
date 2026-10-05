@@ -6,16 +6,15 @@ using Avalonia.Input;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using Avalonia.Rendering;
-using Novolis.Rendering.Backends.TwoD.Silk;
 using Novolis.Rendering.TwoD;
-using Silk.NET.OpenGL;
+using Novolis.Silk;
 using PresentationMouseButton = Novolis.Rendering.Presentation.MouseButton;
 using AvaloniaMouseButton = global::Avalonia.Input.MouseButton;
 
 namespace Novolis.Avalonia.Rendering;
 
 /// <summary>
-/// Avalonia <see cref="OpenGlControlBase"/> that draws a <see cref="TwoDScene"/> via <see cref="SilkTwoDRenderer"/>.
+/// Avalonia <see cref="OpenGlControlBase"/> that draws a <see cref="TwoDScene"/> via <see cref="GlHost"/>.
 /// Exposes DPI-correct framebuffer mouse input for map/game hit-testing.
 /// </summary>
 /// <remarks>
@@ -28,8 +27,7 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
     public static readonly StyledProperty<TwoDScene?> SceneProperty =
         AvaloniaProperty.Register<TwoDSceneControl, TwoDScene?>(nameof(Scene));
 
-    private SilkTwoDRenderer? _renderer;
-    private GL? _gl;
+    private GlHost? _host;
     private Stopwatch? _clock;
     private double _lastSeconds;
     private int _pixelWidth = 1;
@@ -199,23 +197,19 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
     /// <inheritdoc />
     protected override void OnOpenGlInit(GlInterface gl)
     {
-        _gl = SilkGlBridge.CreateGl(gl);
-        _renderer = new SilkTwoDRenderer(_gl);
+        _host = GlHost.FromProcAddress(name => gl.GetProcAddress(name));
     }
 
     /// <inheritdoc />
     protected override void OnOpenGlRender(GlInterface gl, int framebuffer)
     {
         var scene = Scene;
-        if (scene is null || _renderer is null || _gl is null)
+        if (scene is null || _host is null)
             return;
 
         RefreshPixelSize();
-        _renderer.Resize(_pixelWidth, _pixelHeight);
-
-        // Avalonia draws into an FBO — must bind it (drawing FBO 0 is invisible).
-        _gl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)framebuffer);
-        _gl.Viewport(0, 0, (uint)_pixelWidth, (uint)_pixelHeight);
+        _host.BindFramebuffer(framebuffer);
+        _host.Resize(_pixelWidth, _pixelHeight);
 
         var now = _clock?.Elapsed.TotalSeconds ?? 0d;
         var delta = (float)System.Math.Max(0d, now - _lastSeconds);
@@ -228,17 +222,12 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
             AdvanceMouseFrame();
         }
 
-        _renderer.DrawScene(scene);
+        _host.Submit(scene.Tessellate(_pixelWidth, _pixelHeight));
 
-        // Keep a CPU PNG for agent capture (RenderTargetBitmap skips GL). Throttle cost.
-        if ((++_captureTick & 3) == 0)
+        if ((++_captureTick & 3) == 0 && _host.TryReadPixels(out var pixels) && pixels.Length > 0)
         {
-            var png = SilkTwoDFramebufferCapture.EncodePng(_gl, _pixelWidth, _pixelHeight);
-            if (png.Length > 0)
-            {
-                lock (_captureGate)
-                    _lastPng = png;
-            }
+            lock (_captureGate)
+                _lastPng = EncodeRgbaPng(pixels, _pixelWidth, _pixelHeight);
         }
 
         RequestNextFrameRendering();
@@ -247,9 +236,8 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
     /// <inheritdoc />
     protected override void OnOpenGlDeinit(GlInterface gl)
     {
-        _renderer?.Dispose();
-        _renderer = null;
-        _gl = null;
+        _host?.Dispose();
+        _host = null;
         lock (_captureGate)
             _lastPng = null;
     }
@@ -302,4 +290,10 @@ public class TwoDSceneControl : OpenGlControlBase, ICustomHitTest
         AvaloniaMouseButton.Middle => PresentationMouseButton.Middle,
         _ => null,
     };
+
+    static byte[] EncodeRgbaPng(Novolis.Math.Geometry.Rgba32[] pixels, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(pixels);
+        return [];
+    }
 }

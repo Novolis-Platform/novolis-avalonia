@@ -17,11 +17,7 @@
     <LibraryReference Include="Novolis.Raylib.Bindings" />
     <LibraryReference Include="Novolis.Raylib.Runtime" />
     <LibraryReference Include="Novolis.Simulation.View" />
-    <PackageReference Include="Silk.NET.OpenGL" />
-    <!-- Owned here so CAD hosts (SceneLab/ViewportBench) need not pin Silk for OpenGL/Vulkan natives. -->
-    <PackageReference Include="Silk.NET.Vulkan" />
-    <PackageReference Include="Silk.NET.Shaderc" />
-    <PackageReference Include="Silk.NET.Shaderc.Native" />
+    <LibraryReference Include="Novolis.Silk.Runtime" />
     <LibraryReference Include="Novolis.Rendering.Backends.Vulkan" />
   </ItemGroup>
   <ItemGroup>

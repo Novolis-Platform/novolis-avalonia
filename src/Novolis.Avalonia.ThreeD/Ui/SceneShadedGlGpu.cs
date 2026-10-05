@@ -3,9 +3,8 @@ using System.Runtime.InteropServices;
 using Avalonia.OpenGL;
 using Novolis.Avalonia.ThreeD.Services;
 using Novolis.Avalonia.ThreeD.Session;
-using Novolis.Avalonia.Rendering;
+using Novolis.Silk;
 using Novolis.ThreeD;
-using Silk.NET.OpenGL;
 
 namespace Novolis.Avalonia.ThreeD.Ui;
 
@@ -87,7 +86,7 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
         void main() { FragColor = vec4(vColor, 0.55); }
         """;
 
-    private readonly GL _gl;
+    private readonly GlCommands _gl;
     private readonly uint _meshProgram;
     private readonly uint _wireProgram;
     private readonly uint _meshVao;
@@ -113,9 +112,9 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
 
     public SceneShadedGlGpu(GlInterface glInterface)
     {
-        _gl = SilkGlBridge.CreateGl(glInterface);
-        _meshProgram = Compile(_gl, MeshVs, MeshFs);
-        _wireProgram = Compile(_gl, WireVs, WireFs);
+        _gl = GlCommands.FromProcAddress(glInterface.GetProcAddress);
+        _meshProgram = _gl.CompileProgram(MeshVs, MeshFs);
+        _wireProgram = _gl.CompileProgram(WireVs, WireFs);
         _uMvpMesh = _gl.GetUniformLocation(_meshProgram, "uMvp");
         _uAmbient = _gl.GetUniformLocation(_meshProgram, "uAmbient");
         _uExposure = _gl.GetUniformLocation(_meshProgram, "uExposure");
@@ -134,30 +133,19 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
         _meshVao = _gl.GenVertexArray();
         _meshVbo = _gl.GenBuffer();
         _gl.BindVertexArray(_meshVao);
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _meshVbo);
-        unsafe
-        {
-            const uint stride = 9 * sizeof(float);
-            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, null);
-            _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
-            _gl.EnableVertexAttribArray(1);
-            _gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, stride, (void*)(6 * sizeof(float)));
-            _gl.EnableVertexAttribArray(2);
-        }
+        _gl.BindArrayBuffer(_meshVbo);
+        const uint meshStride = 9 * sizeof(float);
+        _gl.VertexAttribFloat(0, 3, meshStride, 0);
+        _gl.VertexAttribFloat(1, 3, meshStride, 3 * sizeof(float));
+        _gl.VertexAttribFloat(2, 3, meshStride, 6 * sizeof(float));
 
         _wireVao = _gl.GenVertexArray();
         _wireVbo = _gl.GenBuffer();
         _gl.BindVertexArray(_wireVao);
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _wireVbo);
-        unsafe
-        {
-            const uint stride = 6 * sizeof(float);
-            _gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, null);
-            _gl.EnableVertexAttribArray(0);
-            _gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
-            _gl.EnableVertexAttribArray(1);
-        }
+        _gl.BindArrayBuffer(_wireVbo);
+        const uint wireStride = 6 * sizeof(float);
+        _gl.VertexAttribFloat(0, 3, wireStride, 0);
+        _gl.VertexAttribFloat(1, 3, wireStride, 3 * sizeof(float));
 
         _gl.BindVertexArray(0);
     }
@@ -171,18 +159,13 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
         int h,
         bool rebuildMesh)
     {
-        _gl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)framebuffer);
-        _gl.Viewport(0, 0, (uint)w, (uint)h);
-        _gl.Enable(EnableCap.DepthTest);
-        _gl.DepthFunc(DepthFunction.Lequal);
-        if (settings.TwoSided)
-            _gl.Disable(EnableCap.CullFace);
-        else
-            _gl.Enable(EnableCap.CullFace);
+        _gl.BindFramebuffer(framebuffer);
+        _gl.Viewport(w, h);
+        _gl.EnableDepthLequal();
+        _gl.SetCullFace(!settings.TwoSided);
 
         var clear = settings.ClearColor;
-        _gl.ClearColor(clear.X, clear.Y, clear.Z, 1f);
-        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        _gl.ClearColorDepth(clear.X, clear.Y, clear.Z, 1f);
 
         camera.SyncActiveCamera();
         var eye = camera.Orbit.BuildEyePosition();
@@ -194,10 +177,7 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
         if (_meshVertexCount >= 3)
         {
             _gl.UseProgram(_meshProgram);
-            unsafe
-            {
-                _gl.UniformMatrix4(_uMvpMesh, 1, false, (float*)&mvp);
-            }
+            _gl.UniformMatrix4(_uMvpMesh, mvp);
 
             var amb = settings.EffectiveAmbient;
             _gl.Uniform3(_uAmbient, amb.X, amb.Y, amb.Z);
@@ -206,7 +186,7 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
             UploadLights(session, settings.LightScale);
 
             _gl.BindVertexArray(_meshVao);
-            _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_meshVertexCount);
+            _gl.DrawTriangles(_meshVertexCount);
         }
 
         if (settings.WireOverlay)
@@ -214,17 +194,12 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
             RebuildWire(session);
             if (_wireVertexCount >= 2)
             {
-                _gl.Enable(EnableCap.Blend);
-                _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                _gl.EnableBlend();
                 _gl.UseProgram(_wireProgram);
-                unsafe
-                {
-                    _gl.UniformMatrix4(_uMvpWire, 1, false, (float*)&mvp);
-                }
-
+                _gl.UniformMatrix4(_uMvpWire, mvp);
                 _gl.BindVertexArray(_wireVao);
-                _gl.DrawArrays(PrimitiveType.Lines, 0, (uint)_wireVertexCount);
-                _gl.Disable(EnableCap.Blend);
+                _gl.DrawLines(_wireVertexCount);
+                _gl.DisableBlend();
             }
         }
     }
@@ -233,11 +208,7 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
     {
         if (rgba.Length < w * h * 4)
             throw new ArgumentException("RGBA buffer too small.", nameof(rgba));
-        unsafe
-        {
-            fixed (byte* p = rgba)
-                _gl.ReadPixels(0, 0, (uint)w, (uint)h, PixelFormat.Rgba, PixelType.UnsignedByte, p);
-        }
+        _gl.ReadRgba(rgba, w, h);
     }
 
     public void Dispose()
@@ -388,49 +359,10 @@ sealed class SceneShadedGlGpu : ISceneShadedGlGpu
         return fallback;
     }
 
-    private unsafe void Upload(uint vbo, ReadOnlySpan<float> floats)
+    private void Upload(uint vbo, ReadOnlySpan<float> floats)
     {
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
-        fixed (float* p = floats)
-            _gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(floats.Length * sizeof(float)), p, BufferUsageARB.DynamicDraw);
-    }
-
-    private static uint Compile(GL gl, string vs, string fs)
-    {
-        var v = CompileShader(gl, ShaderType.VertexShader, vs);
-        var f = CompileShader(gl, ShaderType.FragmentShader, fs);
-        var p = gl.CreateProgram();
-        gl.AttachShader(p, v);
-        gl.AttachShader(p, f);
-        gl.LinkProgram(p);
-        gl.GetProgram(p, ProgramPropertyARB.LinkStatus, out var linked);
-        if (linked == 0)
-        {
-            gl.GetProgramInfoLog(p, out var log);
-            gl.DeleteProgram(p);
-            gl.DeleteShader(v);
-            gl.DeleteShader(f);
-            throw new InvalidOperationException($"GL program link failed: {log}");
-        }
-
-        gl.DeleteShader(v);
-        gl.DeleteShader(f);
-        return p;
-    }
-
-    private static uint CompileShader(GL gl, ShaderType type, string src)
-    {
-        var s = gl.CreateShader(type);
-        gl.ShaderSource(s, src);
-        gl.CompileShader(s);
-        gl.GetShader(s, ShaderParameterName.CompileStatus, out var ok);
-        if (ok == 0)
-        {
-            gl.GetShaderInfoLog(s, out var log);
-            gl.DeleteShader(s);
-            throw new InvalidOperationException($"GL shader compile failed: {log}");
-        }
-
-        return s;
+        _gl.BindArrayBuffer(vbo);
+        _gl.BufferFloats(floats);
     }
 }
+
