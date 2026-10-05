@@ -14,7 +14,7 @@ Avalonia hosts for Novolis rendering stacks (no XAML).
 dotnet add package Novolis.Avalonia.Rendering
 ```
 
-**Prerequisites:** Avalonia 12+, .NET 10. Published `Novolis.Rendering.TwoD` and `Backends.TwoD.Silk` on GitHub Packages.
+**Prerequisites:** Avalonia 12+, .NET 10. Published `Novolis.Rendering.TwoD` and `Novolis.Silk.Runtime` on GitHub Packages.
 
 ## Quick start
 
