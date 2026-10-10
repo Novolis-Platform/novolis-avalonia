@@ -15,7 +15,7 @@
     <LibraryReference Include="Novolis.Cad.Evaluation" />
     <LibraryReference Include="Novolis.Cad.SceneBridge" />
     <LibraryReference Include="Novolis.Markup.Mermaid" />
-    <LibraryReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.Modeling.Scene" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls\Novolis.Avalonia.Controls.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Controls.Sketch\Novolis.Avalonia.Controls.Sketch.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Torrent\Novolis.Avalonia.Torrent.csproj" />

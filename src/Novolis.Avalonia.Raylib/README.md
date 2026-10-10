@@ -51,5 +51,5 @@ host.FrameRendering += (_, e) =>
 ## Boundaries
 
 - Avalonia ↔ Raylib glue only — no Simulation or Physics references.
-- Use `Novolis.Avalonia.Rendering` for OpenGL TwoD or CPU path-trace hosts when Raylib is not required.
+- Use `Novolis.Avalonia.Rendering` for OpenGL Planar or CPU path-trace hosts when Raylib is not required.
 

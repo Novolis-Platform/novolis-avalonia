@@ -52,14 +52,14 @@
     <PackageVersion Include="Novolis.Avalonia.Ship.Design" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.SceneBridge" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Cad.Evaluation" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.ThreeD.Scene" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.ThreeD.Import.Assimp" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Modeling.Import.Assimp" Version="2026.1.*" />
     <PackageVersion Include="AssimpNet" Version="4.1.0" />
     <PackageVersion Include="Novolis.Agent.Core" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Agent.Surface" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.Avalonia.ThreeD" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Avalonia.Modeling" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Presentation.Abstractions" Version="2026.1.*" />
-    <PackageVersion Include="Novolis.Rendering.TwoD" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Rendering.Planar" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Rendering.Backends.Vulkan" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Commands.Expressions" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Raylib.Abstractions" Version="2026.1.*" />

@@ -6,8 +6,8 @@ using Novolis.Avalonia.Rendering;
 namespace Novolis.Avalonia.Gaming;
 
 /// <summary>
-/// Game root: Silk/TwoD (or any) viewport under Avalonia HUD + modal menu layers.
-/// Use this when interactive menus must sit above <see cref="TwoDSceneControl"/> without drawing UI into GL.
+/// Game root: Silk/Planar (or any) viewport under Avalonia HUD + modal menu layers.
+/// Use this when interactive menus must sit above <see cref="PlanarSceneControl"/> without drawing UI into GL.
 /// </summary>
 public sealed class GameShell : Grid
 {
@@ -24,7 +24,7 @@ public sealed class GameShell : Grid
     };
     readonly ModalMenuHost _modal = new();
 
-    /// <summary>Viewport control (typically <see cref="TwoDSceneControl"/>).</summary>
+    /// <summary>Viewport control (typically <see cref="PlanarSceneControl"/>).</summary>
     public static readonly StyledProperty<Control?> ViewportProperty =
         AvaloniaProperty.Register<GameShell, Control?>(nameof(Viewport));
 
@@ -96,8 +96,8 @@ public sealed class GameShell : Grid
     /// <summary>The modal host (for advanced composition).</summary>
     public ModalMenuHost Modal => _modal;
 
-    /// <summary>Convenience cast when <see cref="Viewport"/> is a <see cref="TwoDSceneControl"/>.</summary>
-    public TwoDSceneControl? TwoDViewport => Viewport as TwoDSceneControl;
+    /// <summary>Convenience cast when <see cref="Viewport"/> is a <see cref="PlanarSceneControl"/>.</summary>
+    public PlanarSceneControl? PlanarViewport => Viewport as PlanarSceneControl;
 
     /// <summary>Whether simulation should advance this frame under current pause/modal state.</summary>
     public bool ShouldAdvanceSimulation() =>
@@ -110,18 +110,18 @@ public sealed class GameShell : Grid
     public void DismissModal() => _modal.Dismiss();
 
     /// <summary>
-    /// Builds a shell with a <see cref="TwoDSceneControl"/> viewport and optional HUD.
+    /// Builds a shell with a <see cref="PlanarSceneControl"/> viewport and optional HUD.
     /// </summary>
-    public static GameShell CreateWithTwoD(Control? hud = null, GamePauseMode pauseMode = GamePauseMode.HardPause)
+    public static GameShell CreateWithPlanar(Control? hud = null, GamePauseMode pauseMode = GamePauseMode.HardPause)
     {
-        var twoD = new TwoDSceneControl
+        var planar = new PlanarSceneControl
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
         };
         return new GameShell
         {
-            Viewport = twoD,
+            Viewport = planar,
             Hud = hud,
             PauseMode = pauseMode,
         };

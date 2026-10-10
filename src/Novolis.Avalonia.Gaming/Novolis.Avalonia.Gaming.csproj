@@ -3,7 +3,7 @@
     <PackageId>Novolis.Avalonia.Gaming</PackageId>
     <IsPackable>true</IsPackable>
     <RootNamespace>Novolis.Avalonia.Gaming</RootNamespace>
-    <Description>Avalonia game shell: Silk/TwoD viewport host with HUD and modal menu overlays, HardPause defaults for interactive UIs.</Description>
+    <Description>Avalonia game shell: Silk/Planar viewport host with HUD and modal menu overlays, HardPause defaults for interactive UIs.</Description>
     <PackageTags>novolis;avalonia;gaming;hud;menu;silk;twod</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>

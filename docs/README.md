@@ -16,7 +16,7 @@ Published docs: [https://novolis-platform.github.io/.github/novolis-avalonia/](h
 
 | Package |
 | --- |
-| `Novolis.Avalonia.ThreeD` |
+| `Novolis.Avalonia.Modeling` |
 | `Novolis.Avalonia.Agent` |
 | `Novolis.Avalonia.Agent.Protocol` |
 | `Novolis.Avalonia.Audio` |

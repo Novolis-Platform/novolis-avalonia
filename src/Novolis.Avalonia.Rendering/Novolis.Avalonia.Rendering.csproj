@@ -3,14 +3,14 @@
     <PackageId>Novolis.Avalonia.Rendering</PackageId>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Description>Avalonia hosts for Novolis.Rendering.TwoD (OpenGL) and CPU RGBA frames.</Description>
+    <Description>Avalonia hosts for Novolis.Rendering.Planar (OpenGL) and CPU RGBA frames.</Description>
     <RootNamespace>Novolis.Avalonia.Rendering</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Rendering.Presentation.Abstractions" />
-    <LibraryReference Include="Novolis.Rendering.TwoD" />
+    <LibraryReference Include="Novolis.Rendering.Planar" />
     <LibraryReference Include="Novolis.Silk.Runtime" />
   </ItemGroup>
 </Project>

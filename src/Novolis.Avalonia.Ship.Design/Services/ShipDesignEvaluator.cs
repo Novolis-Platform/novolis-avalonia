@@ -2,13 +2,13 @@ using Novolis.Cad.Evaluation;
 using Novolis.Cad.Primitives;
 using Novolis.Math.Geometry;
 using Novolis.Ship.Design;
-using Novolis.ThreeD;
+using Novolis.Modeling;
 
 namespace Novolis.Avalonia.Ship.Design.Services;
 
 /// <summary>
 /// Baseline rendering pipeline (§22):
-/// ShipDesign → per-object CadDocument → Cad.Evaluation → Math.Geometry cutouts → ThreeD.Scene.
+/// ShipDesign → per-object CadDocument → Cad.Evaluation → Math.Geometry cutouts → Modeling.Scene.
 /// Neither Ship.Design nor Cad packages render; this composes evaluated meshes only.
 /// </summary>
 public static class ShipDesignEvaluator

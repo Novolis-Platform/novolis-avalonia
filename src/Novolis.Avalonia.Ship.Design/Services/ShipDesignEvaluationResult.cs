@@ -1,8 +1,8 @@
-﻿using Novolis.Cad.Evaluation;
+using Novolis.Cad.Evaluation;
 using Novolis.Cad.Primitives;
 using Novolis.Math.Geometry;
 using Novolis.Ship.Design;
-using Novolis.ThreeD;
+using Novolis.Modeling;
 
 namespace Novolis.Avalonia.Ship.Design.Services;
 

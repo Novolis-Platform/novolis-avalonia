@@ -18,7 +18,7 @@ pwsh -File d:\novolis\novolis-governance\scripts\configure-gpr-user-nuget.ps1
 ## Install
 
 ```bash
-dotnet add package Novolis.Avalonia.ThreeD
+dotnet add package Novolis.Avalonia.Modeling
 ```
 
 Local multi-repo iteration uses ProjectReference mode via `d:\novolis\Novolis.Platform.slnx` — never a local NuGet folder feed.

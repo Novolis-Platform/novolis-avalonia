@@ -87,15 +87,15 @@
       ],
       "project": "src/Novolis.Avalonia.Ship.Design/Novolis.Avalonia.Ship.Design.csproj"
     },
-    "Novolis.Avalonia.ThreeD": {
+    "Novolis.Avalonia.Modeling": {
       "paths": [
-        "src/Novolis.Avalonia.ThreeD/**",
+        "src/Novolis.Avalonia.Modeling/**",
         "samples/LightLab/**",
         "Directory.Build.props",
         "Directory.Packages.props",
         "global.json"
       ],
-      "project": "src/Novolis.Avalonia.ThreeD/Novolis.Avalonia.ThreeD.csproj"
+      "project": "src/Novolis.Avalonia.Modeling/Novolis.Avalonia.Modeling.csproj"
     },
     "Novolis.Avalonia.Studio": {
       "paths": [

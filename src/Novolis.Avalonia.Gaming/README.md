@@ -6,9 +6,9 @@
 
 # Novolis.Avalonia.Gaming
 
-Avalonia game shell for **menus and HUD over Silk / TwoD rendering** (code-only, no XAML).
+Avalonia game shell for **menus and HUD over Silk / Planar rendering** (code-only, no XAML).
 
-Use this when interactive UI (pause, encyclopedia, options, status strips) must sit above a GL viewport instead of being drawn into `TwoDScene` sprites.
+Use this when interactive UI (pause, encyclopedia, options, status strips) must sit above a GL viewport instead of being drawn into `PlanarScene` sprites.
 
 ## Install
 
@@ -16,7 +16,7 @@ Use this when interactive UI (pause, encyclopedia, options, status strips) must 
 dotnet add package Novolis.Avalonia.Gaming
 ```
 
-**Prerequisites:** Avalonia 12+, .NET 10. `Novolis.Avalonia.Rendering` (and thus `Novolis.Rendering.TwoD` + Silk).
+**Prerequisites:** Avalonia 12+, .NET 10. `Novolis.Avalonia.Rendering` (and thus `Novolis.Rendering.Planar` + Silk).
 
 Local multi-repo iteration before GPR has the new build — keep the PackageReference and use ProjectReference mode:
 
@@ -30,14 +30,14 @@ dotnet build d:\novolis\<consumer>\path\to\App.csproj -p:NovolisUseProjectRefere
 ```csharp
 using Novolis.Avalonia.Gaming;
 using Novolis.Avalonia.Rendering;
-using Novolis.Rendering.TwoD;
+using Novolis.Rendering.Planar;
 
 var hud = new HudStrip();
 hud.SetTexts("WEEK 13", "9280  |  60  |  200", "ENCYCLOPEDIA");
 
-var shell = GameShell.CreateWithTwoD(hud); // HardPause by default
-shell.TwoDViewport!.Scene = new TwoDScene();
-shell.TwoDViewport.FrameUpdating += (_, e) =>
+var shell = GameShell.CreateWithPlanar(hud); // HardPause by default
+shell.PlanarViewport!.Scene = new PlanarScene();
+shell.PlanarViewport.FrameUpdating += (_, e) =>
 {
     if (!shell.ShouldAdvanceSimulation())
         return;
@@ -70,7 +70,7 @@ shell.PauseMode = GamePauseMode.RunAlways;
 
 | Package | Role |
 |---------|------|
-| `Novolis.Avalonia.Rendering` | GL hosts only (`TwoDSceneControl`, CPU frames) |
+| `Novolis.Avalonia.Rendering` | GL hosts only (`PlanarSceneControl`, CPU frames) |
 | **`Novolis.Avalonia.Gaming`** | Avalonia chrome **over** those hosts |
 | `Novolis.Avalonia.Studio` | Editor chrome (status/flash/busy) — not game loops |
 | `Novolis.Avalonia.Briefing` | Post-run scorecards / feeds |

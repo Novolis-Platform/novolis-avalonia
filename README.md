@@ -68,7 +68,7 @@
 | `Novolis.Avalonia.Speech` | `dotnet add package Novolis.Avalonia.Speech` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Speech/README.md) |
 | `Novolis.Avalonia.StarMap` | `dotnet add package Novolis.Avalonia.StarMap` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.StarMap/README.md) |
 | `Novolis.Avalonia.Studio` | `dotnet add package Novolis.Avalonia.Studio` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Studio/README.md) |
-| `Novolis.Avalonia.ThreeD` | `dotnet add package Novolis.Avalonia.ThreeD` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.ThreeD/README.md) |
+| `Novolis.Avalonia.Modeling` | `dotnet add package Novolis.Avalonia.Modeling` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Modeling/README.md) |
 | `Novolis.Avalonia.Torrent` | `dotnet add package Novolis.Avalonia.Torrent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Torrent/README.md) |
 | `Novolis.Avalonia.Video` | `dotnet add package Novolis.Avalonia.Video` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Video/README.md) |
 | `Novolis.Avalonia.Voice` | `dotnet add package Novolis.Avalonia.Voice` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Voice/README.md) |
@@ -94,8 +94,8 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Controls.Sketch`](src/Novolis.Avalonia.Controls.Sketch/README.md) | `SketchControl` + document/json |
 | [`Novolis.Avalonia.Torrent`](src/Novolis.Avalonia.Torrent/README.md) | `TorrentSessionPanel` |
 | [`Novolis.Avalonia.Cad.Ship`](src/Novolis.Avalonia.Cad.Ship/README.md) | Freighter exterior + `importship` |
-| [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `TwoDSceneControl` (OpenGL TwoD), `Rgba32FrameControl` (CPU / path trace) |
-| [`Novolis.Avalonia.Gaming`](src/Novolis.Avalonia.Gaming/README.md) | Game shell: HUD + modal menus over Silk/TwoD viewport (`HardPause` default) |
+| [`Novolis.Avalonia.Rendering`](src/Novolis.Avalonia.Rendering/README.md) | `PlanarSceneControl` (OpenGL Planar), `Rgba32FrameControl` (CPU / path trace) |
+| [`Novolis.Avalonia.Gaming`](src/Novolis.Avalonia.Gaming/README.md) | Game shell: HUD + modal menus over Silk/Planar viewport (`HardPause` default) |
 | [`Novolis.Avalonia.Raylib`](src/Novolis.Avalonia.Raylib/README.md) | `RaylibHostControl` (embedded Raylib viewport) |
 | [`Novolis.Avalonia.Live`](src/Novolis.Avalonia.Live/README.md) | Live editor, DSL completion/compiler, visualizers, transport panels |
 | [`Novolis.Avalonia.Markdown`](src/Novolis.Avalonia.Markdown/README.md) | Markdown editor, live HTML preview, split-pane studio controls |
@@ -107,7 +107,7 @@ See [avalonia-composition-grain.md](https://github.com/Novolis-Platform/novolis-
 | [`Novolis.Avalonia.Mobile.Desktop`](src/Novolis.Avalonia.Mobile.Desktop/README.md) | Windows Credential Manager + LocalAppData + system browser |
 | [`Novolis.Avalonia.Mobile.Android`](src/Novolis.Avalonia.Mobile.Android/README.md) | Keystore AES-GCM tokens + FilesDir + Custom Tabs |
 | [`Novolis.Avalonia.Voice`](src/Novolis.Avalonia.Voice/README.md) | Voice preset studio UI |
-| [`Novolis.Avalonia.ThreeD`](src/Novolis.Avalonia.ThreeD/README.md) | Scene editor / OpenGL 3D renderer surface |
+| [`Novolis.Avalonia.Modeling`](src/Novolis.Avalonia.Modeling/README.md) | Scene editor / OpenGL 3D renderer surface |
 | [`Novolis.Avalonia.Cad`](src/Novolis.Avalonia.Cad/README.md) | Shared CAD surface: Draft Studio, CAD Studio 3D, preview hosts |
 | [`Novolis.Avalonia.Agent`](src/Novolis.Avalonia.Agent/README.md) | LocalIpc UI agent host for MCP / tooling |
 | [`Novolis.Avalonia.Agent.Protocol`](src/Novolis.Avalonia.Agent.Protocol/README.md) | MessagePack DTOs and `UiAgentClient` RPC client |
@@ -122,7 +122,7 @@ dotnet test
 
 ## Dogfood / product hosts
 
-Rendering walkthrough (TwoD OpenGL + CPU RGBA):
+Rendering walkthrough (Planar OpenGL + CPU RGBA):
 
 ```powershell
 dotnet run --project d:\novolis\novolis-dogfooding\apps\avalonia\RenderingAvalonia -p:NovolisUseProjectReferences=true

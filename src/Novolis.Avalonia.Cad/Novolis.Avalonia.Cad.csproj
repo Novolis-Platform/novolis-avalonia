@@ -13,7 +13,7 @@
     <LibraryReference Include="Novolis.Cad.Evaluation" />
     <LibraryReference Include="Novolis.Commands.Expressions" />
     <LibraryReference Include="Novolis.Math.Geometry" />
-    <LibraryReference Include="Novolis.ThreeD.Scene" />
+    <LibraryReference Include="Novolis.Modeling.Scene" />
     <LibraryReference Include="Novolis.Raylib.Abstractions" />
     <LibraryReference Include="Novolis.Raylib.Bindings" />
     <LibraryReference Include="Novolis.Raylib.Runtime" />

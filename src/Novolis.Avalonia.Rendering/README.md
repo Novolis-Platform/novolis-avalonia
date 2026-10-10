@@ -14,16 +14,16 @@ Avalonia hosts for Novolis rendering stacks (no XAML).
 dotnet add package Novolis.Avalonia.Rendering
 ```
 
-**Prerequisites:** Avalonia 12+, .NET 10. Published `Novolis.Rendering.TwoD` and `Novolis.Silk.Runtime` on GitHub Packages.
+**Prerequisites:** Avalonia 12+, .NET 10. Published `Novolis.Rendering.Planar` and `Novolis.Silk.Runtime` on GitHub Packages.
 
 ## Quick start
 
 ```csharp
 using Novolis.Avalonia.Rendering;
 using Novolis.Rendering.Presentation;
-using Novolis.Rendering.TwoD;
+using Novolis.Rendering.Planar;
 
-var view = new TwoDSceneControl { Scene = new TwoDScene() };
+var view = new PlanarSceneControl { Scene = new PlanarScene() };
 view.FrameUpdating += (_, e) =>
 {
     // Poll-style (Silk-like): edge-triggered in framebuffer pixels
@@ -45,12 +45,12 @@ view.ScenePointerPressed += (_, e) =>
 
 | Control | Hosts | Use when |
 |---------|-------|----------|
-| `TwoDSceneControl` | `Novolis.Rendering.TwoD` + Silk OpenGL | World / map / sprite viewport |
+| `PlanarSceneControl` | `Novolis.Rendering.Planar` + Silk OpenGL | World / map / sprite viewport |
 | `Rgba32FrameControl` | CPU `Rgba32` buffer (`IFramePresenter`) | Path tracing preview, software ray trace |
 
-For Avalonia menus and HUD **over** the Silk surface (pause, encyclopedia, status strips), use **`Novolis.Avalonia.Gaming`** (`GameShell`) instead of drawing interactive chrome into `TwoDScene`.
+For Avalonia menus and HUD **over** the Silk surface (pause, encyclopedia, status strips), use **`Novolis.Avalonia.Gaming`** (`GameShell`) instead of drawing interactive chrome into `PlanarScene`.
 
-## TwoD scene (OpenGL)
+## Planar scene (OpenGL)
 
 On **Windows**, prefer WGL so `OpenGlControlBase` initializes:
 
@@ -81,5 +81,5 @@ frame.PresentCpuFrame(pixels, width, height);
 - References **Rendering** packages only — not Simulation, Physics, or Raylib.
 - Apps wire simulation → scene or `PresentCpuFrame` at compose time.
 - For Raylib inside Avalonia, use **`Novolis.Avalonia.Raylib`** (`RaylibHostControl`).
-- For interactive HUD/menus over TwoD, use **`Novolis.Avalonia.Gaming`** (`GameShell`).
+- For interactive HUD/menus over Planar, use **`Novolis.Avalonia.Gaming`** (`GameShell`).
 
