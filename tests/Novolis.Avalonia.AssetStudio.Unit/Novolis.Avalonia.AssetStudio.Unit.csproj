@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.AssetStudio\Novolis.Avalonia.AssetStudio.csproj" />
+    <LibraryReference Include="Novolis.Visual.Definitions" />
+    <LibraryReference Include="Novolis.Visual.Compile" />
+  </ItemGroup>
+</Project>

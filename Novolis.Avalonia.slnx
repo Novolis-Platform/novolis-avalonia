@@ -12,6 +12,7 @@
     <Project Path="src/Novolis.Avalonia.Gaming/Novolis.Avalonia.Gaming.csproj" />
     <Project Path="src/Novolis.Avalonia.Raylib/Novolis.Avalonia.Raylib.csproj" />
     <Project Path="src/Novolis.Avalonia.Studio/Novolis.Avalonia.Studio.csproj" />
+    <Project Path="src/Novolis.Avalonia.AssetStudio/Novolis.Avalonia.AssetStudio.csproj" />
     <Project Path="src/Novolis.Avalonia.Packaging.Inno/Novolis.Avalonia.Packaging.Inno.csproj" />
     <Project Path="src/Novolis.Avalonia.Live/Novolis.Avalonia.Live.csproj" />
     <Project Path="src/Novolis.Avalonia.Voice/Novolis.Avalonia.Voice.csproj" />
@@ -39,6 +40,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Novolis.Avalonia.Unit/Novolis.Avalonia.Unit.csproj" />
+    <Project Path="tests/Novolis.Avalonia.AssetStudio.Unit/Novolis.Avalonia.AssetStudio.Unit.csproj" />
     <Project Path="tests/Novolis.Avalonia.Live.Unit/Novolis.Avalonia.Live.Unit.csproj" />
     <Project Path="tests/Novolis.Avalonia.Modeling.Unit/Novolis.Avalonia.Modeling.Unit.csproj" />
   </Folder>

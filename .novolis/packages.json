@@ -107,6 +107,17 @@
       ],
       "project": "src/Novolis.Avalonia.Studio/Novolis.Avalonia.Studio.csproj"
     },
+    "Novolis.Avalonia.AssetStudio": {
+      "paths": [
+        "src/Novolis.Avalonia.AssetStudio/**",
+        "tests/Novolis.Avalonia.AssetStudio.Unit/**",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "Novolis.Avalonia.slnx"
+      ],
+      "project": "src/Novolis.Avalonia.AssetStudio/Novolis.Avalonia.AssetStudio.csproj"
+    },
     "Novolis.Avalonia.Raylib": {
       "paths": [
         "src/Novolis.Avalonia.Raylib/**",
