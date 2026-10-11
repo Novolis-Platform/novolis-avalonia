@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using System.Text.Json;
 using Novolis.AssetStudio.Core;
 using Novolis.Avalonia.GraphicalProfile;
 using Novolis.Avalonia.Layout;
@@ -39,7 +40,8 @@ public sealed class AssetStudioEditorSurface : UserControl
         _stack = new AssetStudioStackPanel();
         _source = new AssetStudioSourcePanel();
         _diagnostics = new AssetStudioDiagnosticsPanel();
-        _preview = new AssetStudioPreviewPanel(previewService);
+        _preview = new AssetStudioPreviewPanel(
+            previewService ?? new CpuAssetStudioPreviewService(_registry));
         _chrome = StudioChrome.Create();
         _feedback = _chrome.CreateFeedback();
         _commandBar = new StudioCommandBar("Recipe:");
@@ -111,7 +113,10 @@ public sealed class AssetStudioEditorSurface : UserControl
         _commandBar.Submitted += (_, args) =>
             CommandSubmitted?.Invoke(this, args);
         _source.SourceChanged += (_, _) =>
+        {
+            _feedback.SetStatus("Source edited · type validate to apply and compile.");
             SourceChanged?.Invoke(this, EventArgs.Empty);
+        };
 
         if (recipe is not null)
         {
@@ -162,16 +167,16 @@ public sealed class AssetStudioEditorSurface : UserControl
         ArgumentNullException.ThrowIfNull(document);
         Document = document;
         _graph.SetRecipe(document.Recipe, _registry);
-        _stack.SetItems(document.Recipe.Nodes
-            .OrderBy(node => node.Id)
-            .Select(node => _registry.TryGetDescriptor(node.TypeId, out var descriptor)
-                ? $"{descriptor?.DisplayName ?? node.TypeId} · {node.Id}"
-                : $"{node.TypeId} · {node.Id}"));
-        _source.SetSource(VisualRecipeSerializer.Serialize(document.Recipe));
+        _stack.SetItems(
+            document.Recipe.Nodes
+                .OrderBy(node => node.Id)
+                .Select((node, index) => FormatStackItem(node, index + 1)));
+        _source.SetSource(FormatSource(document.Recipe));
         _diagnostics.SetDiagnostics(document.Recipe.Validate(_registry).Diagnostics);
         _feedback.SetStatus(
             $"{document.Recipe.RecipeId} · revision {document.Revision} · " +
             $"{document.Recipe.Nodes.Length} node(s)");
+        _ = RefreshPreviewAsync();
     }
 
     /// <summary>Creates a new semantic revision from a recipe.</summary>
@@ -192,6 +197,7 @@ public sealed class AssetStudioEditorSurface : UserControl
             $"{compilation.RecipeId} · {suffix} · " +
             $"{compilation.Nodes.Length} normalized node(s) · " +
             $"fingerprint {compilation.Fingerprint[..Math.Min(12, compilation.Fingerprint.Length)]}");
+        _ = RefreshPreviewAsync();
     }
 
     /// <summary>Attempts to parse and load the canonical source editor text.</summary>
@@ -286,4 +292,43 @@ public sealed class AssetStudioEditorSurface : UserControl
                 Profile.BorderResourceKey);
         }
     }
+
+    private string FormatStackItem(VisualNode node, int ordinal)
+    {
+        var label = _registry.TryGetDescriptor(node.TypeId, out var descriptor)
+            ? descriptor?.DisplayName ?? node.TypeId
+            : $"{node.TypeId} (unknown)";
+        var values = node.Values.Count == 0
+            ? string.Empty
+            : $" · {string.Join(", ", node.Values.Select(
+                value => $"{value.Key}={FormatValue(value.Value)}"))}";
+        return $"N{ordinal:00} · {label}{values}";
+    }
+
+    private static string FormatSource(VisualRecipe recipe)
+    {
+        using var document = JsonDocument.Parse(
+            VisualRecipeSerializer.Serialize(recipe));
+        return JsonSerializer.Serialize(
+            document.RootElement,
+            new JsonSerializerOptions
+            {
+                WriteIndented = true,
+            });
+    }
+
+    private static string FormatValue(VisualValue value) =>
+        value switch
+        {
+            ScalarValue scalar =>
+                scalar.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+            IntegerValue integer => integer.Value.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
+            BooleanValue boolean => boolean.Value ? "true" : "false",
+            ColorValue color =>
+                $"rgba({color.Red:0.##}, {color.Green:0.##}, {color.Blue:0.##}, {color.Alpha:0.##})",
+            VectorValue vector => $"({string.Join(", ", vector.Components.Select(
+                component => component.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)))})",
+            _ => value.Kind.ToString(),
+        };
 }

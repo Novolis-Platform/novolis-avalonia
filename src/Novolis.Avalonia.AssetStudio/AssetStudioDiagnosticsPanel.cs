@@ -18,15 +18,17 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class AssetStudioDiagnosticsPanel : AssetStudioPanel
 {
     private readonly ListBox _items;
+    private readonly TextBlock _emptyState;
     private IReadOnlyList<AssetStudioDiagnosticRow> _diagnostics = [];
 
     public AssetStudioDiagnosticsPanel()
         : base(
             "Diagnostics",
-            CreateContent(out var list),
+            CreateContent(out var list, out var emptyState),
             "assetstudio.panel.diagnostics")
     {
         _items = list;
+        _emptyState = emptyState;
     }
 
     /// <summary>List control used by accessible diagnostics workflows.</summary>
@@ -53,6 +55,10 @@ public sealed class AssetStudioDiagnosticsPanel : AssetStudioPanel
             .ToArray();
         _items.ItemsSource = _diagnostics;
         _items.SelectedIndex = _diagnostics.Count == 0 ? -1 : 0;
+        _emptyState.IsVisible = _diagnostics.Count == 0;
+        _emptyState.Text = _diagnostics.Count == 0
+            ? "✓ No diagnostics · recipe is valid."
+            : string.Empty;
     }
 
     /// <summary>Replaces diagnostics from compiled visual IR.</summary>
@@ -62,7 +68,9 @@ public sealed class AssetStudioDiagnosticsPanel : AssetStudioPanel
         SetDiagnostics(ir.Diagnostics);
     }
 
-    private static Control CreateContent(out ListBox list)
+    private static Control CreateContent(
+        out ListBox list,
+        out TextBlock emptyState)
     {
         list = new ListBox
         {
@@ -98,11 +106,27 @@ public sealed class AssetStudioDiagnosticsPanel : AssetStudioPanel
             },
             supportsRecycling: true);
 
-        return new ScrollViewer
+        emptyState = new TextBlock
         {
-            Content = list,
-            HorizontalScrollBarVisibility =
-                global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Text = "No diagnostics.",
+            TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8),
         };
+        ProfileBinding.Bind(
+            emptyState,
+            TextBlock.ForegroundProperty,
+            Profile.AccentResourceKey);
+
+        var content = new Grid();
+        content.Children.Add(
+            new ScrollViewer
+            {
+                Content = list,
+                HorizontalScrollBarVisibility =
+                    global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            });
+        content.Children.Add(emptyState);
+        return content;
     }
 }
