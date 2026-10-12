@@ -18,14 +18,24 @@ public sealed class AndroidAppDataPaths : IAppDataPaths
 
     /// <summary>Creates paths for the given context.</summary>
     public AndroidAppDataPaths(Context context, string productName = "BooksMobile")
+        : this(
+            AndroidAppStorage.Open(context, productName))
     {
-        ArgumentNullException.ThrowIfNull(context);
-        var locations = AndroidAppStorage.Open(context, productName);
+    }
+
+    /// <summary>Creates paths from an already resolved Android location set.</summary>
+    public AndroidAppDataPaths(AndroidAppLocations locations)
+    {
+        ArgumentNullException.ThrowIfNull(locations);
+        Locations = locations;
         ProductName = locations.ProductName;
         RootDirectory = locations.RootDirectory;
         WorkspaceDirectory = locations.WorkspaceDirectory;
         CacheDirectory = locations.CacheDirectory;
     }
+
+    /// <summary>Resolved Android storage locations, including any legacy import result.</summary>
+    public AndroidAppLocations Locations { get; }
 
     /// <inheritdoc />
     public string ProductName { get; }
