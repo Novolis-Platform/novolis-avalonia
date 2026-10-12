@@ -1,0 +1,193 @@
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Novolis.Visual.Baking;
+using Novolis.Visual.Compile;
+using Novolis.Visual.Materials;
+using Novolis.Avalonia.GraphicalProfile;
+using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
+using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
+
+namespace Novolis.Avalonia.AssetStudio;
+
+/// <summary>
+/// Material preview viewport status and preview-shape selector.
+/// </summary>
+public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
+{
+    private readonly TextBlock _summary;
+    private readonly Image _image;
+    private readonly ComboBox _shape;
+    private readonly ComboBox _target;
+
+    public AssetStudioMaterialPreviewPanel()
+        : base(
+            "Material Preview",
+            CreateContent(out var summary, out var image, out var shape, out var target),
+            "assetstudio.panel.material-preview")
+    {
+        _summary = summary;
+        _image = image;
+        _shape = shape;
+        _target = target;
+    }
+
+    public ComboBox ShapeSelector => _shape;
+
+    public ComboBox TargetSelector => _target;
+
+    public void SetMaterial(
+        MaterialGraph? graph,
+        VisualIR? compilation = null)
+    {
+        if (graph is null)
+        {
+            _summary.Text = "Select a material to preview it on a sphere, strip, or asset.";
+            _image.Source = null;
+            _image.IsVisible = false;
+            return;
+        }
+
+        var channels = graph.Channels.Length == 0
+            ? "no bound channels"
+            : string.Join(
+                ", ",
+                graph.Channels.Select(channel => channel.Channel.ToString()));
+        var target = _target.SelectedItem?.ToString() ?? "CPU Reference";
+        var status = compilation is null
+            ? "not compiled"
+            : compilation.Success
+                ? "ready"
+                : "needs attention";
+        _summary.Text =
+            $"{graph.DisplayName} · {target} · {status}\n" +
+            $"Channels: {channels}\n" +
+            "Preview shape: " +
+            (_shape.SelectedItem?.ToString() ?? "Material Sphere");
+        if (compilation is { Success: true })
+        {
+            try
+            {
+                var baked = new VisualBaker().Bake(
+                    compilation,
+                    new VisualBakeOptions
+                    {
+                        Height = 96,
+                        Target = VisualBakeTarget.SurfaceColor,
+                        Width = 240,
+                    });
+                using var stream = new MemoryStream(
+                    baked.PngBytes,
+                    writable: false);
+                _image.Source = new Bitmap(stream);
+                _image.IsVisible = true;
+            }
+            catch (Exception exception)
+            {
+                _image.Source = null;
+                _image.IsVisible = false;
+                _summary.Text += $"\nThumbnail unavailable · {exception.Message}";
+            }
+        }
+        else
+        {
+            _image.Source = null;
+            _image.IsVisible = false;
+        }
+    }
+
+    private static Control CreateContent(
+        out TextBlock summary,
+        out Image image,
+        out ComboBox shape,
+        out ComboBox target)
+    {
+        shape = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                "Material Sphere",
+                "Flat Strip",
+                "Selected Asset",
+            },
+            SelectedIndex = 0,
+            MinWidth = 140,
+        };
+        target = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                "CPU Reference",
+                "Raster / HDR",
+                "Path Trace",
+            },
+            SelectedIndex = 0,
+            MinWidth = 140,
+        };
+        summary = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            MinHeight = 100,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        ProfileBinding.Bind(
+            summary,
+            TextBlock.ForegroundProperty,
+            Profile.TextResourceKey);
+        summary.SetValue(
+            AutomationProperties.NameProperty,
+            "Material preview summary");
+        summary.SetValue(
+            AutomationProperties.AutomationIdProperty,
+            "assetstudio.material-preview.summary");
+        image = new Image
+        {
+            Stretch = global::Avalonia.Media.Stretch.Uniform,
+            MaxHeight = 120,
+            IsVisible = false,
+        };
+        image.SetValue(
+            AutomationProperties.NameProperty,
+            "Asset Studio material thumbnail");
+        image.SetValue(
+            AutomationProperties.AutomationIdProperty,
+            "assetstudio.material-preview.image");
+        var selectors = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = "Shape" },
+                shape,
+                new TextBlock { Text = "Target" },
+                target,
+            },
+        };
+        foreach (var text in selectors.Children.OfType<TextBlock>())
+        {
+            ProfileBinding.Bind(
+                text,
+                TextBlock.ForegroundProperty,
+                Profile.MutedResourceKey);
+        }
+
+        return new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                selectors,
+                image,
+                new Border
+                {
+                    Padding = new Thickness(12),
+                    Child = summary,
+                },
+            },
+        };
+    }
+}

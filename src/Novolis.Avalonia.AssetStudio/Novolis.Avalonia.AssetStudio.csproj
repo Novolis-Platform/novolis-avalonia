@@ -13,8 +13,12 @@
     <PackageReference Include="Avalonia" />
     <LibraryReference Include="Novolis.AssetStudio.Core" />
     <LibraryReference Include="Novolis.Visual.Definitions" />
+    <LibraryReference Include="Novolis.Visual.Materials" />
+    <LibraryReference Include="Novolis.Visual.Assets" />
+    <LibraryReference Include="Novolis.Visual.Presets" />
     <LibraryReference Include="Novolis.Visual.Compile" />
     <LibraryReference Include="Novolis.Visual.Evaluation" />
+    <LibraryReference Include="Novolis.Visual.Baking" />
     <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
     <LibraryReference Include="Novolis.Avalonia.Layout" />
     <LibraryReference Include="Novolis.Avalonia.Studio" />

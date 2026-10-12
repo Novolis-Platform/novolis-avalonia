@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
@@ -33,6 +35,7 @@ public class PlanarSceneControl : OpenGlControlBase, ICustomHitTest
     private int _pixelWidth = 1;
     private int _pixelHeight = 1;
     private int _captureTick;
+    private bool _captureRequested;
     private readonly object _captureGate = new();
     private byte[]? _lastPng;
 
@@ -92,6 +95,13 @@ public class PlanarSceneControl : OpenGlControlBase, ICustomHitTest
     {
         lock (_captureGate)
             return _lastPng is null ? null : (byte[])_lastPng.Clone();
+    }
+
+    /// <summary>Requests a PNG capture on the next completed OpenGL frame.</summary>
+    public void RequestFrameCapture()
+    {
+        _captureRequested = true;
+        RequestNextFrameRendering();
     }
 
     /// <summary>Whether <paramref name="button"/> is currently held.</summary>
@@ -224,10 +234,14 @@ public class PlanarSceneControl : OpenGlControlBase, ICustomHitTest
 
         _host.Submit(scene.Tessellate(_pixelWidth, _pixelHeight));
 
-        if ((++_captureTick & 3) == 0 && _host.TryReadPixels(out var pixels) && pixels.Length > 0)
+        var periodicCapture = ++_captureTick % 30 == 0;
+        if ((_captureRequested || periodicCapture)
+            && _host.TryReadPixels(out var pixels)
+            && pixels.Length > 0)
         {
             lock (_captureGate)
                 _lastPng = EncodeRgbaPng(pixels, _pixelWidth, _pixelHeight);
+            _captureRequested = false;
         }
 
         RequestNextFrameRendering();
@@ -294,6 +308,82 @@ public class PlanarSceneControl : OpenGlControlBase, ICustomHitTest
     static byte[] EncodeRgbaPng(Novolis.Math.Geometry.Rgba32[] pixels, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(pixels);
-        return [];
+        if (width <= 0 || height <= 0 || pixels.Length != width * height)
+        {
+            throw new ArgumentException("RGBA frame dimensions do not match the pixel buffer.");
+        }
+
+        using var output = new MemoryStream();
+        output.Write([137, 80, 78, 71, 13, 10, 26, 10]);
+        WritePngChunk(output, "IHDR", CreatePngHeader(width, height));
+
+        using var raw = new MemoryStream(width * height * 4 + height);
+        for (var y = 0; y < height; y++)
+        {
+            raw.WriteByte(0);
+            for (var x = 0; x < width; x++)
+            {
+                var pixel = pixels[y * width + x];
+                raw.WriteByte(pixel.R);
+                raw.WriteByte(pixel.G);
+                raw.WriteByte(pixel.B);
+                raw.WriteByte(pixel.A);
+            }
+        }
+
+        using var compressed = new MemoryStream();
+        using (var zlib = new ZLibStream(
+                   compressed,
+                   CompressionLevel.Fastest,
+                   leaveOpen: true))
+        {
+            raw.Position = 0;
+            raw.CopyTo(zlib);
+        }
+
+        WritePngChunk(output, "IDAT", compressed.ToArray());
+        WritePngChunk(output, "IEND", []);
+        return output.ToArray();
+    }
+
+    static byte[] CreatePngHeader(int width, int height)
+    {
+        var header = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(0, 4), width);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4, 4), height);
+        header[8] = 8;
+        header[9] = 6;
+        return header;
+    }
+
+    static void WritePngChunk(Stream destination, string type, byte[] data)
+    {
+        var typeBytes = System.Text.Encoding.ASCII.GetBytes(type);
+        Span<byte> length = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(length, data.Length);
+        destination.Write(length);
+        destination.Write(typeBytes);
+        destination.Write(data);
+
+        Span<byte> crcBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(crcBytes, PngCrc32(typeBytes, data));
+        destination.Write(crcBytes);
+    }
+
+    static uint PngCrc32(byte[] type, byte[] data)
+    {
+        var crc = 0xffffffffu;
+        foreach (var value in type.Concat(data))
+        {
+            crc ^= value;
+            for (var bit = 0; bit < 8; bit++)
+            {
+                crc = (crc & 1) != 0
+                    ? (crc >> 1) ^ 0xedb88320u
+                    : crc >> 1;
+            }
+        }
+
+        return ~crc;
     }
 }

@@ -11,6 +11,8 @@ using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Definitions;
+using Novolis.Visual.Materials;
+using Novolis.Visual.Presets;
 
 namespace Novolis.Avalonia.AssetStudio;
 
@@ -20,8 +22,18 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class AssetStudioEditorSurface : UserControl
 {
     private readonly VisualNodeRegistry _registry;
+    private readonly VisualPresetCatalog _presets;
+    private readonly MaterialCatalog _materials;
+    private readonly AssetStudioMaterialBrowserPanel _browser;
+    private readonly AssetStudioAssetTemplatePanel _templates;
     private readonly AssetStudioGraphPanel _graph;
     private readonly AssetStudioStackPanel _stack;
+    private readonly AssetStudioMaterialInspectorPanel _materialInspector;
+    private readonly AssetStudioAssetInspectorPanel _assetInspector;
+    private readonly AssetStudioMaterialPreviewPanel _materialPreview;
+    private readonly AssetStudioInstancePanel _instance;
+    private readonly AssetStudioCapabilityStatusPanel _capabilities;
+    private readonly AssetStudioActionBar _actionBar;
     private readonly AssetStudioSourcePanel _source;
     private readonly AssetStudioDiagnosticsPanel _diagnostics;
     private readonly AssetStudioPreviewPanel _preview;
@@ -29,15 +41,28 @@ public sealed class AssetStudioEditorSurface : UserControl
     private readonly StudioChrome _chrome;
     private readonly StudioFeedback _feedback;
     private readonly AuthoringWorkspace _workspace;
+    private AssetStudioMaterialSession? _materialSession;
+    private AssetStudioAssetSession? _assetSession;
 
     public AssetStudioEditorSurface(
         VisualRecipe? recipe = null,
         VisualNodeRegistry? registry = null,
         IAssetStudioPreviewService? previewService = null)
     {
-        _registry = registry ?? VisualNodeRegistry.CreateDefault();
+        _registry = registry ?? VisualCompiler.CreateDefaultRegistry();
+        _presets = VisualPresetCatalog.CreateDefault();
+        _materials = new MaterialCatalog(
+            _presets.Templates.SelectMany(template => template.Materials));
+        _browser = new AssetStudioMaterialBrowserPanel();
+        _templates = new AssetStudioAssetTemplatePanel();
         _graph = new AssetStudioGraphPanel();
         _stack = new AssetStudioStackPanel();
+        _materialInspector = new AssetStudioMaterialInspectorPanel();
+        _assetInspector = new AssetStudioAssetInspectorPanel();
+        _materialPreview = new AssetStudioMaterialPreviewPanel();
+        _instance = new AssetStudioInstancePanel();
+        _capabilities = new AssetStudioCapabilityStatusPanel();
+        _actionBar = new AssetStudioActionBar();
         _source = new AssetStudioSourcePanel();
         _diagnostics = new AssetStudioDiagnosticsPanel();
         _preview = new AssetStudioPreviewPanel(
@@ -45,20 +70,58 @@ public sealed class AssetStudioEditorSurface : UserControl
         _chrome = StudioChrome.Create();
         _feedback = _chrome.CreateFeedback();
         _commandBar = new StudioCommandBar("Recipe:");
+        _actionBar.ActionRequested += (_, args) =>
+            CommandSubmitted?.Invoke(
+                this,
+                new StudioCommandSubmittedEventArgs(args.Command));
 
+        _browser.SetCatalogs(
+            VisualNodeCatalog.FromRegistry(_registry),
+            _materials,
+            _presets,
+            _presets.Templates.Select(template => template.Asset));
+        _browser.EntrySelected += OnBrowserEntrySelected;
+        _templates.TemplateSelected += (_, template) =>
+            SetAssetTemplate(template);
+        _materialInspector.ParameterChanged += OnMaterialParameterChanged;
+        _materialInspector.ResetRequested += OnMaterialResetRequested;
+        _assetInspector.ParameterChanged += OnAssetParameterChanged;
+        _assetInspector.ResetRequested += OnAssetResetRequested;
+        _materialPreview.ShapeSelector.SelectionChanged += (_, _) =>
+            RefreshMaterialPreview();
+        _materialPreview.TargetSelector.SelectionChanged += (_, _) =>
+            RefreshMaterialPreview();
         BindStudioChrome();
         BindCommandBar();
 
-        var context = new Grid
+        var nav = new StackPanel
         {
-            RowDefinitions = new RowDefinitions("*,*,*"),
+            Spacing = 8,
+            Children =
+            {
+                _browser,
+                _templates,
+                _stack,
+            },
         };
-        Grid.SetRow(_source, 0);
-        context.Children.Add(_source);
-        Grid.SetRow(_preview, 1);
-        context.Children.Add(_preview);
-        Grid.SetRow(_diagnostics, 2);
-        context.Children.Add(_diagnostics);
+        var context = new ScrollViewer
+        {
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    _materialPreview,
+                    _materialInspector,
+                    _assetInspector,
+                    _instance,
+                    _capabilities,
+                    _source,
+                    _preview,
+                    _diagnostics,
+                },
+            },
+        };
 
         var status = new Border
         {
@@ -83,10 +146,13 @@ public sealed class AssetStudioEditorSurface : UserControl
         status.BorderThickness = new Thickness(0, 1, 0, 0);
 
         _workspace = new AuthoringWorkspace(
-            nav: _stack,
+            nav: nav,
             primary: _graph,
             context: context,
-            topBar: _commandBar,
+            topBar: new StackPanel
+            {
+                Children = { _actionBar, _commandBar },
+            },
             statusBar: status)
         {
             NavWidth = 280,
@@ -131,6 +197,9 @@ public sealed class AssetStudioEditorSurface : UserControl
     /// <summary>Shared command bar used by the host to submit authoring actions.</summary>
     public StudioCommandBar CommandBar => _commandBar;
 
+    /// <summary>Button-driven front door for common no-code actions.</summary>
+    public AssetStudioActionBar ActionBar => _actionBar;
+
     /// <summary>Shared studio feedback helper.</summary>
     public StudioFeedback Feedback => _feedback;
 
@@ -142,6 +211,23 @@ public sealed class AssetStudioEditorSurface : UserControl
 
     /// <summary>Ordered stack projection.</summary>
     public AssetStudioStackPanel Stack => _stack;
+
+    /// <summary>Searchable material, asset, template, and node browser.</summary>
+    public AssetStudioMaterialBrowserPanel Browser => _browser;
+
+    /// <summary>No-code asset starter template list.</summary>
+    public AssetStudioAssetTemplatePanel Templates => _templates;
+
+    /// <summary>Friendly exposed material parameter editor.</summary>
+    public AssetStudioMaterialInspectorPanel MaterialInspector =>
+        _materialInspector;
+
+    /// <summary>Friendly exposed asset parameter editor.</summary>
+    public AssetStudioAssetInspectorPanel AssetInspector => _assetInspector;
+
+    /// <summary>Material preview-shape and target surface.</summary>
+    public AssetStudioMaterialPreviewPanel MaterialPreview =>
+        _materialPreview;
 
     /// <summary>Canonical source editor.</summary>
     public AssetStudioSourcePanel Source => _source;
@@ -179,6 +265,71 @@ public sealed class AssetStudioEditorSurface : UserControl
         _ = RefreshPreviewAsync();
     }
 
+    /// <summary>
+    /// Loads a no-code template and selects its first reusable material.
+    /// </summary>
+    public void SetAssetTemplate(VisualPresetTemplate template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        SetRecipe(template.Asset.Graph);
+        _assetSession = new AssetStudioAssetSession(template.Asset);
+        _assetInspector.SetAsset(
+            _assetSession.Asset,
+            _assetSession.Instance);
+        _materialSession = template.Materials.FirstOrDefault() is { } material
+            ? new AssetStudioMaterialSession(material)
+            : null;
+        _materialInspector.SetMaterial(
+            _materialSession?.Graph,
+            _materialSession?.Instance);
+        _stack.SetItems(
+            _materialSession?.Graph.Layers.Select(
+                layer => $"{layer.Order:00} · {layer.Name}" +
+                         (layer.Muted ? " · muted" : string.Empty))
+            ?? Array.Empty<string>());
+        _instance.SetInstance(
+            _materialSession?.Graph,
+            _materialSession?.Instance);
+        _materialPreview.SetMaterial(
+            _materialSession?.Graph,
+            _materialSession?.Compile(
+                new VisualCompileOptions(
+                    registry: _registry,
+                    strict: true)));
+        SetCompilation(_assetSession.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true)));
+        _feedback.SetStatus(
+            $"{template.DisplayName} template loaded · no code required.");
+    }
+
+    /// <summary>Loads a reusable material graph into the material surfaces.</summary>
+    public void SetMaterial(MaterialGraph material)
+    {
+        ArgumentNullException.ThrowIfNull(material);
+        _assetSession = null;
+        _assetInspector.SetAsset(null);
+        _materialSession = new AssetStudioMaterialSession(material);
+        SetRecipe(material.Recipe);
+        _materialInspector.SetMaterial(
+            _materialSession.Graph,
+            _materialSession.Instance);
+        _stack.SetItems(
+            material.Layers.Select(
+                layer => $"{layer.Order:00} · {layer.Name}" +
+                         (layer.Muted ? " · muted" : string.Empty)));
+        _instance.SetInstance(
+            _materialSession.Graph,
+            _materialSession.Instance);
+        var compilation = _materialSession.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true));
+        _materialPreview.SetMaterial(_materialSession.Graph, compilation);
+        SetCompilation(compilation);
+    }
+
     /// <summary>Creates a new semantic revision from a recipe.</summary>
     public void SetRecipe(VisualRecipe recipe)
     {
@@ -192,6 +343,7 @@ public sealed class AssetStudioEditorSurface : UserControl
     {
         ArgumentNullException.ThrowIfNull(compilation);
         _diagnostics.SetDiagnostics(compilation);
+        _capabilities.SetReport(compilation.Capabilities);
         var suffix = compilation.Success ? "valid" : "needs attention";
         _feedback.SetStatus(
             $"{compilation.RecipeId} · {suffix} · " +
@@ -245,6 +397,172 @@ public sealed class AssetStudioEditorSurface : UserControl
             Border.BackgroundProperty,
             Profile.RaisedResourceKey);
         _chrome.BusyOverlay.Opacity = 0.96;
+    }
+
+    private void OnBrowserEntrySelected(
+        object? sender,
+        AssetStudioBrowserEntry entry)
+    {
+        if (string.Equals(entry.Kind, "Template", StringComparison.Ordinal) &&
+            _presets.Find(entry.Id) is { } template)
+        {
+            SetAssetTemplate(template);
+        }
+        else if (string.Equals(entry.Kind, "Asset", StringComparison.Ordinal) &&
+                 _presets.Templates.FirstOrDefault(
+                     candidate => string.Equals(
+                         candidate.Asset.AssetId,
+                         entry.Id,
+                         StringComparison.Ordinal)) is { } assetTemplate)
+        {
+            SetAssetTemplate(assetTemplate);
+        }
+        else if (string.Equals(entry.Kind, "Material", StringComparison.Ordinal) &&
+                 _materials.Search(entry.Id).FirstOrDefault() is { } material)
+        {
+            SetMaterial(material);
+        }
+    }
+
+    private void OnMaterialParameterChanged(
+        object? sender,
+        AssetStudioMaterialParameterChangedEventArgs args)
+    {
+        if (_materialSession is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _materialSession = _materialSession.SetOverride(
+                args.ParameterId,
+                args.Value);
+            _materialInspector.SetMaterial(
+                _materialSession.Graph,
+                _materialSession.Instance);
+            _instance.SetInstance(
+                _materialSession.Graph,
+                _materialSession.Instance);
+            var compilation = _materialSession.Compile(
+                new VisualCompileOptions(
+                    registry: _registry,
+                    strict: true));
+            SetRecipe(_materialSession.ResolvedRecipe);
+            _stack.SetItems(
+                _materialSession.Graph.Layers.Select(
+                    layer => $"{layer.Order:00} · {layer.Name}" +
+                             (layer.Muted ? " · muted" : string.Empty)));
+            _materialPreview.SetMaterial(
+                _materialSession.Graph,
+                compilation);
+            _feedback.SetStatus(
+                $"Material override updated · {args.ParameterId}");
+        }
+        catch (Exception exception)
+        {
+            _feedback.FlashError($"Material control rejected · {exception.Message}");
+        }
+    }
+
+    private void OnMaterialResetRequested(object? sender, string parameterId)
+    {
+        if (_materialSession is null)
+        {
+            return;
+        }
+
+        _materialSession = _materialSession.ResetOverride(parameterId);
+        _materialInspector.SetMaterial(
+            _materialSession.Graph,
+            _materialSession.Instance);
+        _instance.SetInstance(
+            _materialSession.Graph,
+            _materialSession.Instance);
+        var compilation = _materialSession.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true));
+        SetRecipe(_materialSession.ResolvedRecipe);
+        _stack.SetItems(
+            _materialSession.Graph.Layers.Select(
+                layer => $"{layer.Order:00} · {layer.Name}" +
+                         (layer.Muted ? " · muted" : string.Empty)));
+        _materialPreview.SetMaterial(
+            _materialSession.Graph,
+            compilation);
+        _feedback.SetStatus($"Material override reset · {parameterId}");
+    }
+
+    private void OnAssetParameterChanged(
+        object? sender,
+        AssetStudioAssetParameterChangedEventArgs args)
+    {
+        if (_assetSession is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _assetSession = _assetSession.Apply(
+                new SetAssetParameterCommand(
+                    args.ParameterId,
+                    args.Value));
+            _assetInspector.SetAsset(
+                _assetSession.Asset,
+                _assetSession.Instance);
+            var compilation = _assetSession.Compile(
+                new VisualCompileOptions(
+                    registry: _registry,
+                    strict: true));
+            SetRecipe(_assetSession.ResolvedRecipe);
+            SetCompilation(compilation);
+            _feedback.SetStatus(
+                $"Asset override updated · {args.ParameterId}");
+        }
+        catch (Exception exception)
+        {
+            _feedback.FlashError(
+                $"Asset control rejected · {exception.Message}");
+        }
+    }
+
+    private void OnAssetResetRequested(object? sender, string parameterId)
+    {
+        if (_assetSession is null)
+        {
+            return;
+        }
+
+        _assetSession = _assetSession.Apply(
+            new ResetAssetParameterCommand(parameterId));
+        _assetInspector.SetAsset(
+            _assetSession.Asset,
+            _assetSession.Instance);
+        var compilation = _assetSession.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true));
+        SetRecipe(_assetSession.ResolvedRecipe);
+        SetCompilation(compilation);
+        _feedback.SetStatus($"Asset override reset · {parameterId}");
+    }
+
+    private void RefreshMaterialPreview()
+    {
+        if (_materialSession is null)
+        {
+            _materialPreview.SetMaterial(null);
+            return;
+        }
+
+        _materialPreview.SetMaterial(
+            _materialSession.Graph,
+            _materialSession.Compile(
+                new VisualCompileOptions(
+                    registry: _registry,
+                    strict: true)));
     }
 
     private void BindCommandBar()

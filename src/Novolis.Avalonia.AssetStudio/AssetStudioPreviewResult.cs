@@ -7,7 +7,8 @@ public sealed record AssetStudioPreviewResult(
     string Backend,
     string Status,
     bool IsStale = false,
-    string? Details = null)
+    string? Details = null,
+    byte[]? PngBytes = null)
 {
     /// <summary>Accessible summary shown in the preview panel.</summary>
     public string DisplayText

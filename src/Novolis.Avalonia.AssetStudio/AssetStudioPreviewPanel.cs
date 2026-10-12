@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Novolis.AssetStudio.Core;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
@@ -16,6 +17,7 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class AssetStudioPreviewPanel : AssetStudioPanel
 {
     private readonly TextBlock _status;
+    private readonly Image _image;
     private CancellationTokenSource? _requestCancellation;
     private long _requestVersion;
     private AssetStudioPreviewResult? _lastResult;
@@ -23,10 +25,11 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
     public AssetStudioPreviewPanel(IAssetStudioPreviewService? previewService = null)
         : base(
             "Preview",
-            CreateContent(out var status),
+            CreateContent(out var status, out var image),
             "assetstudio.panel.preview")
     {
         _status = status;
+        _image = image;
         PreviewService = previewService;
         SetUnavailable();
     }
@@ -66,8 +69,24 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
                 return;
             }
 
+            var previous = _lastResult;
             _lastResult = result;
             _status.Text = result.DisplayText;
+            if (result.PngBytes is { Length: > 0 } png)
+            {
+                using var stream = new MemoryStream(png, writable: false);
+                _image.Source = new Bitmap(stream);
+                _image.IsVisible = true;
+            }
+            else if (previous?.PngBytes is not { Length: > 0 })
+            {
+                _image.Source = null;
+                _image.IsVisible = false;
+            }
+            else
+            {
+                _status.Text += " · last valid frame retained";
+            }
         }
         catch (OperationCanceledException) when (requestToken.IsCancellationRequested)
         {
@@ -89,9 +108,13 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
     public void SetUnavailable()
     {
         _status.Text = "Preview service unavailable · editor remains offline-capable.";
+        _image.Source = null;
+        _image.IsVisible = false;
     }
 
-    private static Control CreateContent(out TextBlock status)
+    private static Control CreateContent(
+        out TextBlock status,
+        out Image image)
     {
         status = new TextBlock
         {
@@ -99,6 +122,18 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             MinHeight = 120,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        image = new Image
+        {
+            Stretch = global::Avalonia.Media.Stretch.Uniform,
+            MaxHeight = 180,
+            IsVisible = false,
+        };
+        image.SetValue(
+            AutomationProperties.NameProperty,
+            "Asset Studio rendered preview");
+        image.SetValue(
+            AutomationProperties.AutomationIdProperty,
+            "assetstudio.preview.image");
         status.SetValue(
             AutomationProperties.NameProperty,
             "Asset Studio preview status");
@@ -112,7 +147,11 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
         return new Border
         {
             Padding = new Thickness(8),
-            Child = status,
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children = { image, status },
+            },
         };
     }
 }

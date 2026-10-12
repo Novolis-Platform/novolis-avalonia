@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using Novolis.AssetStudio.Core;
+using Novolis.Visual.Baking;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Definitions;
 using Novolis.Visual.Evaluation;
@@ -11,6 +13,8 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
 {
     private readonly VisualNodeRegistry _registry;
+    private readonly ConcurrentDictionary<string, AssetStudioPreviewResult> _cache =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a CPU preview service using the supplied node registry.
@@ -27,6 +31,11 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
     {
         ArgumentNullException.ThrowIfNull(document);
         cancellationToken.ThrowIfCancellationRequested();
+        var cacheKey = document.Fingerprint + "|cpu|192x128|surface";
+        if (_cache.TryGetValue(cacheKey, out var cached))
+        {
+            return Task.FromResult(cached);
+        }
 
         var ir = VisualCompiler.Compile(
             document.Recipe,
@@ -35,11 +44,11 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
                 strict: true));
         if (!ir.Success)
         {
-            return Task.FromResult(
-                new AssetStudioPreviewResult(
+            var failed = new AssetStudioPreviewResult(
                     "CPU reference",
                     "Needs attention",
-                    Details: FormatDiagnostics(ir.Diagnostics)));
+                    Details: FormatDiagnostics(ir.Diagnostics));
+            return Task.FromResult(failed);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,14 +58,36 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
             {
                 IncludeTrace = true,
             });
+        var bake = evaluation.Success
+            ? new VisualBaker().Bake(
+                ir,
+                new VisualBakeOptions
+                {
+                    Width = 192,
+                    Height = 128,
+                    Target = VisualBakeTarget.SurfaceColor,
+                })
+            : null;
         var details = evaluation.Success
             ? $"{FormatOutputs(evaluation.Outputs)} · {evaluation.Trace.Length} node(s) evaluated"
             : FormatDiagnostics(evaluation.Diagnostics);
-        return Task.FromResult(
-            new AssetStudioPreviewResult(
+        var result = new AssetStudioPreviewResult(
                 "CPU reference",
                 evaluation.Success ? "Ready" : "Needs attention",
-                Details: details));
+                Details: details,
+                PngBytes: bake?.PngBytes);
+        if (evaluation.Success)
+        {
+            _cache[cacheKey] = result;
+            while (_cache.Count > 32 &&
+                   _cache.Keys.Order(StringComparer.Ordinal).FirstOrDefault()
+                       is { } oldest)
+            {
+                _cache.TryRemove(oldest, out _);
+            }
+        }
+
+        return Task.FromResult(result);
     }
 
     private static string FormatOutputs(
@@ -80,6 +111,7 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
             IntegerValue integer => integer.Value.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             BooleanValue boolean => boolean.Value ? "true" : "false",
+            TextValue text => text.Value,
             ColorValue color =>
                 $"rgba({color.Red:0.##}, {color.Green:0.##}, {color.Blue:0.##}, {color.Alpha:0.##})",
             VectorValue vector => $"({string.Join(", ", vector.Components.Select(
