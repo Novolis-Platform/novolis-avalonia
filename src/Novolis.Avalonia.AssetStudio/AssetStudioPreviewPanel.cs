@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Novolis.AssetStudio.Core;
+using Novolis.Visual.Assets;
 using Novolis.Visual.Compile;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
@@ -128,6 +129,34 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             "CPU material viewport",
             "Ready",
             Details: $"{materialName} · lit reference sphere",
+            PngBytes: png);
+        _status.Text = _lastResult.DisplayText;
+        SetImage(png);
+    }
+
+    /// <summary>Shows the assembled no-code asset in the secondary preview tab.</summary>
+    public void SetAssetPreview(
+        VisualIR compilation,
+        AssetRecipe asset,
+        AssetInstance? instance = null)
+    {
+        ArgumentNullException.ThrowIfNull(compilation);
+        ArgumentNullException.ThrowIfNull(asset);
+        if (!compilation.Success)
+        {
+            return;
+        }
+
+        var png = AssetStudioMaterialPreviewRenderer.RenderAsset(
+            compilation,
+            asset,
+            instance,
+            width: 360,
+            height: 260);
+        _lastResult = new AssetStudioPreviewResult(
+            "CPU asset viewport",
+            "Ready",
+            Details: $"{asset.DisplayName} · assembled reference",
             PngBytes: png);
         _status.Text = _lastResult.DisplayText;
         SetImage(png);

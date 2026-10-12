@@ -339,9 +339,7 @@ public sealed class AssetStudioEditorSurface : UserControl
         _instance.SetInstance(
             _materialSession?.Graph,
             _materialSession?.Instance);
-        _materialPreview.SetMaterial(
-            _materialSession?.Graph,
-            _activeMaterialCompilation);
+        SetMaterialPreviewSurface();
         _primaryTabs.SelectedIndex = 0;
         _contextTabs.SelectedIndex = 0;
         SetCompilation(_assetSession.Compile(
@@ -439,9 +437,19 @@ public sealed class AssetStudioEditorSurface : UserControl
         await _preview.RefreshAsync(Document, cancellationToken);
         if (_activeMaterialCompilation is { Success: true } material)
         {
-            _preview.SetMaterialPreview(
-                material,
-                _materialSession?.Graph.DisplayName ?? "Material");
+            if (_assetSession is { } assetSession)
+            {
+                _preview.SetAssetPreview(
+                    material,
+                    assetSession.Asset,
+                    assetSession.Instance);
+            }
+            else
+            {
+                _preview.SetMaterialPreview(
+                    material,
+                    _materialSession?.Graph.DisplayName ?? "Material");
+            }
         }
     }
 
@@ -521,9 +529,7 @@ public sealed class AssetStudioEditorSurface : UserControl
                 _materialSession.Graph.Layers.Select(
                     layer => $"{layer.Order:00} · {layer.Name}" +
                              (layer.Muted ? " · muted" : string.Empty)));
-            _materialPreview.SetMaterial(
-                _materialSession.Graph,
-                compilation);
+            SetMaterialPreviewSurface();
             _feedback.SetStatus(
                 $"Material override updated · {args.ParameterId}");
         }
@@ -557,9 +563,7 @@ public sealed class AssetStudioEditorSurface : UserControl
             _materialSession.Graph.Layers.Select(
                 layer => $"{layer.Order:00} · {layer.Name}" +
                          (layer.Muted ? " · muted" : string.Empty)));
-        _materialPreview.SetMaterial(
-            _materialSession.Graph,
-            compilation);
+        SetMaterialPreviewSurface();
         _feedback.SetStatus($"Material override reset · {parameterId}");
     }
 
@@ -587,6 +591,7 @@ public sealed class AssetStudioEditorSurface : UserControl
                     strict: true));
             SetRecipe(_assetSession.ResolvedRecipe);
             SetCompilation(compilation);
+            SetMaterialPreviewSurface();
             _feedback.SetStatus(
                 $"Asset override updated · {args.ParameterId}");
         }
@@ -615,6 +620,7 @@ public sealed class AssetStudioEditorSurface : UserControl
                 strict: true));
         SetRecipe(_assetSession.ResolvedRecipe);
         SetCompilation(compilation);
+        SetMaterialPreviewSurface();
         _feedback.SetStatus($"Asset override reset · {parameterId}");
     }
 
@@ -626,9 +632,35 @@ public sealed class AssetStudioEditorSurface : UserControl
             return;
         }
 
-        _materialPreview.SetMaterial(
-            _materialSession.Graph,
-            _activeMaterialCompilation);
+        _activeMaterialCompilation = _materialSession.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true));
+        SetMaterialPreviewSurface();
+    }
+
+    private void SetMaterialPreviewSurface()
+    {
+        if (_materialSession is null)
+        {
+            _materialPreview.SetMaterial(null);
+            return;
+        }
+
+        if (_assetSession is { } assetSession)
+        {
+            _materialPreview.SetAsset(
+                assetSession.Asset,
+                assetSession.Instance,
+                _materialSession.Graph,
+                _activeMaterialCompilation);
+        }
+        else
+        {
+            _materialPreview.SetMaterial(
+                _materialSession.Graph,
+                _activeMaterialCompilation);
+        }
     }
 
     private static Control CreateContextPage(params Control[] controls)

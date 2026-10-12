@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Novolis.Visual.Assets;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Materials;
 using Novolis.Avalonia.GraphicalProfile;
@@ -21,6 +22,8 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
     private readonly Image _image;
     private readonly ComboBox _shape;
     private readonly ComboBox _target;
+    private AssetRecipe? _asset;
+    private AssetInstance? _assetInstance;
 
     public AssetStudioMaterialPreviewPanel()
         : base(
@@ -48,6 +51,30 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         MaterialGraph? graph,
         VisualIR? compilation = null)
     {
+        _asset = null;
+        _assetInstance = null;
+        SetPreview(graph, compilation);
+    }
+
+    /// <summary>
+    /// Shows an assembled no-code asset in the viewport while retaining the
+    /// selected material as its active surface.
+    /// </summary>
+    public void SetAsset(
+        AssetRecipe? asset,
+        AssetInstance? instance,
+        MaterialGraph? graph,
+        VisualIR? compilation = null)
+    {
+        _asset = asset;
+        _assetInstance = instance;
+        SetPreview(graph, compilation);
+    }
+
+    private void SetPreview(
+        MaterialGraph? graph,
+        VisualIR? compilation)
+    {
         if (graph is null)
         {
             _summary.Text = "Select a material to preview it on a sphere, strip, or asset.";
@@ -70,17 +97,26 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         _summary.Text =
             $"{graph.DisplayName} · {target} · {status}\n" +
             $"Channels: {channels}\n" +
-            "Preview shape: " +
-            (_shape.SelectedItem?.ToString() ?? "Material Sphere");
+            (_asset is null
+                ? "Preview shape: " +
+                  (_shape.SelectedItem?.ToString() ?? "Material Sphere")
+                : $"Asset viewport: {_asset.DisplayName}");
         if (compilation is { Success: true })
         {
             try
             {
-                var png = AssetStudioMaterialPreviewRenderer.Render(
-                    compilation,
-                    _shape.SelectedItem?.ToString() ?? "Material Sphere",
-                    width: 360,
-                    height: 260);
+                var png = _asset is null
+                    ? AssetStudioMaterialPreviewRenderer.Render(
+                        compilation,
+                        _shape.SelectedItem?.ToString() ?? "Material Sphere",
+                        width: 360,
+                        height: 260)
+                    : AssetStudioMaterialPreviewRenderer.RenderAsset(
+                        compilation,
+                        _asset,
+                        _assetInstance,
+                        width: 360,
+                        height: 260);
                 using var stream = new MemoryStream(
                     png,
                     writable: false);
