@@ -17,3 +17,10 @@ without a GPU or a preview service.
 ```powershell
 dotnet add package Novolis.Avalonia.AssetStudio
 ```
+
+## Quick start
+
+Create an `AssetStudioEditorSurface` in an Avalonia view and provide the
+authoring registry plus document session from the host application. The
+surface exposes graph, source, diagnostics, and preview tabs without
+requiring a XAML view definition.
