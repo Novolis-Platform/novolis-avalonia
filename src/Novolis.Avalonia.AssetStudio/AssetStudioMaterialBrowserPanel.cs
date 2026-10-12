@@ -119,7 +119,14 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
                                 node.TypeId,
                                 node.DisplayName,
                                 node.Editor.Description ?? node.Category.ToString())))
-            .OrderBy(entry => entry.Kind, StringComparer.Ordinal)
+            .OrderBy(entry => entry.Kind switch
+            {
+                "Template" => 0,
+                "Asset" => 1,
+                "Material" => 2,
+                "Node" => 3,
+                _ => 4,
+            })
             .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _items.ItemsSource = _entries;

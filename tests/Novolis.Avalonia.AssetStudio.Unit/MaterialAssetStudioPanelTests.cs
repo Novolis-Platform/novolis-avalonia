@@ -1,4 +1,6 @@
+using Novolis.AssetStudio.Core;
 using Novolis.Avalonia.AssetStudio;
+using Novolis.Visual.Compile;
 using Novolis.Visual.Presets;
 
 namespace Novolis.Avalonia.AssetStudio.Unit;
@@ -38,4 +40,29 @@ public sealed class MaterialAssetStudioPanelTests
                 inspector.Instance!.Resolve("sign.text").Kind)
             .IsEqualTo(Novolis.Visual.Definitions.VisualValueKind.Text);
     }
+
+    [Test]
+    public async Task Material_preview_returns_lit_reference_bytes()
+    {
+        var material = VisualPresetCatalog.CreateDefault()
+            .Find("lightsaber-blade")!
+            .Materials
+            .Single();
+        var compilation = VisualCompiler.Compile(
+            material.Recipe,
+            new VisualCompileOptions(
+                registry: VisualCompiler.CreateDefaultRegistry(),
+                strict: true));
+        var service = new CpuAssetStudioPreviewService(
+            VisualCompiler.CreateDefaultRegistry());
+
+        var result = await service.RequestAsync(
+            new AssetStudioSemanticState(material.Recipe));
+
+        await Assert.That(compilation.Success).IsTrue();
+        await Assert.That(result.Status).IsEqualTo("Ready");
+        await Assert.That(result.PngBytes).IsNotNull();
+        await Assert.That(result.PngBytes!.Length).IsGreaterThan(100);
+    }
+
 }

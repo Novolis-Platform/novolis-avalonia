@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Novolis.AssetStudio.Core;
+using Novolis.Visual.Compile;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
@@ -74,9 +75,7 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             _status.Text = result.DisplayText;
             if (result.PngBytes is { Length: > 0 } png)
             {
-                using var stream = new MemoryStream(png, writable: false);
-                _image.Source = new Bitmap(stream);
-                _image.IsVisible = true;
+                SetImage(png);
             }
             else if (previous?.PngBytes is not { Length: > 0 })
             {
@@ -104,12 +103,49 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
         }
     }
 
+    /// <summary>
+    /// Shows the material-first viewport result in the secondary preview
+    /// surface as well, keeping the status tab useful without a graphics
+    /// backend.
+    /// </summary>
+    public void SetMaterialPreview(
+        VisualIR compilation,
+        string materialName)
+    {
+        ArgumentNullException.ThrowIfNull(compilation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(materialName);
+        if (!compilation.Success)
+        {
+            return;
+        }
+
+        var png = AssetStudioMaterialPreviewRenderer.Render(
+            compilation,
+            "Material Sphere",
+            width: 360,
+            height: 260);
+        _lastResult = new AssetStudioPreviewResult(
+            "CPU material viewport",
+            "Ready",
+            Details: $"{materialName} · lit reference sphere",
+            PngBytes: png);
+        _status.Text = _lastResult.DisplayText;
+        SetImage(png);
+    }
+
     /// <summary>Shows the explicit no-adapter state.</summary>
     public void SetUnavailable()
     {
         _status.Text = "Preview service unavailable · editor remains offline-capable.";
         _image.Source = null;
         _image.IsVisible = false;
+    }
+
+    private void SetImage(byte[] png)
+    {
+        using var stream = new MemoryStream(png, writable: false);
+        _image.Source = new Bitmap(stream);
+        _image.IsVisible = true;
     }
 
     private static Control CreateContent(

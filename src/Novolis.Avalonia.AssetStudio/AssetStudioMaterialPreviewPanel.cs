@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Novolis.Visual.Baking;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Materials;
 using Novolis.Avalonia.GraphicalProfile;
@@ -39,6 +38,12 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
 
     public ComboBox TargetSelector => _target;
 
+    /// <summary>Rendered image control shown in the primary viewport.</summary>
+    public Image PreviewImage => _image;
+
+    /// <summary>Current human-readable preview status.</summary>
+    public string Summary => _summary.Text ?? string.Empty;
+
     public void SetMaterial(
         MaterialGraph? graph,
         VisualIR? compilation = null)
@@ -71,16 +76,13 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         {
             try
             {
-                var baked = new VisualBaker().Bake(
+                var png = AssetStudioMaterialPreviewRenderer.Render(
                     compilation,
-                    new VisualBakeOptions
-                    {
-                        Height = 96,
-                        Target = VisualBakeTarget.SurfaceColor,
-                        Width = 240,
-                    });
+                    _shape.SelectedItem?.ToString() ?? "Material Sphere",
+                    width: 360,
+                    height: 260);
                 using var stream = new MemoryStream(
-                    baked.PngBytes,
+                    png,
                     writable: false);
                 _image.Source = new Bitmap(stream);
                 _image.IsVisible = true;
@@ -146,7 +148,8 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         image = new Image
         {
             Stretch = global::Avalonia.Media.Stretch.Uniform,
-            MaxHeight = 120,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
             IsVisible = false,
         };
         image.SetValue(
@@ -175,13 +178,29 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
                 Profile.MutedResourceKey);
         }
 
+        var viewport = new Border
+        {
+            Height = 300,
+            Padding = new Thickness(8),
+            Child = image,
+        };
+        ProfileBinding.Bind(
+            viewport,
+            Border.BackgroundProperty,
+            Profile.RaisedResourceKey);
+        ProfileBinding.Bind(
+            viewport,
+            Border.BorderBrushProperty,
+            Profile.BorderResourceKey);
+        viewport.BorderThickness = new Thickness(1);
+
         return new StackPanel
         {
             Spacing = 8,
             Children =
             {
                 selectors,
-                image,
+                viewport,
                 new Border
                 {
                     Padding = new Thickness(12),

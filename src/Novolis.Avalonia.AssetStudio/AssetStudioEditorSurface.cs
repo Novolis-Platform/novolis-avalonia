@@ -41,8 +41,11 @@ public sealed class AssetStudioEditorSurface : UserControl
     private readonly StudioChrome _chrome;
     private readonly StudioFeedback _feedback;
     private readonly AuthoringWorkspace _workspace;
+    private readonly TabControl _primaryTabs;
+    private readonly TabControl _contextTabs;
     private AssetStudioMaterialSession? _materialSession;
     private AssetStudioAssetSession? _assetSession;
+    private VisualIR? _activeMaterialCompilation;
 
     public AssetStudioEditorSurface(
         VisualRecipe? recipe = null,
@@ -101,27 +104,62 @@ public sealed class AssetStudioEditorSurface : UserControl
             {
                 _browser,
                 _templates,
-                _stack,
             },
         };
-        var context = new ScrollViewer
-        {
-            Content = new StackPanel
+
+        _primaryTabs = new TabControl();
+        _primaryTabs.Items.Add(
+            new TabItem
             {
-                Spacing = 8,
-                Children =
-                {
-                    _materialPreview,
+                Header = "Viewport",
+                Content = _materialPreview,
+            });
+        _primaryTabs.Items.Add(
+            new TabItem
+            {
+                Header = "Graph",
+                Content = _graph,
+            });
+        _primaryTabs.SetValue(
+            global::Avalonia.Automation.AutomationProperties.NameProperty,
+            "Asset Studio primary workspace");
+        _primaryTabs.SetValue(
+            global::Avalonia.Automation.AutomationProperties.AutomationIdProperty,
+            "assetstudio.primary.tabs");
+
+        _contextTabs = new TabControl();
+        _contextTabs.Items.Add(
+            new TabItem
+            {
+                Header = "Controls",
+                Content = CreateContextPage(
                     _materialInspector,
                     _assetInspector,
-                    _instance,
-                    _capabilities,
-                    _source,
+                    _instance),
+            });
+        _contextTabs.Items.Add(
+            new TabItem
+            {
+                Header = "Layers",
+                Content = CreateContextPage(
+                    _stack,
+                    _capabilities),
+            });
+        _contextTabs.Items.Add(
+            new TabItem
+            {
+                Header = "Build",
+                Content = CreateContextPage(
                     _preview,
                     _diagnostics,
-                },
-            },
-        };
+                    _source),
+            });
+        _contextTabs.SetValue(
+            global::Avalonia.Automation.AutomationProperties.NameProperty,
+            "Asset Studio context workspace");
+        _contextTabs.SetValue(
+            global::Avalonia.Automation.AutomationProperties.AutomationIdProperty,
+            "assetstudio.context.tabs");
 
         var status = new Border
         {
@@ -147,8 +185,8 @@ public sealed class AssetStudioEditorSurface : UserControl
 
         _workspace = new AuthoringWorkspace(
             nav: nav,
-            primary: _graph,
-            context: context,
+            primary: _primaryTabs,
+            context: _contextTabs,
             topBar: new StackPanel
             {
                 Children = { _actionBar, _commandBar },
@@ -156,7 +194,7 @@ public sealed class AssetStudioEditorSurface : UserControl
             statusBar: status)
         {
             NavWidth = 280,
-            ContextWidth = 390,
+            ContextWidth = 430,
             NarrowWidthThreshold = 940,
         };
 
@@ -205,6 +243,12 @@ public sealed class AssetStudioEditorSurface : UserControl
 
     /// <summary>Adaptive Layout workspace hosting all editor regions.</summary>
     public AuthoringWorkspace Workspace => _workspace;
+
+    /// <summary>Viewport-first primary tabs; graph remains available as an advanced view.</summary>
+    public TabControl PrimaryTabs => _primaryTabs;
+
+    /// <summary>Persistent right-hand controls, layers, and build tabs.</summary>
+    public TabControl ContextTabs => _contextTabs;
 
     /// <summary>Graph and accessible ordered node/port surface.</summary>
     public AssetStudioGraphPanel Graph => _graph;
@@ -271,6 +315,7 @@ public sealed class AssetStudioEditorSurface : UserControl
     public void SetAssetTemplate(VisualPresetTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);
+        _activeMaterialCompilation = null;
         SetRecipe(template.Asset.Graph);
         _assetSession = new AssetStudioAssetSession(template.Asset);
         _assetInspector.SetAsset(
@@ -279,6 +324,10 @@ public sealed class AssetStudioEditorSurface : UserControl
         _materialSession = template.Materials.FirstOrDefault() is { } material
             ? new AssetStudioMaterialSession(material)
             : null;
+        _activeMaterialCompilation = _materialSession?.Compile(
+            new VisualCompileOptions(
+                registry: _registry,
+                strict: true));
         _materialInspector.SetMaterial(
             _materialSession?.Graph,
             _materialSession?.Instance);
@@ -292,10 +341,9 @@ public sealed class AssetStudioEditorSurface : UserControl
             _materialSession?.Instance);
         _materialPreview.SetMaterial(
             _materialSession?.Graph,
-            _materialSession?.Compile(
-                new VisualCompileOptions(
-                    registry: _registry,
-                    strict: true)));
+            _activeMaterialCompilation);
+        _primaryTabs.SelectedIndex = 0;
+        _contextTabs.SelectedIndex = 0;
         SetCompilation(_assetSession.Compile(
             new VisualCompileOptions(
                 registry: _registry,
@@ -308,6 +356,7 @@ public sealed class AssetStudioEditorSurface : UserControl
     public void SetMaterial(MaterialGraph material)
     {
         ArgumentNullException.ThrowIfNull(material);
+        _activeMaterialCompilation = null;
         _assetSession = null;
         _assetInspector.SetAsset(null);
         _materialSession = new AssetStudioMaterialSession(material);
@@ -326,7 +375,10 @@ public sealed class AssetStudioEditorSurface : UserControl
             new VisualCompileOptions(
                 registry: _registry,
                 strict: true));
+        _activeMaterialCompilation = compilation;
         _materialPreview.SetMaterial(_materialSession.Graph, compilation);
+        _primaryTabs.SelectedIndex = 0;
+        _contextTabs.SelectedIndex = 0;
         SetCompilation(compilation);
     }
 
@@ -374,9 +426,24 @@ public sealed class AssetStudioEditorSurface : UserControl
 
     /// <summary>Requests an optional preview without requiring a graphics backend.</summary>
     public Task RefreshPreviewAsync(CancellationToken cancellationToken = default) =>
-        Document is null
-            ? Task.CompletedTask
-            : _preview.RefreshAsync(Document, cancellationToken);
+        RefreshPreviewCoreAsync(cancellationToken);
+
+    private async Task RefreshPreviewCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        if (Document is null)
+        {
+            return;
+        }
+
+        await _preview.RefreshAsync(Document, cancellationToken);
+        if (_activeMaterialCompilation is { Success: true } material)
+        {
+            _preview.SetMaterialPreview(
+                material,
+                _materialSession?.Graph.DisplayName ?? "Material");
+        }
+    }
 
     private void BindStudioChrome()
     {
@@ -448,6 +515,7 @@ public sealed class AssetStudioEditorSurface : UserControl
                 new VisualCompileOptions(
                     registry: _registry,
                     strict: true));
+            _activeMaterialCompilation = compilation;
             SetRecipe(_materialSession.ResolvedRecipe);
             _stack.SetItems(
                 _materialSession.Graph.Layers.Select(
@@ -483,6 +551,7 @@ public sealed class AssetStudioEditorSurface : UserControl
             new VisualCompileOptions(
                 registry: _registry,
                 strict: true));
+        _activeMaterialCompilation = compilation;
         SetRecipe(_materialSession.ResolvedRecipe);
         _stack.SetItems(
             _materialSession.Graph.Layers.Select(
@@ -559,10 +628,26 @@ public sealed class AssetStudioEditorSurface : UserControl
 
         _materialPreview.SetMaterial(
             _materialSession.Graph,
-            _materialSession.Compile(
-                new VisualCompileOptions(
-                    registry: _registry,
-                    strict: true)));
+            _activeMaterialCompilation);
+    }
+
+    private static Control CreateContextPage(params Control[] controls)
+    {
+        var stack = new StackPanel
+        {
+            Spacing = 8,
+        };
+        foreach (var control in controls)
+        {
+            stack.Children.Add(control);
+        }
+
+        return new ScrollViewer
+        {
+            Content = stack,
+            VerticalScrollBarVisibility =
+                global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        };
     }
 
     private void BindCommandBar()

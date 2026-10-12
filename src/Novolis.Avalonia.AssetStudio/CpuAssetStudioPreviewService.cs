@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using Novolis.AssetStudio.Core;
-using Novolis.Visual.Baking;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Definitions;
 using Novolis.Visual.Evaluation;
@@ -58,15 +57,19 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
             {
                 IncludeTrace = true,
             });
-        var bake = evaluation.Success
-            ? new VisualBaker().Bake(
-                ir,
-                new VisualBakeOptions
-                {
-                    Width = 192,
-                    Height = 128,
-                    Target = VisualBakeTarget.SurfaceColor,
-                })
+        var isMaterial = ir.Outputs.Any(
+            output => output.Contract.ValueKind == VisualValueKind.Material);
+        var png = evaluation.Success
+            ? isMaterial
+                ? AssetStudioMaterialPreviewRenderer.Render(
+                    ir,
+                    "Material Sphere",
+                    width: 360,
+                    height: 260)
+                : AssetStudioMaterialPreviewRenderer.RenderStudioPlaceholder(
+                    width: 360,
+                    height: 260,
+                    label: "Geometry output")
             : null;
         var details = evaluation.Success
             ? $"{FormatOutputs(evaluation.Outputs)} · {evaluation.Trace.Length} node(s) evaluated"
@@ -75,7 +78,7 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
                 "CPU reference",
                 evaluation.Success ? "Ready" : "Needs attention",
                 Details: details,
-                PngBytes: bake?.PngBytes);
+                PngBytes: png);
         if (evaluation.Success)
         {
             _cache[cacheKey] = result;
