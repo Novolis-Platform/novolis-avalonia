@@ -21,22 +21,26 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
 {
     private readonly TextBox _search;
+    private readonly ComboBox _scope;
     private readonly ListBox _items;
     private VisualNodeCatalog _nodes = VisualNodeCatalog.CreateDefault();
     private MaterialCatalog _materials = new();
     private IReadOnlyList<AssetRecipe> _assets = [];
     private VisualPresetCatalog _presets = VisualPresetCatalog.CreateDefault();
     private IReadOnlyList<AssetStudioBrowserEntry> _entries = [];
+    private IReadOnlyList<AssetStudioBrowserEntry> _recent = [];
 
     public AssetStudioMaterialBrowserPanel()
         : base(
             "Material and Asset Browser",
-            CreateContent(out var search, out var items),
+            CreateContent(out var search, out var scope, out var items),
             "assetstudio.panel.browser")
     {
         _search = search;
+        _scope = scope;
         _items = items;
         _search.TextChanged += (_, _) => Refresh();
+        _scope.SelectionChanged += (_, _) => Refresh();
         _items.SelectionChanged += (_, _) =>
         {
             if (_items.SelectedItem is AssetStudioBrowserEntry entry)
@@ -52,6 +56,15 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
     public ListBox ItemsControl => _items;
 
     public IReadOnlyList<AssetStudioBrowserEntry> Entries => _entries;
+
+    /// <summary>Recent modules/documents are supplied by the host session.</summary>
+    public void SetRecent(IEnumerable<AssetStudioBrowserEntry>? entries)
+    {
+        _recent = (entries ?? [])
+            .OrderBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Refresh();
+    }
 
     public void SetCatalogs(
         VisualNodeCatalog? nodes = null,
@@ -72,7 +85,7 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
     private void Refresh()
     {
         var query = _search.Text?.Trim();
-        _entries = _presets.Search(query)
+        var entries = _presets.Search(query)
             .Select(
                 preset =>
                     new AssetStudioBrowserEntry(
@@ -129,12 +142,31 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
             })
             .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        var scope = _scope.SelectedItem as string ?? "All";
+        _entries = entries
+            .Where(entry => scope switch
+            {
+                "Nodes" => entry.Kind == "Node",
+                "Materials" => entry.Kind == "Material",
+                "Assets" => entry.Kind == "Asset",
+                "Modules" => entry.Kind is "Material" or "Asset",
+                "Presets" => entry.Kind == "Template",
+                "Recent" => _recent.Contains(entry),
+                _ => true,
+            })
+            .Concat(
+                scope == "Recent"
+                    ? _recent
+                    : [])
+            .DistinctBy(entry => (entry.Kind, entry.Id))
+            .ToArray();
         _items.ItemsSource = _entries;
         _items.SelectedIndex = _entries.Count == 0 ? -1 : 0;
     }
 
     private static Control CreateContent(
         out TextBox search,
+        out ComboBox scope,
         out ListBox items)
     {
         search = new TextBox
@@ -160,6 +192,36 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
         search.SetValue(
             AutomationProperties.AutomationIdProperty,
             "assetstudio.browser.search");
+
+        scope = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                "All",
+                "Nodes",
+                "Materials",
+                "Assets",
+                "Modules",
+                "Recent",
+                "Presets",
+            },
+            SelectedIndex = 0,
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+        scope.SetValue(
+            AutomationProperties.NameProperty,
+            "Asset Studio browser scope");
+        scope.SetValue(
+            AutomationProperties.AutomationIdProperty,
+            "assetstudio.browser.scope");
+        ProfileBinding.Bind(
+            scope,
+            ComboBox.BackgroundProperty,
+            Profile.RaisedResourceKey);
+        ProfileBinding.Bind(
+            scope,
+            ComboBox.ForegroundProperty,
+            Profile.TextResourceKey);
 
         items = new ListBox
         {
@@ -203,11 +265,13 @@ public sealed class AssetStudioMaterialBrowserPanel : AssetStudioPanel
             supportsRecycling: true);
 
         DockPanel.SetDock(search, Dock.Top);
+        DockPanel.SetDock(scope, Dock.Top);
         return new DockPanel
         {
             Children =
             {
                 search,
+                scope,
                 new ScrollViewer
                 {
                     Content = items,

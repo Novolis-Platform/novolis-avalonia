@@ -1,4 +1,4 @@
-using Novolis.AssetStudio.Core;
+using Novolis.AssetStudio.Authoring;
 
 namespace Novolis.Avalonia.AssetStudio;
 
@@ -12,4 +12,14 @@ public interface IAssetStudioPreviewService
     Task<AssetStudioPreviewResult> RequestAsync(
         AssetStudioSemanticState document,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Requests a preview while preserving material or asset document context.
+    /// Existing adapters that only understand semantic recipes receive the
+    /// compatible projection.
+    /// </summary>
+    Task<AssetStudioPreviewResult> RequestAsync(
+        AssetStudioDocument document,
+        CancellationToken cancellationToken = default) =>
+        RequestAsync(document.Semantic, cancellationToken);
 }

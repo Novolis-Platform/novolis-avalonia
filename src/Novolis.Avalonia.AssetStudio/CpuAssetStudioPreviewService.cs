@@ -1,8 +1,9 @@
-using System.Collections.Concurrent;
-using Novolis.AssetStudio.Core;
+using Novolis.AssetStudio.Authoring;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Definitions;
 using Novolis.Visual.Evaluation;
+using Novolis.Visual.Assets;
+using Novolis.Visual.Materials;
 
 namespace Novolis.Avalonia.AssetStudio;
 
@@ -12,8 +13,7 @@ namespace Novolis.Avalonia.AssetStudio;
 public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
 {
     private readonly VisualNodeRegistry _registry;
-    private readonly ConcurrentDictionary<string, AssetStudioPreviewResult> _cache =
-        new(StringComparer.Ordinal);
+    private readonly AssetStudioPreviewCoordinator _coordinator;
 
     /// <summary>
     /// Creates a CPU preview service using the supplied node registry.
@@ -21,6 +21,8 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
     public CpuAssetStudioPreviewService(VisualNodeRegistry? registry = null)
     {
         _registry = registry ?? VisualNodeRegistry.CreateDefault();
+        _coordinator = new AssetStudioPreviewCoordinator(
+            [new CpuPathTraceTarget(this)]);
     }
 
     /// <inheritdoc />
@@ -29,25 +31,91 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
-        cancellationToken.ThrowIfCancellationRequested();
-        var cacheKey = document.Fingerprint + "|cpu|192x128|surface";
-        if (_cache.TryGetValue(cacheKey, out var cached))
-        {
-            return Task.FromResult(cached);
-        }
+        return RequestAsync(
+            AssetStudioDocument.Create(document.Recipe),
+            cancellationToken);
+    }
 
-        var ir = VisualCompiler.Compile(
-            document.Recipe,
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
+    /// <inheritdoc />
+    public Task<AssetStudioPreviewResult> RequestAsync(
+        AssetStudioDocument document,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        cancellationToken.ThrowIfCancellationRequested();
+        var request = new AssetStudioPreviewRequest(
+            document,
+            "cpu-pathtrace",
+            width: 360,
+            height: 260,
+            shape: document.Asset is null ? "Material Sphere" : "Selected Asset",
+            camera: "default-camera",
+            quality: "preview",
+            slotMaterialFingerprints: document.Asset?.MaterialSlots
+                .Select(slot => $"{slot.Id}:{slot.MaterialId}"));
+        return RequestCoreAsync(request, cancellationToken);
+    }
+
+    private async Task<AssetStudioPreviewResult> RequestCoreAsync(
+        AssetStudioPreviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var core = await _coordinator.RequestAsync(
+                request,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var details = core.Diagnostics.Length == 0
+            ? null
+            : string.Join(
+                " · ",
+                core.Diagnostics
+                    .Take(2)
+                    .Select(diagnostic => diagnostic.Message));
+        return new AssetStudioPreviewResult(
+            core.TargetId,
+            core.Success ? "Ready" : "Needs attention",
+            core.IsStale,
+            details,
+            core.Payload.ToArray());
+    }
+
+    private Novolis.AssetStudio.Authoring.AssetStudioPreviewResult Render(
+        AssetStudioPreviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var options = new VisualCompileOptions(
+            registry: _registry,
+            strict: true);
+        var ir = request.Compilation ?? request.Document.DocumentKind switch
+        {
+            AssetStudioDocumentKind.Material when request.Document.Material is { } material =>
+                VisualMaterialCompiler.CompileMaterial(
+                    material,
+                    request.Document.MaterialInstance,
+                    options),
+            AssetStudioDocumentKind.Asset when request.Document.Asset is { } asset =>
+                VisualMaterialCompiler.CompileAsset(
+                    asset,
+                    request.Document.AssetInstance,
+                    options),
+            _ => VisualCompiler.Compile(request.Document.Recipe, options),
+        };
+        var diagnostics = ir.Diagnostics
+            .Select(diagnostic => AssetStudioDiagnostic.From(
+                diagnostic,
+                request.Document.Revision))
+            .ToList();
         if (!ir.Success)
         {
-            var failed = new AssetStudioPreviewResult(
-                    "CPU reference",
-                    "Needs attention",
-                    Details: FormatDiagnostics(ir.Diagnostics));
-            return Task.FromResult(failed);
+            return new Novolis.AssetStudio.Authoring.AssetStudioPreviewResult(
+                request.TargetId,
+                request.Document.Revision,
+                success: false,
+                "application/json",
+                diagnostics: diagnostics,
+                semanticFingerprint: request.SemanticFingerprint,
+                kind: AssetStudioPreviewTargetKind.PathTrace);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -57,40 +125,44 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
             {
                 IncludeTrace = true,
             });
+        diagnostics.AddRange(
+            evaluation.Diagnostics.Select(diagnostic =>
+                AssetStudioDiagnostic.From(
+                    diagnostic,
+                    request.Document.Revision)));
         var isMaterial = ir.Outputs.Any(
             output => output.Contract.ValueKind == VisualValueKind.Material);
-        var png = evaluation.Success
-            ? isMaterial
-                ? AssetStudioMaterialPreviewRenderer.Render(
-                    ir,
-                    "Material Sphere",
-                    width: 360,
-                    height: 260)
-                : AssetStudioMaterialPreviewRenderer.RenderStudioPlaceholder(
-                    width: 360,
-                    height: 260,
-                    label: "Geometry output")
-            : null;
-        var details = evaluation.Success
-            ? $"{FormatOutputs(evaluation.Outputs)} · {evaluation.Trace.Length} node(s) evaluated"
-            : FormatDiagnostics(evaluation.Diagnostics);
-        var result = new AssetStudioPreviewResult(
-                "CPU reference",
-                evaluation.Success ? "Ready" : "Needs attention",
-                Details: details,
-                PngBytes: png);
+        byte[]? png = null;
         if (evaluation.Success)
         {
-            _cache[cacheKey] = result;
-            while (_cache.Count > 32 &&
-                   _cache.Keys.Order(StringComparer.Ordinal).FirstOrDefault()
-                       is { } oldest)
-            {
-                _cache.TryRemove(oldest, out _);
-            }
+            png = request.Document.Asset is { } assembledAsset
+                ? AssetStudioActualPreviewRenderer.RenderAsset(
+                    ir,
+                    assembledAsset,
+                    request.Document.AssetInstance,
+                    request.Width,
+                    request.Height)
+                : isMaterial
+                    ? AssetStudioActualPreviewRenderer.Render(
+                        ir,
+                        request.Shape,
+                        request.Width,
+                        request.Height)
+                    : AssetStudioActualPreviewRenderer.RenderGeometryPreview(
+                        request.Width,
+                        request.Height,
+                        "Geometry output");
         }
 
-        return Task.FromResult(result);
+        return new Novolis.AssetStudio.Authoring.AssetStudioPreviewResult(
+            request.TargetId,
+            request.Document.Revision,
+            evaluation.Success,
+            "image/png",
+            png,
+            diagnostics,
+            request.SemanticFingerprint,
+            AssetStudioPreviewTargetKind.PathTrace);
     }
 
     private static string FormatOutputs(
@@ -132,5 +204,33 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
         return values.Length == 0
             ? "no diagnostic details"
             : string.Join(" · ", values);
+    }
+
+    private sealed class CpuPathTraceTarget : IAssetStudioPreviewTarget
+    {
+        private readonly CpuAssetStudioPreviewService _owner;
+
+        public CpuPathTraceTarget(CpuAssetStudioPreviewService owner)
+        {
+            _owner = owner;
+        }
+
+        public string TargetId => "cpu-pathtrace";
+
+        public AssetStudioPreviewTargetKind Kind =>
+            AssetStudioPreviewTargetKind.PathTrace;
+
+        public AssetStudioPreviewTargetInfo Info =>
+            new(
+                TargetId,
+                Kind,
+                VisualCapabilityStatus.Exact,
+                "Deterministic CPU path tracing is available.");
+
+        public ValueTask<
+            Novolis.AssetStudio.Authoring.AssetStudioPreviewResult> PreviewAsync(
+            AssetStudioPreviewRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(_owner.Render(request, cancellationToken));
     }
 }

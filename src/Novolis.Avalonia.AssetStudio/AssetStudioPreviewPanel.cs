@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Novolis.AssetStudio.Core;
+using Novolis.AssetStudio.Authoring;
 using Novolis.Visual.Assets;
 using Novolis.Visual.Compile;
 using Novolis.Avalonia.GraphicalProfile;
@@ -45,6 +45,19 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
     /// <summary>Requests a preview when an adapter is available.</summary>
     public async Task RefreshAsync(
         AssetStudioSemanticState document,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        await RefreshAsync(
+            AssetStudioDocument.Create(document.Recipe),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Requests a preview while preserving material or asset context.
+    /// </summary>
+    public async Task RefreshAsync(
+        AssetStudioDocument document,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -120,7 +133,7 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             return;
         }
 
-        var png = AssetStudioMaterialPreviewRenderer.Render(
+        var png = AssetStudioActualPreviewRenderer.Render(
             compilation,
             "Material Sphere",
             width: 360,
@@ -147,7 +160,7 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             return;
         }
 
-        var png = AssetStudioMaterialPreviewRenderer.RenderAsset(
+        var png = AssetStudioActualPreviewRenderer.RenderAsset(
             compilation,
             asset,
             instance,

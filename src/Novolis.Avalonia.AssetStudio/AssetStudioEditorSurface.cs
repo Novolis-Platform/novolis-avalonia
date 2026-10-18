@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using System.Text.Json;
-using Novolis.AssetStudio.Core;
+using Novolis.AssetStudio.Authoring;
 using Novolis.Avalonia.GraphicalProfile;
 using Novolis.Avalonia.Layout;
 using Novolis.Avalonia.Studio;
@@ -11,6 +11,7 @@ using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Definitions;
+using Novolis.Visual.Assets;
 using Novolis.Visual.Materials;
 using Novolis.Visual.Presets;
 
@@ -30,6 +31,7 @@ public sealed class AssetStudioEditorSurface : UserControl
     private readonly AssetStudioStackPanel _stack;
     private readonly AssetStudioMaterialInspectorPanel _materialInspector;
     private readonly AssetStudioAssetInspectorPanel _assetInspector;
+    private readonly AssetStudioNodeInspectorPanel _nodeInspector;
     private readonly AssetStudioMaterialPreviewPanel _materialPreview;
     private readonly AssetStudioInstancePanel _instance;
     private readonly AssetStudioCapabilityStatusPanel _capabilities;
@@ -43,25 +45,32 @@ public sealed class AssetStudioEditorSurface : UserControl
     private readonly AuthoringWorkspace _workspace;
     private readonly TabControl _primaryTabs;
     private readonly TabControl _contextTabs;
-    private AssetStudioMaterialSession? _materialSession;
-    private AssetStudioAssetSession? _assetSession;
+    private readonly AssetStudioCatalog _catalog;
+    private AssetStudioAuthoringSession? _authoringSession;
     private VisualIR? _activeMaterialCompilation;
 
     public AssetStudioEditorSurface(
         VisualRecipe? recipe = null,
         VisualNodeRegistry? registry = null,
-        IAssetStudioPreviewService? previewService = null)
+        IAssetStudioPreviewService? previewService = null,
+        AssetStudioCatalog? catalog = null,
+        VisualPresetCatalog? presets = null)
     {
         _registry = registry ?? VisualCompiler.CreateDefaultRegistry();
-        _presets = VisualPresetCatalog.CreateDefault();
-        _materials = new MaterialCatalog(
+        _presets = presets ?? new VisualPresetCatalog([]);
+        _materials = catalog?.Materials ?? new MaterialCatalog(
             _presets.Templates.SelectMany(template => template.Materials));
+        _catalog = catalog ?? new AssetStudioCatalog(
+            VisualNodeCatalog.FromRegistry(_registry),
+            _materials,
+            _presets.Templates.Select(template => template.Asset));
         _browser = new AssetStudioMaterialBrowserPanel();
         _templates = new AssetStudioAssetTemplatePanel();
         _graph = new AssetStudioGraphPanel();
         _stack = new AssetStudioStackPanel();
         _materialInspector = new AssetStudioMaterialInspectorPanel();
         _assetInspector = new AssetStudioAssetInspectorPanel();
+        _nodeInspector = new AssetStudioNodeInspectorPanel();
         _materialPreview = new AssetStudioMaterialPreviewPanel();
         _instance = new AssetStudioInstancePanel();
         _capabilities = new AssetStudioCapabilityStatusPanel();
@@ -79,17 +88,22 @@ public sealed class AssetStudioEditorSurface : UserControl
                 new StudioCommandSubmittedEventArgs(args.Command));
 
         _browser.SetCatalogs(
-            VisualNodeCatalog.FromRegistry(_registry),
-            _materials,
+            _catalog.Nodes,
+            _catalog.Materials,
             _presets,
-            _presets.Templates.Select(template => template.Asset));
+            _catalog.Assets);
+        _templates.SetCatalog(_presets);
         _browser.EntrySelected += OnBrowserEntrySelected;
+        _graph.NodeActionRequested += OnGraphNodeActionRequested;
+        _graph.ConnectionRequested += OnGraphConnectionRequested;
         _templates.TemplateSelected += (_, template) =>
             SetAssetTemplate(template);
         _materialInspector.ParameterChanged += OnMaterialParameterChanged;
         _materialInspector.ResetRequested += OnMaterialResetRequested;
         _assetInspector.ParameterChanged += OnAssetParameterChanged;
         _assetInspector.ResetRequested += OnAssetResetRequested;
+        _assetInspector.MaterialSlotChanged += OnMaterialSlotChanged;
+        _nodeInspector.ValueChanged += OnNodeValueChanged;
         _materialPreview.ShapeSelector.SelectionChanged += (_, _) =>
             RefreshMaterialPreview();
         _materialPreview.TargetSelector.SelectionChanged += (_, _) =>
@@ -135,6 +149,7 @@ public sealed class AssetStudioEditorSurface : UserControl
                 Content = CreateContextPage(
                     _materialInspector,
                     _assetInspector,
+                    _nodeInspector,
                     _instance),
             });
         _contextTabs.Items.Add(
@@ -269,6 +284,9 @@ public sealed class AssetStudioEditorSurface : UserControl
     /// <summary>Friendly exposed asset parameter editor.</summary>
     public AssetStudioAssetInspectorPanel AssetInspector => _assetInspector;
 
+    /// <summary>Descriptor-driven graph node value editor.</summary>
+    public AssetStudioNodeInspectorPanel NodeInspector => _nodeInspector;
+
     /// <summary>Material preview-shape and target surface.</summary>
     public AssetStudioMaterialPreviewPanel MaterialPreview =>
         _materialPreview;
@@ -285,6 +303,17 @@ public sealed class AssetStudioEditorSurface : UserControl
     /// <summary>Current semantic document, when one has been loaded.</summary>
     public AssetStudioSemanticState? Document { get; private set; }
 
+    /// <summary>
+    /// The authoritative immutable authoring session projected by every
+    /// workspace surface.
+    /// </summary>
+    public AssetStudioAuthoringSession? AuthoringSession =>
+        _authoringSession;
+
+    /// <summary>The current document including material or asset context.</summary>
+    public AssetStudioDocument? CurrentDocument =>
+        _authoringSession?.Document;
+
     /// <summary>Raised when the shared command bar submits text.</summary>
     public event EventHandler<StudioCommandSubmittedEventArgs>? CommandSubmitted;
 
@@ -295,18 +324,75 @@ public sealed class AssetStudioEditorSurface : UserControl
     public void SetDocument(AssetStudioSemanticState document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        Document = document;
-        _graph.SetRecipe(document.Recipe, _registry);
+        LoadDocument(AssetStudioDocument.Create(document.Recipe));
+    }
+
+    /// <summary>Loads a complete material, asset, or plain recipe document.</summary>
+    public void SetDocument(AssetStudioDocument document) =>
+        LoadDocument(document ?? throw new ArgumentNullException(nameof(document)));
+
+    private void LoadDocument(AssetStudioDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        _authoringSession = AssetStudioAuthoringSession.Create(
+            document,
+            _catalog);
+        ProjectDocument(document);
+    }
+
+    private void ProjectDocument(AssetStudioDocument document)
+    {
+        Document = document.Semantic;
+        _graph.SetRecipe(document.Recipe, _catalog.Registry);
+        _nodeInspector.SetNode(
+            document.Recipe,
+            _graph.SelectedNodeId,
+            _catalog.Registry);
         _stack.SetItems(
             document.Recipe.Nodes
                 .OrderBy(node => node.Id)
                 .Select((node, index) => FormatStackItem(node, index + 1)));
         _source.SetSource(FormatSource(document.Recipe));
-        _diagnostics.SetDiagnostics(document.Recipe.Validate(_registry).Diagnostics);
+        _diagnostics.SetDiagnostics(
+            AssetStudioAuthoringValidator.Validate(
+                document,
+                _catalog.Registry).Items);
+        _assetInspector.SetAsset(
+            document.Asset,
+            document.AssetInstance,
+            _catalog.Materials.Materials);
+        _materialInspector.SetMaterial(
+            document.Material,
+            document.MaterialInstance);
+        if (document.Material is { } material)
+        {
+            _instance.SetInstance(
+                material,
+                document.MaterialInstance);
+        }
+        else if (document.Asset is { } asset)
+        {
+            _instance.SetAssetInstance(
+                asset,
+                document.AssetInstance);
+        }
+        else
+        {
+            _instance.SetInstance(null, null);
+        }
         _feedback.SetStatus(
             $"{document.Recipe.RecipeId} · revision {document.Revision} · " +
             $"{document.Recipe.Nodes.Length} node(s)");
-        _ = RefreshPreviewAsync();
+        _activeMaterialCompilation = CompileDocument(document);
+        if (_activeMaterialCompilation is { } compilation)
+        {
+            SetMaterialPreviewSurface();
+            SetCompilation(compilation);
+        }
+        else
+        {
+            _ = RefreshPreviewAsync();
+        }
     }
 
     /// <summary>
@@ -315,37 +401,7 @@ public sealed class AssetStudioEditorSurface : UserControl
     public void SetAssetTemplate(VisualPresetTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);
-        _activeMaterialCompilation = null;
-        SetRecipe(template.Asset.Graph);
-        _assetSession = new AssetStudioAssetSession(template.Asset);
-        _assetInspector.SetAsset(
-            _assetSession.Asset,
-            _assetSession.Instance);
-        _materialSession = template.Materials.FirstOrDefault() is { } material
-            ? new AssetStudioMaterialSession(material)
-            : null;
-        _activeMaterialCompilation = _materialSession?.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
-        _materialInspector.SetMaterial(
-            _materialSession?.Graph,
-            _materialSession?.Instance);
-        _stack.SetItems(
-            _materialSession?.Graph.Layers.Select(
-                layer => $"{layer.Order:00} · {layer.Name}" +
-                         (layer.Muted ? " · muted" : string.Empty))
-            ?? Array.Empty<string>());
-        _instance.SetInstance(
-            _materialSession?.Graph,
-            _materialSession?.Instance);
-        SetMaterialPreviewSurface();
-        _primaryTabs.SelectedIndex = 0;
-        _contextTabs.SelectedIndex = 0;
-        SetCompilation(_assetSession.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true)));
+        SetAsset(template.Asset);
         _feedback.SetStatus(
             $"{template.DisplayName} template loaded · no code required.");
     }
@@ -354,38 +410,32 @@ public sealed class AssetStudioEditorSurface : UserControl
     public void SetMaterial(MaterialGraph material)
     {
         ArgumentNullException.ThrowIfNull(material);
-        _activeMaterialCompilation = null;
-        _assetSession = null;
-        _assetInspector.SetAsset(null);
-        _materialSession = new AssetStudioMaterialSession(material);
-        SetRecipe(material.Recipe);
-        _materialInspector.SetMaterial(
-            _materialSession.Graph,
-            _materialSession.Instance);
-        _stack.SetItems(
-            material.Layers.Select(
-                layer => $"{layer.Order:00} · {layer.Name}" +
-                         (layer.Muted ? " · muted" : string.Empty)));
-        _instance.SetInstance(
-            _materialSession.Graph,
-            _materialSession.Instance);
-        var compilation = _materialSession.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
-        _activeMaterialCompilation = compilation;
-        _materialPreview.SetMaterial(_materialSession.Graph, compilation);
+        LoadDocument(AssetStudioDocument.CreateMaterial(material));
         _primaryTabs.SelectedIndex = 0;
         _contextTabs.SelectedIndex = 0;
-        SetCompilation(compilation);
+    }
+
+    /// <summary>Loads an assembled asset into the same authoritative session.</summary>
+    public void SetAsset(AssetRecipe asset)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        LoadDocument(AssetStudioDocument.CreateAsset(asset));
+        _primaryTabs.SelectedIndex = 0;
+        _contextTabs.SelectedIndex = 0;
     }
 
     /// <summary>Creates a new semantic revision from a recipe.</summary>
     public void SetRecipe(VisualRecipe recipe)
     {
         ArgumentNullException.ThrowIfNull(recipe);
-        var revision = Document is null ? 0 : Document.Revision + 1;
-        SetDocument(new AssetStudioSemanticState(recipe, revision));
+        if (_authoringSession is { } session)
+        {
+            LoadDocument(session.Document.WithRecipe(recipe));
+        }
+        else
+        {
+            SetDocument(new AssetStudioSemanticState(recipe));
+        }
     }
 
     /// <summary>Displays compiler output and its normalized diagnostics.</summary>
@@ -398,7 +448,9 @@ public sealed class AssetStudioEditorSurface : UserControl
         _feedback.SetStatus(
             $"{compilation.RecipeId} · {suffix} · " +
             $"{compilation.Nodes.Length} normalized node(s) · " +
-            $"fingerprint {compilation.Fingerprint[..Math.Min(12, compilation.Fingerprint.Length)]}");
+            $"fingerprint {compilation.Fingerprint[..global::System.Math.Min(
+                12,
+                compilation.Fingerprint.Length)]}");
         _ = RefreshPreviewAsync();
     }
 
@@ -409,7 +461,7 @@ public sealed class AssetStudioEditorSurface : UserControl
         {
             var recipe = VisualRecipeSerializer.Deserialize(
                 _source.Source,
-                _registry);
+                _catalog.Registry);
             SetRecipe(recipe);
             message = "Source applied.";
             return true;
@@ -426,31 +478,86 @@ public sealed class AssetStudioEditorSurface : UserControl
     public Task RefreshPreviewAsync(CancellationToken cancellationToken = default) =>
         RefreshPreviewCoreAsync(cancellationToken);
 
+    /// <summary>Undoes the most recent accepted authoring command.</summary>
+    public bool TryUndo()
+    {
+        if (_authoringSession is not { } session)
+        {
+            return false;
+        }
+
+        return ApplyAuthoringResult(session.Undo());
+    }
+
+    /// <summary>Redoes the most recently undone authoring command.</summary>
+    public bool TryRedo()
+    {
+        if (_authoringSession is not { } session)
+        {
+            return false;
+        }
+
+        return ApplyAuthoringResult(session.Redo());
+    }
+
+    /// <summary>Creates and applies an instance in the authoritative session.</summary>
+    public bool TryCreateInstance()
+    {
+        return _authoringSession is { } session &&
+               ApplyAuthoringResult(session.CreateInstance());
+    }
+
     private async Task RefreshPreviewCoreAsync(
         CancellationToken cancellationToken)
     {
-        if (Document is null)
+        if (_authoringSession is null || Document is null)
         {
             return;
         }
 
-        await _preview.RefreshAsync(Document, cancellationToken);
-        if (_activeMaterialCompilation is { Success: true } material)
+        await _preview.RefreshAsync(
+            _authoringSession.Document,
+            cancellationToken);
+        if (_activeMaterialCompilation is { Success: true } compilation &&
+            _authoringSession.Document is { } document)
         {
-            if (_assetSession is { } assetSession)
+            if (document.Asset is { } asset)
             {
                 _preview.SetAssetPreview(
-                    material,
-                    assetSession.Asset,
-                    assetSession.Instance);
+                    compilation,
+                    asset,
+                    _authoringSession.Document.AssetInstance);
             }
-            else
+            else if (document.Material is { } material)
             {
                 _preview.SetMaterialPreview(
-                    material,
-                    _materialSession?.Graph.DisplayName ?? "Material");
+                    compilation,
+                    material.DisplayName);
             }
         }
+    }
+
+    private VisualIR? CompileDocument(AssetStudioDocument document)
+    {
+        var options = new VisualCompileOptions(
+            registry: _catalog.Registry,
+            strict: true);
+        return document.DocumentKind switch
+        {
+            AssetStudioDocumentKind.Material when document.Material is { } material =>
+                VisualMaterialCompiler.CompileMaterial(
+                    material,
+                    document.MaterialInstance,
+                    options),
+            AssetStudioDocumentKind.Asset when document.Asset is { } asset =>
+                VisualMaterialCompiler.CompileAsset(
+                    asset,
+                    document.AssetInstance,
+                    options),
+            AssetStudioDocumentKind.Recipe =>
+                VisualCompiler.Compile(document.Recipe, options),
+            _ => null,
+        };
     }
 
     private void BindStudioChrome()
@@ -484,183 +591,237 @@ public sealed class AssetStudioEditorSurface : UserControl
             SetAssetTemplate(template);
         }
         else if (string.Equals(entry.Kind, "Asset", StringComparison.Ordinal) &&
-                 _presets.Templates.FirstOrDefault(
-                     candidate => string.Equals(
-                         candidate.Asset.AssetId,
-                         entry.Id,
-                         StringComparison.Ordinal)) is { } assetTemplate)
+                 _catalog.FindAsset(entry.Id) is { } asset)
         {
-            SetAssetTemplate(assetTemplate);
+            SetAsset(asset);
         }
         else if (string.Equals(entry.Kind, "Material", StringComparison.Ordinal) &&
                  _materials.Search(entry.Id).FirstOrDefault() is { } material)
         {
             SetMaterial(material);
         }
+        else if (string.Equals(entry.Kind, "Node", StringComparison.Ordinal) &&
+                 _authoringSession is { } session)
+        {
+            ApplyAuthoringResult(session.InsertNode(entry.Id));
+        }
+    }
+
+    private void OnGraphNodeActionRequested(
+        object? sender,
+        AssetStudioGraphNodeEventArgs args)
+    {
+        if (_authoringSession is not { } session)
+        {
+            return;
+        }
+
+        var result = args.Action switch
+        {
+            "delete" => session.RemoveNode(args.NodeId),
+            "duplicate" => session.DuplicateNode(args.NodeId),
+            _ => null,
+        };
+        if (args.Action is "select" or "inspect" or "inspect-port")
+        {
+            _nodeInspector.SetNode(
+                session.Document.Recipe,
+                args.NodeId,
+                _catalog.Registry);
+        }
+        if (result is not null)
+        {
+            ApplyAuthoringResult(result);
+        }
+    }
+
+    private void OnGraphConnectionRequested(
+        object? sender,
+        AssetStudioGraphConnectionEventArgs args)
+    {
+        if (_authoringSession is not { } session)
+        {
+            return;
+        }
+
+        ApplyAuthoringResult(
+            session.Connect(
+                args.Source.NodeId,
+                args.Source.PortId,
+                args.Target.NodeId,
+                args.Target.PortId));
+    }
+
+    private void OnNodeValueChanged(
+        object? sender,
+        AssetStudioNodeValueChangedEventArgs args)
+    {
+        if (_authoringSession is not { } session)
+        {
+            return;
+        }
+
+        ApplyAuthoringResult(
+            session.SetNodeValue(
+                args.NodeId,
+                args.ValueName,
+                args.Value));
     }
 
     private void OnMaterialParameterChanged(
         object? sender,
         AssetStudioMaterialParameterChangedEventArgs args)
     {
-        if (_materialSession is null)
+        if (_authoringSession is null ||
+            _authoringSession.Document.Material is null)
         {
             return;
         }
 
-        try
-        {
-            _materialSession = _materialSession.SetOverride(
+        var result = _authoringSession.Document.MaterialInstance is not null
+            ? _authoringSession.SetMaterialInstanceOverride(
+                args.ParameterId,
+                args.Value)
+            : _authoringSession.SetMaterialControl(
                 args.ParameterId,
                 args.Value);
-            _materialInspector.SetMaterial(
-                _materialSession.Graph,
-                _materialSession.Instance);
-            _instance.SetInstance(
-                _materialSession.Graph,
-                _materialSession.Instance);
-            var compilation = _materialSession.Compile(
-                new VisualCompileOptions(
-                    registry: _registry,
-                    strict: true));
-            _activeMaterialCompilation = compilation;
-            SetRecipe(_materialSession.ResolvedRecipe);
-            _stack.SetItems(
-                _materialSession.Graph.Layers.Select(
-                    layer => $"{layer.Order:00} · {layer.Name}" +
-                             (layer.Muted ? " · muted" : string.Empty)));
-            SetMaterialPreviewSurface();
-            _feedback.SetStatus(
-                $"Material override updated · {args.ParameterId}");
-        }
-        catch (Exception exception)
+        if (!ApplyAuthoringResult(result))
         {
-            _feedback.FlashError($"Material control rejected · {exception.Message}");
+            return;
         }
+
+        _feedback.SetStatus($"Material control updated · {args.ParameterId}");
     }
 
     private void OnMaterialResetRequested(object? sender, string parameterId)
     {
-        if (_materialSession is null)
+        if (_authoringSession?.Document.Material?.FindParameter(parameterId)
+            is not { } parameter)
         {
             return;
         }
 
-        _materialSession = _materialSession.ResetOverride(parameterId);
-        _materialInspector.SetMaterial(
-            _materialSession.Graph,
-            _materialSession.Instance);
-        _instance.SetInstance(
-            _materialSession.Graph,
-            _materialSession.Instance);
-        var compilation = _materialSession.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
-        _activeMaterialCompilation = compilation;
-        SetRecipe(_materialSession.ResolvedRecipe);
-        _stack.SetItems(
-            _materialSession.Graph.Layers.Select(
-                layer => $"{layer.Order:00} · {layer.Name}" +
-                         (layer.Muted ? " · muted" : string.Empty)));
-        SetMaterialPreviewSurface();
-        _feedback.SetStatus($"Material override reset · {parameterId}");
+        var result = _authoringSession.Document.MaterialInstance is not null
+            ? _authoringSession.ResetMaterialInstanceOverride(parameterId)
+            : _authoringSession.SetMaterialControl(
+                parameterId,
+                parameter.DefaultValue);
+        if (ApplyAuthoringResult(result))
+        {
+            _feedback.SetStatus($"Material control reset · {parameterId}");
+        }
     }
 
     private void OnAssetParameterChanged(
         object? sender,
         AssetStudioAssetParameterChangedEventArgs args)
     {
-        if (_assetSession is null)
+        if (_authoringSession?.Document.Asset is null)
         {
             return;
         }
 
-        try
+        var result = _authoringSession.Document.AssetInstance is not null
+            ? _authoringSession.SetAssetInstanceOverride(
+                args.ParameterId,
+                args.Value)
+            : _authoringSession.SetAssetControl(
+                args.ParameterId,
+                args.Value);
+        if (ApplyAuthoringResult(result))
         {
-            _assetSession = _assetSession.Apply(
-                new SetAssetParameterCommand(
-                    args.ParameterId,
-                    args.Value));
-            _assetInspector.SetAsset(
-                _assetSession.Asset,
-                _assetSession.Instance);
-            var compilation = _assetSession.Compile(
-                new VisualCompileOptions(
-                    registry: _registry,
-                    strict: true));
-            SetRecipe(_assetSession.ResolvedRecipe);
-            SetCompilation(compilation);
-            SetMaterialPreviewSurface();
             _feedback.SetStatus(
-                $"Asset override updated · {args.ParameterId}");
+                $"Asset control updated · {args.ParameterId}");
         }
-        catch (Exception exception)
+    }
+
+    private void OnMaterialSlotChanged(
+        object? sender,
+        AssetStudioMaterialSlotChangedEventArgs args)
+    {
+        if (_authoringSession is not { } session)
         {
-            _feedback.FlashError(
-                $"Asset control rejected · {exception.Message}");
+            return;
         }
+
+        ApplyAuthoringResult(
+            session.AssignMaterial(args.SlotId, args.MaterialId));
     }
 
     private void OnAssetResetRequested(object? sender, string parameterId)
     {
-        if (_assetSession is null)
+        if (_authoringSession?.Document.Asset?.FindParameter(parameterId)
+            is not { } parameter)
         {
             return;
         }
 
-        _assetSession = _assetSession.Apply(
-            new ResetAssetParameterCommand(parameterId));
-        _assetInspector.SetAsset(
-            _assetSession.Asset,
-            _assetSession.Instance);
-        var compilation = _assetSession.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
-        SetRecipe(_assetSession.ResolvedRecipe);
-        SetCompilation(compilation);
-        SetMaterialPreviewSurface();
-        _feedback.SetStatus($"Asset override reset · {parameterId}");
+        var result = _authoringSession.Document.AssetInstance is not null
+            ? _authoringSession.ResetAssetInstanceOverride(parameterId)
+            : _authoringSession.SetAssetControl(
+                parameterId,
+                parameter.DefaultValue);
+        if (ApplyAuthoringResult(result))
+        {
+            _feedback.SetStatus($"Asset control reset · {parameterId}");
+        }
     }
 
     private void RefreshMaterialPreview()
     {
-        if (_materialSession is null)
+        if (_authoringSession is null)
         {
             _materialPreview.SetMaterial(null);
             return;
         }
 
-        _activeMaterialCompilation = _materialSession.Compile(
-            new VisualCompileOptions(
-                registry: _registry,
-                strict: true));
+        _activeMaterialCompilation = CompileDocument(
+            _authoringSession.Document);
         SetMaterialPreviewSurface();
     }
 
     private void SetMaterialPreviewSurface()
     {
-        if (_materialSession is null)
+        if (_authoringSession?.Document is not { } document)
         {
             _materialPreview.SetMaterial(null);
             return;
         }
 
-        if (_assetSession is { } assetSession)
+        if (document.Asset is { } asset)
         {
             _materialPreview.SetAsset(
-                assetSession.Asset,
-                assetSession.Instance,
-                _materialSession.Graph,
+                asset,
+                document.AssetInstance,
+                document.Material,
+                _activeMaterialCompilation);
+        }
+        else if (document.Material is { } material)
+        {
+            _materialPreview.SetMaterial(
+                material,
                 _activeMaterialCompilation);
         }
         else
         {
-            _materialPreview.SetMaterial(
-                _materialSession.Graph,
-                _activeMaterialCompilation);
+            _materialPreview.SetMaterial(null);
         }
+    }
+
+    private bool ApplyAuthoringResult(AssetStudioAuthoringResult result)
+    {
+        if (!result.Succeeded)
+        {
+            var message = result.Diagnostics.Items.FirstOrDefault()?.Message
+                ?? "The authoring edit was rejected.";
+            _feedback.FlashError(message);
+            _diagnostics.SetDiagnostics(result.Diagnostics.Items);
+            return false;
+        }
+
+        _authoringSession = result.Session;
+        ProjectDocument(_authoringSession.Document);
+        return true;
     }
 
     private static Control CreateContextPage(params Control[] controls)

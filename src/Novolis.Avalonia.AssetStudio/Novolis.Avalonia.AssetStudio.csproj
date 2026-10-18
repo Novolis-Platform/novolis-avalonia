@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <LibraryReference Include="Novolis.AssetStudio.Core" />
+    <LibraryReference Include="Novolis.AssetStudio.Authoring" />
     <LibraryReference Include="Novolis.Visual.Definitions" />
     <LibraryReference Include="Novolis.Visual.Materials" />
     <LibraryReference Include="Novolis.Visual.Assets" />
@@ -19,6 +19,15 @@
     <LibraryReference Include="Novolis.Visual.Compile" />
     <LibraryReference Include="Novolis.Visual.Evaluation" />
     <LibraryReference Include="Novolis.Visual.Baking" />
+    <LibraryReference Include="Novolis.Visual.Adapters.Rendering" />
+    <LibraryReference Include="Novolis.Rendering.Backends.Cpu" />
+    <LibraryReference Include="Novolis.Rendering.Compile" />
+    <LibraryReference Include="Novolis.Rendering.Presentation.Abstractions" />
+    <LibraryReference Include="Novolis.Rendering.Runtime" />
+    <LibraryReference Include="Novolis.Rendering.Scene" />
+    <LibraryReference Include="Novolis.Rendering.Materials" />
+    <LibraryReference Include="Novolis.Modeling.Scene" />
+    <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
     <LibraryReference Include="Novolis.Avalonia.Layout" />
     <LibraryReference Include="Novolis.Avalonia.Studio" />

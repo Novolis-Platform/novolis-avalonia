@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Visual.Assets;
 using Novolis.Visual.Definitions;
+using Novolis.Visual.Materials;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
@@ -19,6 +20,7 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
     private readonly StackPanel _content;
     private AssetRecipe? _asset;
     private AssetInstance? _instance;
+    private IReadOnlyList<string> _materialIds = [];
 
     public AssetStudioAssetInspectorPanel()
         : base(
@@ -34,18 +36,31 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
 
     public event EventHandler<string>? ResetRequested;
 
+    public event EventHandler<AssetStudioMaterialSlotChangedEventArgs>?
+        MaterialSlotChanged;
+
     public AssetRecipe? Asset => _asset;
 
     public AssetInstance? Instance => _instance;
 
     public void SetAsset(
         AssetRecipe? asset,
-        AssetInstance? instance = null)
+        AssetInstance? instance = null,
+        IEnumerable<MaterialGraph>? materials = null)
     {
         _asset = asset;
         _instance = asset is null
             ? null
             : instance ?? new AssetInstance(asset.AssetId + ".instance", asset);
+        _materialIds = (materials ?? [])
+            .Select(material => material.MaterialId)
+            .Concat(
+                asset?.MaterialSlots.Select(slot => slot.MaterialId) ??
+                [])
+            .Where(materialId => !string.IsNullOrWhiteSpace(materialId))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(materialId => materialId, StringComparer.Ordinal)
+            .ToArray();
         _content.Children.Clear();
         if (_asset is null)
         {
@@ -55,6 +70,7 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
             return;
         }
 
+        AddAssemblySection();
         if (_asset.Parameters.Length == 0)
         {
             _content.Children.Add(
@@ -84,6 +100,123 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
             {
                 _content.Children.Add(CreateEditor(parameter));
             }
+        }
+    }
+
+    private void AddAssemblySection()
+    {
+        var title = new TextBlock
+        {
+            Text = "Assembly",
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 8, 0, 4),
+        };
+        ProfileBinding.Bind(
+            title,
+            TextBlock.ForegroundProperty,
+            Profile.AccentResourceKey);
+        _content.Children.Add(title);
+
+        foreach (var component in _asset!.Components)
+        {
+            var source = $"{component.Source.NodeId}:{component.Source.PortId.Value}";
+            var details = component.MaterialSlotId is { } slotId
+                ? $"{component.Kind} · slot {slotId}"
+                : component.Kind.ToString();
+            var card = new Border
+            {
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 2),
+                Child = new StackPanel
+                {
+                    Spacing = 2,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = component.Name,
+                            FontWeight = FontWeight.SemiBold,
+                        },
+                        new TextBlock
+                        {
+                            Text = $"{details} · {source}",
+                            TextWrapping = TextWrapping.Wrap,
+                            FontSize = 10,
+                        },
+                    },
+                },
+            };
+            ProfileBinding.Bind(
+                card,
+                Border.BackgroundProperty,
+                Profile.RaisedResourceKey);
+            ProfileBinding.Bind(
+                card,
+                Border.BorderBrushProperty,
+                Profile.BorderResourceKey);
+            card.BorderThickness = new Thickness(1);
+            _content.Children.Add(card);
+        }
+
+        var slotsTitle = new TextBlock
+        {
+            Text = "Material slots",
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 8, 0, 4),
+        };
+        ProfileBinding.Bind(
+            slotsTitle,
+            TextBlock.ForegroundProperty,
+            Profile.AccentResourceKey);
+        _content.Children.Add(slotsTitle);
+        foreach (var slot in _asset.MaterialSlots)
+        {
+            var picker = new ComboBox
+            {
+                ItemsSource = _materialIds,
+                SelectedItem = slot.MaterialId,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            picker.SetValue(
+                AutomationProperties.NameProperty,
+                $"Material slot {slot.Name}");
+            picker.SetValue(
+                AutomationProperties.AutomationIdProperty,
+                $"assetstudio.asset.slot.{slot.Id}");
+            ProfileBinding.Bind(
+                picker,
+                ComboBox.BackgroundProperty,
+                Profile.RaisedResourceKey);
+            ProfileBinding.Bind(
+                picker,
+                ComboBox.ForegroundProperty,
+                Profile.TextResourceKey);
+            picker.SelectionChanged += (_, _) =>
+            {
+                if (picker.SelectedItem is string materialId)
+                {
+                    MaterialSlotChanged?.Invoke(
+                        this,
+                        new AssetStudioMaterialSlotChangedEventArgs(
+                            slot.Id,
+                            materialId));
+                }
+            };
+            _content.Children.Add(
+                new StackPanel
+                {
+                    Spacing = 3,
+                    Margin = new Thickness(0, 2),
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = $"{slot.Name} · {slot.Id}",
+                            FontWeight = FontWeight.SemiBold,
+                        },
+                        picker,
+                    },
+                });
         }
     }
 
@@ -192,9 +325,9 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
         if (resolved is ScalarValue scalar)
         {
             var minimum = parameter.Editor.Minimum ??
-                          Math.Min(0d, scalar.Value);
+                          global::System.Math.Min(0d, scalar.Value);
             var maximum = parameter.Editor.Maximum ??
-                          Math.Max(1d, scalar.Value);
+                          global::System.Math.Max(1d, scalar.Value);
             if (maximum <= minimum)
             {
                 maximum = minimum + 1d;
@@ -204,7 +337,10 @@ public sealed class AssetStudioAssetInspectorPanel : AssetStudioPanel
             {
                 Minimum = minimum,
                 Maximum = maximum,
-                Value = Math.Clamp(scalar.Value, minimum, maximum),
+                Value = global::System.Math.Clamp(
+                    scalar.Value,
+                    minimum,
+                    maximum),
                 TickFrequency = parameter.Editor.Step ?? 0.01,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,

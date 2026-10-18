@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Novolis.Avalonia.GraphicalProfile;
@@ -19,6 +21,14 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
     private readonly AssetStudioNodePortList _nodePorts;
     private readonly Canvas _canvas;
     private readonly Expander _accessibleNodes;
+    private VisualNodeRegistry _registry = VisualNodeRegistry.CreateDefault();
+    private readonly Dictionary<NodeId, Point> _nodePositions = [];
+    private double _zoom = 1d;
+    private Vector _pan;
+    private Point? _panStart;
+    private NodeId? _dragNodeId;
+    private Point _dragStart;
+    private Point _dragOrigin;
 
     public AssetStudioGraphPanel(
         VisualRecipe? recipe = null,
@@ -36,6 +46,12 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
         _canvas = canvas;
         _accessibleNodes = accessibleNodes;
         _nodePorts = nodePorts;
+        _nodePorts.EntryInvoked += OnAccessibleEntryInvoked;
+        _nodePorts.NodeActionRequested += OnAccessibleNodeActionRequested;
+        _canvas.PointerPressed += OnCanvasPointerPressed;
+        _canvas.PointerMoved += OnCanvasPointerMoved;
+        _canvas.PointerReleased += OnCanvasPointerReleased;
+        _canvas.PointerWheelChanged += OnCanvasPointerWheelChanged;
         if (recipe is not null)
         {
             SetRecipe(recipe, registry);
@@ -45,8 +61,29 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
     /// <summary>Accessible ordered node and port workflow.</summary>
     public AssetStudioNodePortList NodePorts => _nodePorts;
 
+    /// <summary>Node currently selected by mouse or keyboard.</summary>
+    public NodeId? SelectedNodeId { get; private set; }
+
+    /// <summary>Raised when a node is selected or an action is requested.</summary>
+    public event EventHandler<AssetStudioGraphNodeEventArgs>? NodeActionRequested;
+
+    /// <summary>Raised when the graph asks the host to validate a new edge.</summary>
+    public event EventHandler<AssetStudioGraphConnectionEventArgs>?
+        ConnectionRequested;
+
     /// <summary>Recipe currently projected by the panel.</summary>
     public VisualRecipe? Recipe { get; private set; }
+
+    /// <summary>Semantic-free navigation and layout state.</summary>
+    public AssetStudioGraphViewState ViewState =>
+        new(
+            _zoom,
+            _pan,
+            SelectedOutputId,
+            _nodePositions.ToImmutableDictionary());
+
+    /// <summary>Output selected for inspection or preview.</summary>
+    public string? SelectedOutputId { get; private set; }
 
     /// <summary>Replaces the semantic graph projection.</summary>
     public void SetRecipe(
@@ -55,11 +92,148 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
     {
         ArgumentNullException.ThrowIfNull(recipe);
         Recipe = recipe;
-        _nodePorts.SetRecipe(recipe, registry);
+        _registry = registry ?? VisualNodeRegistry.CreateDefault();
+        _nodePorts.SetRecipe(recipe, _registry);
+        foreach (var nodeId in _nodePositions.Keys
+                     .Where(nodeId => recipe.Nodes.All(node => node.Id != nodeId))
+                     .ToArray())
+        {
+            _nodePositions.Remove(nodeId);
+        }
+        if (SelectedOutputId is not null &&
+            recipe.Outputs.All(output => output.Id != SelectedOutputId))
+        {
+            SelectedOutputId = null;
+        }
         _summary.Text =
             $"{recipe.Nodes.Length} node(s) · {recipe.Connections.Length} connection(s) · " +
             $"{recipe.Outputs.Length} output(s) · deterministic layout";
-        BuildGraph(recipe, registry ?? VisualNodeRegistry.CreateDefault());
+        if (SelectedNodeId is { } selected &&
+            recipe.Nodes.All(node => node.Id != selected))
+        {
+            SelectedNodeId = null;
+        }
+
+        BuildGraph(recipe, _registry);
+    }
+
+    /// <summary>Restores view-only state without changing the recipe.</summary>
+    public void SetViewState(AssetStudioGraphViewState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _zoom = ClampZoom(state.Zoom);
+        _pan = state.Pan;
+        SelectedOutputId = state.SelectedOutputId;
+        _nodePositions.Clear();
+        foreach (var pair in state.NodePositions)
+        {
+            _nodePositions[pair.Key] = pair.Value;
+        }
+
+        if (Recipe is { } recipe)
+        {
+            SetRecipe(recipe, _registry);
+        }
+    }
+
+    /// <summary>Moves one node in the view without changing semantic state.</summary>
+    public void MoveNode(NodeId nodeId, Vector delta)
+    {
+        if (Recipe?.Nodes.All(node => node.Id != nodeId) != false)
+        {
+            return;
+        }
+
+        var current = _nodePositions.TryGetValue(nodeId, out var position)
+            ? position
+            : new Point();
+        _nodePositions[nodeId] = current + delta;
+        if (Recipe is { } recipe)
+        {
+            BuildGraph(recipe, _registry);
+        }
+    }
+
+    /// <summary>Changes graph zoom while preserving semantic fingerprints.</summary>
+    public void SetZoom(double zoom)
+    {
+        _zoom = ClampZoom(zoom);
+        ApplyViewTransform();
+    }
+
+    /// <summary>Moves the view camera without changing node semantics.</summary>
+    public void PanBy(Vector delta)
+    {
+        _pan += delta;
+        ApplyViewTransform();
+    }
+
+    /// <summary>Selects an output binding for inspection or preview.</summary>
+    public void SelectOutput(string outputId)
+    {
+        if (Recipe?.Outputs.Any(output => output.Id == outputId) != true)
+        {
+            return;
+        }
+
+        SelectedOutputId = outputId;
+        SelectNode(
+            Recipe.Outputs.First(output => output.Id == outputId)
+                .Source.NodeId);
+    }
+
+    /// <summary>Requests a typed connection; the host applies the shared command.</summary>
+    public void RequestConnection(
+        VisualPortReference source,
+        VisualPortReference target) =>
+        ConnectionRequested?.Invoke(
+            this,
+            new AssetStudioGraphConnectionEventArgs(source, target));
+
+    /// <summary>Selects a node and updates the accessible list.</summary>
+    public void SelectNode(NodeId nodeId)
+    {
+        if (Recipe?.Nodes.All(node => node.Id != nodeId) != false)
+        {
+            return;
+        }
+
+        SelectedNodeId = nodeId;
+        var index = _nodePorts.Entries
+            .Select((entry, index) => (entry, index))
+            .FirstOrDefault(pair => !pair.entry.IsPort &&
+                                    pair.entry.NodeId == nodeId)
+            .index;
+        if (_nodePorts.Entries.Count > 0)
+        {
+            _nodePorts.SelectedIndex = index;
+        }
+
+        NodeActionRequested?.Invoke(
+            this,
+            new AssetStudioGraphNodeEventArgs(nodeId));
+    }
+
+    /// <summary>Requests deletion of the current node.</summary>
+    public void DeleteSelected()
+    {
+        if (SelectedNodeId is { } nodeId)
+        {
+            NodeActionRequested?.Invoke(
+                this,
+                new AssetStudioGraphNodeEventArgs(nodeId, "delete"));
+        }
+    }
+
+    /// <summary>Requests duplication of the current node.</summary>
+    public void DuplicateSelected()
+    {
+        if (SelectedNodeId is { } nodeId)
+        {
+            NodeActionRequested?.Invoke(
+                this,
+                new AssetStudioGraphNodeEventArgs(nodeId, "duplicate"));
+        }
     }
 
     private static Control CreateContent(
@@ -169,7 +343,7 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
                     .OrderBy(port => port.Direction)
                     .ThenBy(port => port.Id.Value, StringComparer.Ordinal)
                     .ToArray() ?? [];
-                var height = Math.Max(
+                var height = global::System.Math.Max(
                     112,
                     70 + ports.Length * 23 + node.Values.Count * 18 +
                     (outputNames.TryGetValue(node.Id, out var names) ? names.Length * 18 : 0));
@@ -181,15 +355,20 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
                     nodeWidth,
                     height,
                     ports);
+                if (_nodePositions.TryGetValue(node.Id, out var position))
+                {
+                    layout = layout.WithPosition(position.X, position.Y);
+                }
                 layouts[node.Id] = layout;
                 y += height + rowGap;
-                maxX = Math.Max(maxX, layout.X + nodeWidth);
-                maxY = Math.Max(maxY, layout.Y + height);
+                maxX = global::System.Math.Max(maxX, layout.X + nodeWidth);
+                maxY = global::System.Math.Max(maxY, layout.Y + height);
             }
         }
 
         _canvas.Width = maxX + margin;
         _canvas.Height = maxY + margin;
+        ApplyViewTransform();
 
         foreach (var connection in recipe.Connections.OrderBy(connection => connection.Id))
         {
@@ -223,10 +402,134 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
                 layout,
                 ordinal++,
                 outputNames.TryGetValue(node.Id, out var names) ? names : []);
+            card.PointerPressed += (_, args) =>
+            {
+                SelectNode(node.Id);
+                if (args.GetCurrentPoint(card).Properties.PointerUpdateKind ==
+                    PointerUpdateKind.LeftButtonPressed)
+                {
+                    _dragNodeId = node.Id;
+                    _dragStart = args.GetPosition(_canvas);
+                    _dragOrigin = new Point(layout.X, layout.Y);
+                    args.Pointer.Capture(card);
+                }
+            };
+            card.PointerMoved += (_, args) =>
+            {
+                if (_dragNodeId != node.Id)
+                {
+                    return;
+                }
+
+                var delta = args.GetPosition(_canvas) - _dragStart;
+                Canvas.SetLeft(card, _dragOrigin.X + delta.X);
+                Canvas.SetTop(card, _dragOrigin.Y + delta.Y);
+            };
+            card.PointerReleased += (_, args) =>
+            {
+                if (_dragNodeId != node.Id)
+                {
+                    return;
+                }
+
+                var delta = args.GetPosition(_canvas) - _dragStart;
+                _nodePositions[node.Id] = _dragOrigin + delta;
+                _dragNodeId = null;
+                args.Pointer.Capture(null);
+                BuildGraph(recipe, _registry);
+            };
             Canvas.SetLeft(card, layout.X);
             Canvas.SetTop(card, layout.Y);
             _canvas.Children.Add(card);
         }
+    }
+
+    private void ApplyViewTransform()
+    {
+        _canvas.RenderTransform = new TransformGroup
+        {
+            Children =
+            {
+                new ScaleTransform(_zoom, _zoom),
+                new TranslateTransform(_pan.X, _pan.Y),
+            },
+        };
+    }
+
+    private static double ClampZoom(double zoom) =>
+        double.IsFinite(zoom)
+            ? global::System.Math.Clamp(zoom, 0.25d, 3d)
+            : 1d;
+
+    private void OnAccessibleEntryInvoked(
+        object? sender,
+        EventArgs args)
+    {
+        if (_nodePorts.SelectedEntry is { } entry)
+        {
+            SelectNode(entry.NodeId);
+            NodeActionRequested?.Invoke(
+                this,
+                new AssetStudioGraphNodeEventArgs(
+                    entry.NodeId,
+                    entry.IsPort ? "inspect-port" : "inspect"));
+        }
+    }
+
+    private void OnAccessibleNodeActionRequested(
+        object? sender,
+        AssetStudioGraphNodeEventArgs args) =>
+        NodeActionRequested?.Invoke(this, args);
+
+    private void OnCanvasPointerPressed(
+        object? sender,
+        PointerPressedEventArgs args)
+    {
+        var point = args.GetCurrentPoint(_canvas);
+        if (point.Properties.PointerUpdateKind ==
+            PointerUpdateKind.RightButtonPressed)
+        {
+            DeleteSelected();
+        }
+        else if (point.Properties.PointerUpdateKind ==
+                 PointerUpdateKind.MiddleButtonPressed)
+        {
+            _panStart = point.Position;
+            args.Pointer.Capture(_canvas);
+        }
+    }
+
+    private void OnCanvasPointerMoved(
+        object? sender,
+        PointerEventArgs args)
+    {
+        if (_panStart is not { } start)
+        {
+            return;
+        }
+
+        var current = args.GetCurrentPoint(_canvas).Position;
+        PanBy(current - start);
+        _panStart = current;
+    }
+
+    private void OnCanvasPointerReleased(
+        object? sender,
+        PointerReleasedEventArgs args)
+    {
+        if (_panStart is not null)
+        {
+            _panStart = null;
+            args.Pointer.Capture(null);
+        }
+    }
+
+    private void OnCanvasPointerWheelChanged(
+        object? sender,
+        PointerWheelEventArgs args)
+    {
+        SetZoom(_zoom + args.Delta.Y * 0.1d);
+        args.Handled = true;
     }
 
     private static SortedDictionary<int, List<VisualNode>> ComputeLayers(
@@ -266,7 +569,9 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
 
             foreach (var target in outgoing[current].OrderBy(id => id))
             {
-                depth[target] = Math.Max(depth[target], depth[current] + 1);
+                depth[target] = global::System.Math.Max(
+                    depth[target],
+                    depth[current] + 1);
                 incoming[target]--;
                 if (incoming[target] == 0)
                 {
@@ -458,6 +763,9 @@ public sealed class AssetStudioGraphPanel : AssetStudioPanel
         public double Height { get; }
 
         public IReadOnlyList<VisualPortDescriptor> Ports { get; }
+
+        public GraphNodeLayout WithPosition(double x, double y) =>
+            new(Node, Descriptor, x, y, Width, Height, Ports);
 
         public bool TryGetPort(
             PortId portId,

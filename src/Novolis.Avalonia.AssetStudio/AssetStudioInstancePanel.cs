@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.Visual.Assets;
 using Novolis.Visual.Materials;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
@@ -42,6 +43,26 @@ public sealed class AssetStudioInstancePanel : AssetStudioPanel
             : $"{instance.Overrides.Count} override(s)";
         _summary.Text =
             $"{instance.InstanceId}\nParent: {graph.DisplayName}\n{overridden}\n" +
+            "Reset controls from the inspector to return to inheritance.";
+    }
+
+    /// <summary>Projects an asset instance through the same inheritance surface.</summary>
+    public void SetAssetInstance(
+        AssetRecipe? asset,
+        AssetInstance? instance)
+    {
+        if (asset is null || instance is null)
+        {
+            _summary.Text =
+                "Choose an asset to create a child instance with inherited controls.";
+            return;
+        }
+
+        var overridden = instance.Overrides.Count == 0
+            ? "inherits all parent values"
+            : $"{instance.Overrides.Count} override(s)";
+        _summary.Text =
+            $"{instance.InstanceId}\nParent: {asset.DisplayName}\n{overridden}\n" +
             "Reset controls from the inspector to return to inheritance.";
     }
 

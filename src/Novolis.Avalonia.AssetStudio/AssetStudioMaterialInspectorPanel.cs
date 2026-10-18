@@ -196,9 +196,9 @@ public sealed class AssetStudioMaterialInspectorPanel : AssetStudioPanel
                 VisualParameterControlKind.Automatic)
         {
             var minimum = parameter.Editor.Minimum ??
-                          Math.Min(0d, scalar.Value);
+                          global::System.Math.Min(0d, scalar.Value);
             var maximum = parameter.Editor.Maximum ??
-                          Math.Max(1d, scalar.Value);
+                          global::System.Math.Max(1d, scalar.Value);
             if (maximum <= minimum)
             {
                 maximum = minimum + 1d;
@@ -208,7 +208,10 @@ public sealed class AssetStudioMaterialInspectorPanel : AssetStudioPanel
             {
                 Minimum = minimum,
                 Maximum = maximum,
-                Value = Math.Clamp(scalar.Value, minimum, maximum),
+                Value = global::System.Math.Clamp(
+                    scalar.Value,
+                    minimum,
+                    maximum),
                 TickFrequency = parameter.Editor.Step ?? 0.01,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -432,10 +435,22 @@ public sealed class AssetStudioMaterialInspectorPanel : AssetStudioPanel
     private static global::Avalonia.Media.Color ToAvaloniaColor(
         ColorValue color) =>
         global::Avalonia.Media.Color.FromArgb(
-            (byte)Math.Clamp((int)Math.Round(color.Alpha * 255d), 0, 255),
-            (byte)Math.Clamp((int)Math.Round(color.Red * 255d), 0, 255),
-            (byte)Math.Clamp((int)Math.Round(color.Green * 255d), 0, 255),
-            (byte)Math.Clamp((int)Math.Round(color.Blue * 255d), 0, 255));
+            (byte)global::System.Math.Clamp(
+                (int)global::System.Math.Round(color.Alpha * 255d),
+                0,
+                255),
+            (byte)global::System.Math.Clamp(
+                (int)global::System.Math.Round(color.Red * 255d),
+                0,
+                255),
+            (byte)global::System.Math.Clamp(
+                (int)global::System.Math.Round(color.Green * 255d),
+                0,
+                255),
+            (byte)global::System.Math.Clamp(
+                (int)global::System.Math.Round(color.Blue * 255d),
+                0,
+                255));
 
     private static bool TryParseValue(
         VisualValue template,

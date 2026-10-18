@@ -17,9 +17,12 @@ public sealed class AssetStudioActionBar : UserControl
     [
         ("New Material", "new material"),
         ("New Asset", "new asset"),
+        ("Open", "open"),
+        ("Save", "save"),
         ("Templates", "open template lightsaber-blade"),
         ("Instance", "create instance"),
-        ("Save Preset", "save preset"),
+        ("Undo", "undo"),
+        ("Redo", "redo"),
         ("Validate", "validate"),
         ("Preview", "preview"),
         ("Build", "build"),

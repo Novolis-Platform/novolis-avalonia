@@ -1,4 +1,4 @@
-using Novolis.AssetStudio.Core;
+using Novolis.AssetStudio.Authoring;
 using Novolis.Avalonia.AssetStudio;
 using Novolis.Visual.Compile;
 using Novolis.Visual.Presets;
@@ -63,6 +63,25 @@ public sealed class MaterialAssetStudioPanelTests
         await Assert.That(result.Status).IsEqualTo("Ready");
         await Assert.That(result.PngBytes).IsNotNull();
         await Assert.That(result.PngBytes!.Length).IsGreaterThan(100);
+    }
+
+    [Test]
+    public async Task Asset_preview_renders_generic_component_geometry_to_png()
+    {
+        var template = VisualPresetCatalog.CreateDefault()
+            .Find("orbital-reusable-rocket")!;
+        var material = template.Materials.First();
+        var compilation = VisualCompiler.Compile(
+            material.Recipe,
+            new VisualCompileOptions(
+                registry: VisualCompiler.CreateDefaultRegistry(),
+                strict: true));
+
+        var png = AssetStudioActualPreviewRenderer.RenderAsset(
+            compilation,
+            template.Asset);
+
+        await Assert.That(png.Length).IsGreaterThan(100);
     }
 
 }

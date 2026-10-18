@@ -62,6 +62,10 @@ public sealed class AssetStudioNodePortList : ListBox
     /// <summary>Raised when the selected row is activated with Enter or Space.</summary>
     public event EventHandler? EntryInvoked;
 
+    /// <summary>Raised for keyboard node actions such as delete and duplicate.</summary>
+    public event EventHandler<AssetStudioGraphNodeEventArgs>?
+        NodeActionRequested;
+
     /// <summary>
     /// Projects a recipe into stable node-first, port-second rows.
     /// </summary>
@@ -115,13 +119,41 @@ public sealed class AssetStudioNodePortList : ListBox
             return;
         }
 
-        var next = Math.Clamp(SelectedIndex < 0 ? 0 : SelectedIndex + offset, 0, _entries.Count - 1);
+        var next = global::System.Math.Clamp(
+            SelectedIndex < 0 ? 0 : SelectedIndex + offset,
+            0,
+            _entries.Count - 1);
         SelectedIndex = next;
         Focus();
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        if (SelectedEntry is { IsPort: false } entry &&
+            e.Key == Key.Delete)
+        {
+            NodeActionRequested?.Invoke(
+                this,
+                new AssetStudioGraphNodeEventArgs(
+                    entry.NodeId,
+                    "delete"));
+            e.Handled = true;
+            return;
+        }
+
+        if (SelectedEntry is { IsPort: false } duplicate &&
+            e.Key == Key.D &&
+            (e.KeyModifiers & KeyModifiers.Control) != 0)
+        {
+            NodeActionRequested?.Invoke(
+                this,
+                new AssetStudioGraphNodeEventArgs(
+                    duplicate.NodeId,
+                    "duplicate"));
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key is Key.Enter or Key.Space)
         {
             EntryInvoked?.Invoke(this, EventArgs.Empty);

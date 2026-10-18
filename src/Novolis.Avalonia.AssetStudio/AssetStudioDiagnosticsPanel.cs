@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Novolis.AssetStudio.Authoring;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 using ProfileBinding = Novolis.Avalonia.GraphicalProfile.GraphicalProfileBinding;
@@ -66,6 +67,28 @@ public sealed class AssetStudioDiagnosticsPanel : AssetStudioPanel
     {
         ArgumentNullException.ThrowIfNull(ir);
         SetDiagnostics(ir.Diagnostics);
+    }
+
+    /// <summary>Replaces diagnostics from the host-neutral authoring kernel.</summary>
+    public void SetDiagnostics(
+        IEnumerable<Novolis.AssetStudio.Authoring.AssetStudioDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+        SetDiagnostics(
+            diagnostics.Select(
+                diagnostic => new VisualDiagnostic(
+                    diagnostic.Severity switch
+                    {
+                        AssetStudioDiagnosticSeverity.Error =>
+                            VisualDiagnosticSeverity.Error,
+                        AssetStudioDiagnosticSeverity.Warning =>
+                            VisualDiagnosticSeverity.Warning,
+                        _ => VisualDiagnosticSeverity.Warning,
+                    },
+                    diagnostic.Code,
+                    diagnostic.Message,
+                    diagnostic.NodeId,
+                    diagnostic.ConnectionId)));
     }
 
     private static Control CreateContent(

@@ -75,7 +75,7 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         MaterialGraph? graph,
         VisualIR? compilation)
     {
-        if (graph is null)
+        if (graph is null && _asset is null)
         {
             _summary.Text = "Select a material to preview it on a sphere, strip, or asset.";
             _image.Source = null;
@@ -83,7 +83,7 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
             return;
         }
 
-        var channels = graph.Channels.Length == 0
+        var channels = graph is null || graph.Channels.Length == 0
             ? "no bound channels"
             : string.Join(
                 ", ",
@@ -94,24 +94,34 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
             : compilation.Success
                 ? "ready"
                 : "needs attention";
-        _summary.Text =
-            $"{graph.DisplayName} · {target} · {status}\n" +
-            $"Channels: {channels}\n" +
-            (_asset is null
-                ? "Preview shape: " +
-                  (_shape.SelectedItem?.ToString() ?? "Material Sphere")
-                : $"Asset viewport: {_asset.DisplayName}");
+        _summary.Text = _asset is { } asset
+            ? $"{asset.DisplayName} · {target} · {status}\n" +
+              $"Material slots: {asset.MaterialSlots.Length}\n" +
+              "Asset viewport: generic assembly"
+            : $"{graph!.DisplayName} · {target} · {status}\n" +
+              $"Channels: {channels}\n" +
+              "Preview shape: " +
+              (_shape.SelectedItem?.ToString() ?? "Material Sphere");
+        if (target is not ("CPU Reference" or "Deterministic Path Trace"))
+        {
+            _summary.Text +=
+                "\nUnsupported · this target has no registered execution path.";
+            _image.Source = null;
+            _image.IsVisible = false;
+            return;
+        }
+
         if (compilation is { Success: true })
         {
             try
             {
                 var png = _asset is null
-                    ? AssetStudioMaterialPreviewRenderer.Render(
+                    ? AssetStudioActualPreviewRenderer.Render(
                         compilation,
                         _shape.SelectedItem?.ToString() ?? "Material Sphere",
                         width: 360,
                         height: 260)
-                    : AssetStudioMaterialPreviewRenderer.RenderAsset(
+                    : AssetStudioActualPreviewRenderer.RenderAsset(
                         compilation,
                         _asset,
                         _assetInstance,
@@ -159,8 +169,9 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
             ItemsSource = new[]
             {
                 "CPU Reference",
-                "Raster / HDR",
-                "Path Trace",
+                "Deterministic Path Trace",
+                "Raster / HDR (Unsupported)",
+                "Bake (Unsupported)",
             },
             SelectedIndex = 0,
             MinWidth = 140,
