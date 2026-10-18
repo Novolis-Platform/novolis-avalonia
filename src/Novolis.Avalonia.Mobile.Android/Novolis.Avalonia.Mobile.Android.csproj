@@ -21,4 +21,16 @@
   <ItemGroup>
     <ProjectReference Include="..\Novolis.Avalonia.Diagnostics\Novolis.Avalonia.Diagnostics.csproj" />
   </ItemGroup>
+
+  <!--
+    A managed Android implementation produces an empty placeholder AAR during
+    pack. Consumers treat that file as a native archive and fail with XA1004.
+    Keep the managed assembly in the package, but omit the empty placeholder.
+  -->
+  <Target Name="RemoveManagedAndroidPlaceholderAar"
+          AfterTargets="_IncludeAarInNuGetPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Remove="$(_AarOutputPath)" />
+    </ItemGroup>
+  </Target>
 </Project>
