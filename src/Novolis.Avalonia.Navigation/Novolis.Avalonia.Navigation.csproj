@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Novolis.Avalonia.Navigation</PackageId>
+    <RootNamespace>Novolis.Avalonia.Navigation</RootNamespace>
+    <Description>Avalonia mobile navigation shell over the shared Novolis menu tree.</Description>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <LibraryReference Include="Novolis.Commands.Navigation" />
+    <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
+  </ItemGroup>
+</Project>

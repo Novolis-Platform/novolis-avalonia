@@ -38,5 +38,6 @@
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.Git\Novolis.Avalonia.Git.csproj" />
     <ProjectReference Include="..\..\src\Novolis.Avalonia.GraphicalProfile\Novolis.Avalonia.GraphicalProfile.csproj" />
+    <ProjectReference Include="..\..\src\Novolis.Avalonia.Navigation\Novolis.Avalonia.Navigation.csproj" />
   </ItemGroup>
 </Project>

@@ -43,6 +43,7 @@
 |---------|---------|----------------|
 | `Novolis.Avalonia.Agent` | `dotnet add package Novolis.Avalonia.Agent` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent/README.md) |
 | `Novolis.Avalonia.Agent.Protocol` | `dotnet add package Novolis.Avalonia.Agent.Protocol` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Agent.Protocol/README.md) |
+| `Novolis.Avalonia.Navigation` | `dotnet add package Novolis.Avalonia.Navigation` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Navigation/README.md) |
 | `Novolis.Avalonia.Audio` | `dotnet add package Novolis.Avalonia.Audio` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Audio/README.md) |
 | `Novolis.Avalonia.Briefing` | `dotnet add package Novolis.Avalonia.Briefing` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Briefing/README.md) |
 | `Novolis.Avalonia.Cad` | `dotnet add package Novolis.Avalonia.Cad` | [README](https://github.com/Novolis-Platform/novolis-avalonia/blob/main/src/Novolis.Avalonia.Cad/README.md) |

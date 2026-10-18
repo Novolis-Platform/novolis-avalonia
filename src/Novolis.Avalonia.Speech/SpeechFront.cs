@@ -147,6 +147,42 @@ public sealed class SpeechFront
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Exports a manual setup without exposing its key to the UI.</summary>
+    public async Task ExportAzureCredentialsAsync(
+        Stream destination,
+        string passphrase,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        EnsureAzureConfigured();
+        await AzureSpeechCredentialBundle.WriteAsync(
+                destination,
+                _azureSetup!,
+                passphrase,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Reads an encrypted manual setup without changing the current setup.</summary>
+    public Task<AzureSpeechSetup> ReadAzureCredentialsAsync(
+        Stream source,
+        string passphrase,
+        CancellationToken cancellationToken = default) =>
+        AzureSpeechCredentialBundle.ReadAsync(source, passphrase, cancellationToken);
+
+    /// <summary>Tests a candidate setup without replacing the current setup.</summary>
+    public async Task<IReadOnlyList<AzureSpeechVoice>> TestAzureSetupAsync(
+        AzureSpeechSetup setup,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(setup);
+        setup.Validate();
+        using var client = CreateClient(setup);
+        return await client.GetVoicesAsync(setup.Locale, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     /// <summary>Tests Azure authentication by requesting the selected locale's voices.</summary>
     public async Task<IReadOnlyList<AzureSpeechVoice>> TestAzureAsync(
         CancellationToken cancellationToken = default)
