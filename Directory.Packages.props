@@ -2,6 +2,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.4" />
@@ -55,6 +56,8 @@
     <PackageVersion Include="Novolis.Modeling.Scene" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Modeling.Import.Assimp" Version="2026.1.*" />
     <PackageVersion Include="AssimpNet" Version="4.1.0" />
+    <PackageVersion Include="System.Net.Http" Version="4.3.4" />
+    <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageVersion Include="Novolis.Agent.Core" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Agent.Surface" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Avalonia.Modeling" Version="2026.1.*" />
