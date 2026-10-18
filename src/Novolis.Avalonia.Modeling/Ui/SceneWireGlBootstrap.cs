@@ -3,7 +3,7 @@ using Novolis.Avalonia.Modeling.Session;
 
 namespace Novolis.Avalonia.Modeling.Ui;
 
-/// <summary>Late-bound GPU factory so Silk.NET is not loaded until OpenGL init.</summary>
+/// <summary>Late-bound GPU factory so the native backend is not loaded until OpenGL init.</summary>
 internal static class SceneWireGlBootstrap
 {
     internal static Func<GlInterface, ISceneWireGlGpu>? CreateImpl;

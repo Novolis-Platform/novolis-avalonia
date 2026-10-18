@@ -12,7 +12,7 @@ namespace Novolis.Avalonia.Modeling.Ui;
 
 /// <summary>Native Avalonia OpenGL wireframe viewport — preferred over Raylib streaming.</summary>
 /// <remarks>
-/// Do not put Silk.NET types on this class. Loading Silk before Avalonia finishes
+/// Do not put native GPU backend types on this class. Loading the backend before Avalonia finishes
 /// <see cref="OpenGlControlBase"/> context setup prevents <see cref="OnOpenGlInit"/> from running.
 /// Dirty-driven present only — continuous RequestNextFrameRendering causes flicker on large meshes.
 /// </remarks>
