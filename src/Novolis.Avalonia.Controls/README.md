@@ -6,7 +6,7 @@
 
 # Novolis.Avalonia.Controls
 
-Reusable Avalonia interaction atoms (code-only, no XAML): choice/picker dialogs, marked lists, job queue panels, sortable data grids, hex dump, and detail trees.
+Reusable Avalonia interaction atoms (code-only, no XAML): choice/picker dialogs, marked lists, job queue panels, sortable data grids, download queues, peer/source grids, hex dump, and detail trees.
 
 Sketch canvas lives in [`Novolis.Avalonia.Controls.Sketch`](../Novolis.Avalonia.Controls.Sketch/README.md). Torrent chrome lives in [`Novolis.Avalonia.Torrent`](../Novolis.Avalonia.Torrent/README.md).
 
@@ -57,7 +57,52 @@ jobs.SetJobs([
 
 var grid = new SortableDataGrid();
 grid.SetColumns([SortableDataGrid.TextColumn("Name", "Name")]);
+
+var downloads = new DownloadQueueView();
+downloads.CommandRequested += (item, command) =>
+{
+    // Let the host pause, resume, verify, cancel, or open the output.
+};
+downloads.SetItems([
+    new DownloadItem
+    {
+        Name = "Example content",
+        TotalBytes = 4_000_000_000,
+        CompletedBytes = 1_800_000_000,
+        State = DownloadTransferState.Downloading,
+        DownloadBytesPerSecond = 2_400_000,
+        Eta = TimeSpan.FromMinutes(18),
+        Metadata = new DownloadMetadata
+        {
+            Hash = "content-hash",
+            AvailabilityPercent = 175,
+            SourceCount = 42,
+            SeedCount = 12,
+            PeerCount = 30,
+            OutputLocation = @"C:\Downloads\Example content",
+            AlternateNames = ["Example content", "Example-content"],
+            Peers =
+            [
+                new DownloadPeer
+                {
+                    Endpoint = "source-1",
+                    Location = "region",
+                    Client = "peer client",
+                    CompletionPercent = 100,
+                    DownloadBytesPerSecond = 850_000,
+                    PieceAvailability = [true, true, false, true],
+                },
+            ],
+        },
+    },
+]);
 ```
+
+`DownloadQueueView` keeps the required transfer columns visible and expands
+each row into `DownloadDetailsView`. The expanded surface includes hash,
+alternate names for the same content, source details, output and transfer
+paths, pieces, verification, errors, and an optional `DownloadPeerGrid`.
+Hosts own all transport and file actions through `DownloadCommand`.
 
 ## Related packages
 
