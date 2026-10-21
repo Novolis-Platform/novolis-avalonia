@@ -338,6 +338,44 @@ public sealed class SketchControl : Control
     public SketchPoint ViewportCenterWorld() =>
         ScreenToWorld(new Point(Bounds.Width * 0.5, Bounds.Height * 0.5));
 
+    /// <summary>Applies a focal-point-preserving zoom to the viewport.</summary>
+    public void ZoomAt(Point screen, double factor)
+    {
+        if (factor <= 0 || double.IsNaN(factor) || double.IsInfinity(factor))
+            return;
+
+        var worldUnderCursor = ScreenToWorld(screen);
+        _scale = Math.Clamp(_scale * factor, 0.05, 40);
+        _offsetX = screen.X - worldUnderCursor.X * _scale;
+        _offsetY = screen.Y - worldUnderCursor.Y * _scale;
+        InvalidateVisual();
+    }
+
+    /// <summary>Translates the viewport in screen pixels.</summary>
+    public void PanBy(Vector delta)
+    {
+        if (double.IsNaN(delta.X) || double.IsNaN(delta.Y)
+            || double.IsInfinity(delta.X) || double.IsInfinity(delta.Y))
+            return;
+
+        _offsetX += delta.X;
+        _offsetY += delta.Y;
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Cancels the active pointer gesture without mutating the document.
+    /// Hosts use this when a second touch becomes a viewport gesture.
+    /// </summary>
+    public void CancelPointerInteraction()
+    {
+        EndTextEdit(commit: true);
+        CancelInProgressDrawing();
+        _panning = false;
+        _lastScreen = null;
+        InvalidateVisual();
+    }
+
     /// <summary>Undoes the last document mutation.</summary>
     public bool Undo()
     {
@@ -456,12 +494,8 @@ public sealed class SketchControl : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         var screen = e.GetPosition(this);
-        var worldUnderCursor = ScreenToWorld(screen);
         var factor = e.Delta.Y > 0 ? 1.1 : 1 / 1.1;
-        _scale = Math.Clamp(_scale * factor, 0.05, 40);
-        _offsetX = screen.X - worldUnderCursor.X * _scale;
-        _offsetY = screen.Y - worldUnderCursor.Y * _scale;
-        InvalidateVisual();
+        ZoomAt(screen, factor);
         e.Handled = true;
     }
 
