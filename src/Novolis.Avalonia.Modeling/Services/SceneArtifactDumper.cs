@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Avalonia.Controls;
 using Novolis.Avalonia.Modeling.Session;
@@ -130,7 +129,7 @@ public sealed class SceneArtifactDumper
 
         var editable = MeshEditBake.ReadBakedOrTessellate(mesh);
         var objPath = SceneViewportExporter.AllocatePath(DumpsDirectory, "mesh", "obj");
-        WriteWavefrontObj(editable, mesh.Name, objPath);
+        WavefrontObjWriter.Write(objPath, editable, mesh.Name);
 
         var stats = new
         {
@@ -161,36 +160,6 @@ public sealed class SceneArtifactDumper
         if (document.SelectionId is { } sel && document.Find(sel) is MeshNode selected)
             return selected;
         return document.Nodes.OfType<MeshNode>().FirstOrDefault();
-    }
-
-    private static void WriteWavefrontObj(EditableMesh mesh, string name, string path)
-    {
-        var sb = new StringBuilder(mesh.VertexCount * 32 + mesh.TriangleCount * 24);
-        sb.Append("# Novolis SceneLab mesh dump").AppendLine();
-        sb.Append("o ").Append(Sanitize(name)).AppendLine();
-        foreach (var v in mesh.Vertices)
-            sb.Append("v ").Append(v.X.ToString("G9")).Append(' ')
-                .Append(v.Y.ToString("G9")).Append(' ')
-                .Append(v.Z.ToString("G9")).AppendLine();
-        var idx = mesh.Indices;
-        for (var i = 0; i + 2 < idx.Count; i += 3)
-        {
-            // OBJ is 1-based
-            sb.Append("f ").Append(idx[i] + 1).Append(' ')
-                .Append(idx[i + 1] + 1).Append(' ')
-                .Append(idx[i + 2] + 1).AppendLine();
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, sb.ToString());
-    }
-
-    private static string Sanitize(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return "mesh";
-        var chars = name.Select(c => char.IsLetterOrDigit(c) || c is '_' or '-' ? c : '_').ToArray();
-        return new string(chars);
     }
 
     private static string Append(string? existing, string note) =>
