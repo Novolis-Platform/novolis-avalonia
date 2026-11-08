@@ -43,6 +43,7 @@ public sealed class CadEditorSurface : Panel
         ModelHost = new RaylibHostControl();
         modelRenderer.Bind(ModelHost);
         modelRenderer.Evaluator = Evaluator;
+        session.Visibility.Changed += RefreshForVisibilityChange;
 
         Children.Add(DraftViewport);
         Children.Add(Draft3DViewport);
@@ -166,5 +167,12 @@ public sealed class CadEditorSurface : Panel
             if (workspace == CadWorkspace.Modeling)
                 Draft3DViewport.InvalidateVisual();
         }
+    }
+
+    private void RefreshForVisibilityChange()
+    {
+        SceneTree.Refresh();
+        DraftViewport.InvalidateVisual();
+        Draft3DViewport.InvalidateVisual();
     }
 }

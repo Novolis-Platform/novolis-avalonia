@@ -5,6 +5,7 @@ using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Ui;
 using Novolis.Avalonia.Raylib;
+using Novolis.Cad.Drawing;
 using Novolis.Cad.Primitives;
 using Novolis.Modeling;
 
@@ -34,6 +35,7 @@ public sealed class CadSessionService : ICadSession
         _settings = settings;
         _bus = bus;
         _dispatcher = dispatcher;
+        RegisterDrawingAction();
         _document.Changed += () => RaiseChanged("document");
         _bus.Changed += () => RaiseChanged("commandBus");
         _dispatcher.ToolChanged += () => RaiseChanged("tool");
@@ -130,6 +132,15 @@ public sealed class CadSessionService : ICadSession
 
     public void RegisterAction(string actionId, Func<CadCommandDto, CadCommandResultDto> handler) =>
         _extra[actionId] = handler;
+
+    /// <summary>Registers a hierarchy-driven drawing manifest action for this session.</summary>
+    public void RegisterDrawingAction(string actionId = CadSessionActionIds.DrawSubject)
+    {
+        if (string.IsNullOrWhiteSpace(actionId))
+            throw new ArgumentException("Action id required.", nameof(actionId));
+
+        RegisterAction(actionId, command => DrawSubject(actionId, command));
+    }
 
     /// <summary>Removes an optional action previously registered by a mode.</summary>
     public bool RemoveAction(string actionId) => _extra.Remove(actionId);
@@ -647,10 +658,59 @@ public sealed class CadSessionService : ICadSession
         return Ok(CadSessionActionIds.ExportPhys, path, [path]);
     }
 
+    private CadCommandResultDto DrawSubject(string actionId, CadCommandDto command)
+    {
+        var subjectId = command.SubjectId;
+        if (string.IsNullOrWhiteSpace(subjectId))
+            subjectId = CommandArgument(command, "subjectId");
+        if (string.IsNullOrWhiteSpace(subjectId))
+            return Fail(actionId, "subjectId required.", "badSubject");
+        if (_document.Hierarchy is not { } hierarchy)
+            return Fail(actionId, "A semantic hierarchy must be bound before drawing.", "noHierarchy");
+
+        var request = new DrawingRequest(
+            subjectId,
+            [new DrawingViewDefinition(
+                "plan",
+                DrawingViewKind.Orthographic,
+                StandardViewOrientation.PlanSternLeft,
+                Title: "Plan")],
+            new DrawingReferenceSet(DrawingReferenceFlags.None),
+            new DimensionPolicy(),
+            DrawingNumber: CommandArgument(command, "drawingNumber"),
+            Title: _document.Document.Name);
+        var result = UniversalDrawingEngine.Render(request, _document.Document, hierarchy);
+
+        var root = ResolveDrawingExportRoot(command);
+        Directory.CreateDirectory(root);
+        var requestedName = string.IsNullOrWhiteSpace(command.Path)
+            ? $"{FileNameStem(subjectId)}.drawing.manifest.json"
+            : Path.GetFileName(command.Path);
+        var path = Path.Combine(root, requestedName);
+        File.WriteAllText(path, UniversalDrawingEngine.RenderManifestJson(result.Manifest));
+        RememberExport(path);
+
+        return result.Manifest.Ok
+            ? Ok(actionId, path, [path])
+            : new CadCommandResultDto
+            {
+                Ok = false,
+                ActionId = actionId,
+                Message = $"Drawing manifest written with diagnostics: {path}",
+                ErrorCode = "drawingFailed",
+                Paths = [path],
+            };
+    }
+
     private string ResolveExportRoot(CadCommandDto command) =>
         !string.IsNullOrWhiteSpace(command.ExportRoot)
             ? command.ExportRoot!
             : ExportRoot ?? Path.Combine(_settings.DataRoot, "exports");
+
+    private string ResolveDrawingExportRoot(CadCommandDto command) =>
+        !string.IsNullOrWhiteSpace(command.ExportRoot)
+            ? command.ExportRoot!
+            : ExportRoot ?? _document.WorkspacePath;
 
     private void RememberExport(string path)
     {
@@ -754,6 +814,30 @@ public sealed class CadSessionService : ICadSession
         Enabled = enabled,
         DisabledReason = enabled ? null : disabled,
     };
+
+    private static string? CommandArgument(CadCommandDto command, string name)
+    {
+        if (command.Properties is null)
+            return null;
+        foreach (var (key, value) in command.Properties)
+        {
+            if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string FileNameStem(string subjectId)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var stem = new string(subjectId
+            .Select(c => invalid.Contains(c) ? '-' : c)
+            .ToArray())
+            .Trim()
+            .Trim('.');
+        return string.IsNullOrWhiteSpace(stem) ? "subject" : stem;
+    }
 
     private static CadCommandResultDto Ok(string id, string message, string[]? paths = null) => new()
     {

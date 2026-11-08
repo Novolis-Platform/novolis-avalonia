@@ -8,9 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <LibraryReference Include="Novolis.Cad.Drawing" />
     <LibraryReference Include="Novolis.Cad.Primitives" />
+    <LibraryReference Include="Novolis.Cad.Hierarchy" />
     <LibraryReference Include="Novolis.Cad.SceneBridge" />
     <LibraryReference Include="Novolis.Cad.Evaluation" />
+    <LibraryReference Include="Novolis.Cad.Visibility" />
     <LibraryReference Include="Novolis.Commands.Expressions" />
     <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Modeling.Scene" />

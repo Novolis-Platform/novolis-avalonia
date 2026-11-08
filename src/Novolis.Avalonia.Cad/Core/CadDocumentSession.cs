@@ -1,12 +1,15 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Novolis.Cad.Hierarchy;
 using Novolis.Cad.Primitives;
+using Novolis.Cad.Visibility;
 
 namespace Novolis.Avalonia.Cad.Core;
 
 public sealed class CadDocumentSession
 {
     private readonly CadEditorSettings _settings;
+    private readonly CadHierarchyRegistry _plainHierarchy = new();
     private readonly JsonSerializerOptions _json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -24,6 +27,12 @@ public sealed class CadDocumentSession
     /// <summary>Ordered multi-selection (Connect, Bridge). First entry mirrors <see cref="SelectedId"/> when set.</summary>
     public List<Guid> SelectedIds { get; } = [];
 
+    /// <summary>Optional semantic assembly/part hierarchy for the active document.</summary>
+    public CadHierarchyRegistry? Hierarchy { get; private set; }
+
+    /// <summary>Visibility state for the active semantic hierarchy.</summary>
+    public HierarchyVisibilityService Visibility { get; } = new();
+
     public string WorkspacePath => _settings.WorkspacePath;
 
     /// <summary>Active document path (may differ from the default workspace file).</summary>
@@ -35,6 +44,7 @@ public sealed class CadDocumentSession
     {
         _settings = settings;
         DocumentPath = settings.DocumentPath;
+        Visibility.Changed += Notify;
     }
 
     public void OpenOrCreateDefault()
@@ -56,12 +66,14 @@ public sealed class CadDocumentSession
         {
             // Prefer new path; leave legacy file in place.
             Document = CreateStarter();
+            ClearHierarchyBinding();
             DocumentPath = _settings.DocumentPath;
             Save();
             return;
         }
 
         Document = CreateStarter();
+        ClearHierarchyBinding();
         DocumentPath = _settings.DocumentPath;
         Save();
     }
@@ -69,8 +81,10 @@ public sealed class CadDocumentSession
     public void NewDocument()
     {
         Document = CreateStarter();
+        ClearHierarchyBinding();
         DocumentPath = _settings.DocumentPath;
         SelectedId = null;
+        SelectedIds.Clear();
         IsDirty = true;
         Notify();
     }
@@ -80,10 +94,33 @@ public sealed class CadDocumentSession
         var text = File.ReadAllText(path);
         Document = JsonSerializer.Deserialize<CadDocument>(text, _json) ?? CreateStarter();
         CadVec.EnsureDefaultLayer(Document);
+        ClearHierarchyBinding();
         DocumentPath = path;
         _settings.Settings.LastDocumentPath = path;
         SelectedId = null;
+        SelectedIds.Clear();
         IsDirty = false;
+        Notify();
+    }
+
+    /// <summary>Binds semantic hierarchy and visibility to the current document.</summary>
+    public void BindHierarchy(CadHierarchyRegistry registry)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        Hierarchy = registry;
+        Visibility.BindHierarchy(registry, Document);
+    }
+
+    /// <summary>Whole-document replace (generator policy). Clears selection; optional dirty flag.</summary>
+    public void ReplaceDocument(CadDocument document, bool markDirty = true)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        Document = document;
+        CadVec.EnsureDefaultLayer(Document);
+        SelectedId = null;
+        SelectedIds.Clear();
+        ClearHierarchyBinding();
+        IsDirty = markDirty;
         Notify();
     }
 
@@ -135,6 +172,16 @@ public sealed class CadDocumentSession
 
     public CadEntity? SelectedEntity =>
         SelectedId is { } id ? Document.Entities.FirstOrDefault(e => e.Id == id) : null;
+
+    private void ClearHierarchyBinding()
+    {
+        while (Visibility.IsolationActive)
+            Visibility.EndIsolation();
+
+        Visibility.ClearAllOverrides(recordUndo: false);
+        Hierarchy = null;
+        Visibility.BindHierarchy(_plainHierarchy, Document);
+    }
 
     public static CadDocument CreateStarter()
     {

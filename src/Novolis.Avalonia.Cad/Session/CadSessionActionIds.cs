@@ -25,6 +25,7 @@ public static class CadSessionActionIds
     public const string ExportPreviewPng = "exportpreviewpng";
     public const string ExportViewTour = "exportviewtour";
     public const string ExportPhys = "exportphys";
+    public const string DrawSubject = "drawsubject";
 
     public const string Boolean = "boolean";
     public const string Symmetry = "symmetry";

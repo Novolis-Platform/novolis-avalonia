@@ -228,6 +228,8 @@ public sealed class CadDraftViewport : Control
         DrawGrid(context);
         foreach (var entity in _session.Document.Entities)
         {
+            if (!IsEntityVisible(entity))
+                continue;
             if (_settings.Settings.IsolateLevel && !IsOnLevel(entity))
                 continue;
 
@@ -472,7 +474,7 @@ public sealed class CadDraftViewport : Control
         if (_dispatcher.ActiveTool != CadToolKind.Select)
             return;
         var selected = _session.SelectedEntity;
-        if (selected is null)
+        if (selected is null || !IsEntityVisible(selected))
             return;
 
         foreach (var grip in EnumerateGrips(selected))
@@ -488,7 +490,7 @@ public sealed class CadDraftViewport : Control
     private bool TryBeginGrip(Vector3 world)
     {
         var selected = _session.SelectedEntity;
-        if (selected is null)
+        if (selected is null || !IsEntityVisible(selected))
             return false;
 
         var thresh = (float)(10 / _scale);
@@ -662,6 +664,9 @@ public sealed class CadDraftViewport : Control
     private bool IsOnLevel(CadEntity entity) =>
         CadVec.MatchesLevel(entity, _settings.Settings.DrawElevation, _settings.Settings.LevelTolerance);
 
+    private bool IsEntityVisible(CadEntity entity) =>
+        _session.Hierarchy is null || _session.Visibility.IsEntityEffectivelyVisible(entity.Id);
+
     private CadEntity? HitTest(Vector3 world)
     {
         var thresh = (float)(8 / _scale);
@@ -669,6 +674,8 @@ public sealed class CadDraftViewport : Control
         var bestDist = float.MaxValue;
         foreach (var entity in _session.Document.Entities)
         {
+            if (!IsEntityVisible(entity))
+                continue;
             if (_settings.Settings.IsolateLevel && !IsOnLevel(entity))
                 continue;
 

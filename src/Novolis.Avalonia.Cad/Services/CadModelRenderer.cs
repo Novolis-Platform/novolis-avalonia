@@ -173,6 +173,9 @@ public sealed class CadModelRenderer
 
     private bool ShouldSkip(CadEntity entity)
     {
+        if (!IsEntityVisible(entity.Id))
+            return true;
+
         var kind = entity.Kind.ToLowerInvariant();
         // Generators / adapters are evaluated into meshes; skip raw op entities when we have cache
         if (kind is "boolean" or "weld" or "optimize" or "bridge" or "arrayinstance" or "instance"
@@ -184,16 +187,23 @@ public sealed class CadModelRenderer
                && !CadVec.MatchesLevel(entity, _settings.Settings.DrawElevation, _settings.Settings.LevelTolerance);
     }
 
+    private bool IsEntityVisible(Guid entityId) =>
+        _session.Hierarchy is null || _session.Visibility.IsEntityEffectivelyVisible(entityId);
+
     private void DrawEvaluated(CadEvaluationCache cache)
     {
         foreach (var (id, mesh) in cache.ModeledMeshes)
         {
+            if (!IsEntityVisible(id))
+                continue;
             var selected = id == _session.SelectedId;
             DrawEditableMesh(mesh, selected ? Selected : Solid);
         }
 
         foreach (var inst in cache.Instances)
         {
+            if (!IsEntityVisible(inst.SourceId))
+                continue;
             if (inst.Mesh is null)
                 continue;
             var copy = inst.Mesh.Clone();
@@ -205,6 +215,8 @@ public sealed class CadModelRenderer
         {
             foreach (var light in cache.Lights)
             {
+                if (!IsEntityVisible(light.Id))
+                    continue;
                 if (light.Center is null)
                     continue;
                 var c = CadVec.To(light.Center);
@@ -213,6 +225,8 @@ public sealed class CadModelRenderer
 
             foreach (var cam in cache.Cameras)
             {
+                if (!IsEntityVisible(cam.Id))
+                    continue;
                 if (cam.Center is null)
                     continue;
                 var c = CadVec.To(cam.Center);

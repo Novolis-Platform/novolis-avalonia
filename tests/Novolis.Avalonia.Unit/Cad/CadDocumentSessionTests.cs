@@ -1,5 +1,7 @@
 using Novolis.Avalonia.Cad.Core;
+using Novolis.Cad.Hierarchy;
 using Novolis.Cad.Primitives;
+using Novolis.Cad.Visibility;
 
 namespace Novolis.Avalonia.Unit.Cad;
 
@@ -95,5 +97,40 @@ public sealed class CadDocumentSessionTests
         session.SelectedId = id;
         await Assert.That(session.SelectedEntity).IsNotNull();
         await Assert.That(session.SelectedEntity!.Id).IsEqualTo(id);
+    }
+
+    [Test]
+    public async Task BindHierarchy_BindsVisibility_AndNewDocumentClearsIt()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "novolis-cad-hierarchy-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var session = new CadDocumentSession(new CadEditorSettings(root));
+            session.NewDocument();
+            var entityId = session.Document.Entities[0].Id;
+            var hierarchy = new CadHierarchyRegistry { RootId = "DOC" };
+            hierarchy.RegisterAssembly(new CadHierarchyAssembly(AssemblyId.Of("DOC"), "Document"));
+            hierarchy.RegisterPart(new CadHierarchyPart(
+                PartId.Of("PART-BASELINE"),
+                AssemblyId.Of("DOC"),
+                "Baseline",
+                entityId));
+
+            session.BindHierarchy(hierarchy);
+            session.Visibility.SetLocal("PART-BASELINE", LocalVisibility.Hidden);
+
+            await Assert.That(session.Hierarchy).IsEqualTo(hierarchy);
+            await Assert.That(session.Visibility.IsEntityEffectivelyVisible(entityId)).IsFalse();
+
+            session.NewDocument();
+
+            await Assert.That(session.Hierarchy).IsNull();
+            await Assert.That(session.Visibility.IsEntityEffectivelyVisible(session.Document.Entities[0].Id)).IsTrue();
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
     }
 }

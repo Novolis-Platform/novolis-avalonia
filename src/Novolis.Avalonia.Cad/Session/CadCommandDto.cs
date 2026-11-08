@@ -60,6 +60,9 @@ public sealed class CadCommandDto
 
     public string? Kind { get; set; }
 
+    /// <summary>Semantic assembly or part id used by hierarchy-driven actions.</summary>
+    public string? SubjectId { get; set; }
+
     public string? ExportRoot { get; set; }
 
     public Dictionary<string, string>? Properties { get; set; }

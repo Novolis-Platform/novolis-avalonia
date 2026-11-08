@@ -2,6 +2,7 @@ using Novolis.Avalonia.Cad.Commands;
 using Novolis.Avalonia.Cad.Core;
 using Novolis.Avalonia.Cad.Services;
 using Novolis.Avalonia.Cad.Session;
+using Novolis.Cad.Hierarchy;
 using Novolis.Cad.Primitives;
 using Novolis.Modeling;
 
@@ -248,6 +249,37 @@ public sealed class CadSessionServiceExtendedTests
                 Workspace = "draft3d",
             }).Ok).IsTrue();
             await Assert.That(requested).IsEqualTo("draft3d");
+        }
+        finally { try { Directory.Delete(root, recursive: true); } catch { /* ignore */ } }
+    }
+
+    [Test]
+    public async Task DrawSubject_WritesHierarchyDrawingManifest()
+    {
+        var (doc, _, cad) = Create(out var root);
+        try
+        {
+            var entityId = doc.Document.Entities[0].Id;
+            var hierarchy = new CadHierarchyRegistry { RootId = "DOC" };
+            hierarchy.RegisterAssembly(new CadHierarchyAssembly(AssemblyId.Of("DOC"), "Document"));
+            hierarchy.RegisterPart(new CadHierarchyPart(
+                PartId.Of("PART-BASELINE"),
+                AssemblyId.Of("DOC"),
+                "Baseline",
+                entityId));
+            doc.BindHierarchy(hierarchy);
+            cad.ExportRoot = Path.Combine(root, "drawings");
+
+            var result = cad.Execute(new CadCommandDto
+            {
+                ActionId = CadSessionActionIds.DrawSubject,
+                SubjectId = "PART-BASELINE",
+            });
+
+            await Assert.That(result.Ok).IsTrue();
+            await Assert.That(result.Paths).IsNotNull();
+            await Assert.That(File.Exists(result.Paths![0])).IsTrue();
+            await Assert.That(File.ReadAllText(result.Paths[0])).Contains("PART-BASELINE", StringComparison.Ordinal);
         }
         finally { try { Directory.Delete(root, recursive: true); } catch { /* ignore */ } }
     }

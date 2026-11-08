@@ -303,6 +303,8 @@ public sealed class CadDraft3DViewport : Control
 
         foreach (var entity in _session.Document.Entities)
         {
+            if (!IsEntityVisible(entity))
+                continue;
             if (_settings.Settings.IsolateLevel
                 && !CadVec.MatchesLevel(entity, elev, _settings.Settings.LevelTolerance))
                 continue;
@@ -365,7 +367,7 @@ public sealed class CadDraft3DViewport : Control
         if (_dispatcher.ActiveTool != CadToolKind.Select)
             return;
         var selected = _session.SelectedEntity;
-        if (selected is null)
+        if (selected is null || !IsEntityVisible(selected))
             return;
 
         foreach (var (_, world) in EnumerateGrips(selected))
@@ -644,7 +646,7 @@ public sealed class CadDraft3DViewport : Control
     private bool TryBeginGrip(Point screen, Matrix4x4 vp)
     {
         var selected = _session.SelectedEntity;
-        if (selected is null)
+        if (selected is null || !IsEntityVisible(selected))
             return false;
 
         var size = Bounds.Size;
@@ -799,6 +801,8 @@ public sealed class CadDraft3DViewport : Control
         var bestDist = PickPixels;
         foreach (var entity in _session.Document.Entities)
         {
+            if (!IsEntityVisible(entity))
+                continue;
             if (_settings.Settings.IsolateLevel
                 && !CadVec.MatchesLevel(entity, _settings.Settings.DrawElevation, _settings.Settings.LevelTolerance))
                 continue;
@@ -937,6 +941,9 @@ public sealed class CadDraft3DViewport : Control
 
     private float EstimatePixelsPerMeter() =>
         EstimatePixelsPerMeterAt(new Vector3(0, _settings.Settings.DrawElevation, 0));
+
+    private bool IsEntityVisible(CadEntity entity) =>
+        _session.Hierarchy is null || _session.Visibility.IsEntityEffectivelyVisible(entity.Id);
 
     private static bool IsSolid(CadEntity e) =>
         e.Kind.Equals("box", StringComparison.OrdinalIgnoreCase)
