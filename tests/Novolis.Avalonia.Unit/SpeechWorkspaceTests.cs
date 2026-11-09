@@ -34,6 +34,20 @@ public sealed class SpeechWorkspaceTests
     }
 
     [Test]
+    public async Task Select_edge_dismisses_azure_setup_intent()
+    {
+        var front = new SpeechFront(new CapturingVoice(), new MemoryTokenStore());
+        var workspace = new SpeechWorkspace(front);
+        await workspace.InitializeAsync();
+        await workspace.SelectAzureAsync();
+
+        await workspace.SelectEdgeAsync();
+
+        await Assert.That(workspace.WantAzureSetup).IsFalse();
+        await Assert.That(workspace.Provider).IsEqualTo(SpeechProvider.EdgeTts);
+    }
+
+    [Test]
     public async Task Manual_azure_connect_selects_azure_provider()
     {
         var store = new MemoryTokenStore();

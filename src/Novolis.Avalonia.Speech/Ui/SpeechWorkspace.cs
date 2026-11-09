@@ -164,6 +164,7 @@ public sealed class SpeechWorkspace
     {
         await RunBusyAsync(async () =>
         {
+            WantAzureSetup = false;
             await _front.UseEdgeTtsAsync(cancellationToken).ConfigureAwait(false);
             RebuildVoicesForProvider();
             SetStatus("Using Edge Read Aloud.");
@@ -175,6 +176,7 @@ public sealed class SpeechWorkspace
     {
         await RunBusyAsync(async () =>
         {
+            WantAzureSetup = false;
             await _front.UseDeviceVoiceAsync(cancellationToken).ConfigureAwait(false);
             RebuildVoicesForProvider();
             SetStatus("Using device voice.");

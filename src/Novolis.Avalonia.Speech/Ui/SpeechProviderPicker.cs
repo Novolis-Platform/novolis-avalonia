@@ -91,10 +91,10 @@ public sealed class SpeechProviderPicker : Border
         if (_workspace is null)
             return;
 
+        // Highlight the active provider only. WantAzureSetup opens the setup panel
+        // without implying Azure is already the live synthesis path.
         StyleSelected(_edge, _workspace.Provider == SpeechProvider.EdgeTts);
-        StyleSelected(
-            _azure,
-            _workspace.Provider == SpeechProvider.AzureSpeech || _workspace.WantAzureSetup);
+        StyleSelected(_azure, _workspace.Provider == SpeechProvider.AzureSpeech);
         StyleSelected(_device, _workspace.Provider == SpeechProvider.DeviceVoice);
         IsEnabled = !_workspace.IsBusy;
     }
