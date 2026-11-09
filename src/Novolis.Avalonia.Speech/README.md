@@ -26,6 +26,14 @@ services.AddNovolisSpeech();
 services.AddSingleton<IAzureSpeechResourcePicker, MyAzureSpeechResourcePicker>();
 ```
 
+## Quick start
+
+```csharp
+var workspace = services.GetRequiredService<SpeechWorkspace>();
+await workspace.InitializeAsync(); // prefers Edge when Azure is not configured
+var panel = new SpeechSettingsPanel { Workspace = workspace };
+```
+
 ## Interconnected controls
 
 Bind one shared `SpeechWorkspace` (registered by `AddNovolisSpeech`) to any of:
