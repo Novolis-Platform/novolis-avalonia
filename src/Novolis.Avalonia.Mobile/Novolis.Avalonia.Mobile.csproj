@@ -6,6 +6,7 @@
     <RootNamespace>Novolis.Avalonia.Mobile</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Avalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <LibraryReference Include="Novolis.Math.Geometry" />
   </ItemGroup>

@@ -6,12 +6,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Novolis.Avalonia.Speech</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Application speech front for device voice, Edge Read Aloud MP3, and user-owned Azure Speech.</Description>
+    <Description>Application speech front and interconnected Avalonia controls for Edge Read Aloud (default), optional Azure Speech with Entra resource lookup, and device voice.</Description>
     <RootNamespace>Novolis.Avalonia.Speech</RootNamespace>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" />
     <PackageReference Include="Azure.Core" />
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
@@ -19,6 +20,8 @@
     <LibraryReference Include="Novolis.Audio.Voice.AzureSpeech" />
     <LibraryReference Include="Novolis.Audio.Voice.EdgeTts" />
     <LibraryReference Include="Novolis.Manuscript.Export.Audio" />
+    <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
+    <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
   </ItemGroup>
 

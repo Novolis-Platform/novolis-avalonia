@@ -1,14 +1,16 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform;
+using Avalonia.Styling;
 using AvaloniaEdit;
 
 namespace Novolis.Avalonia.Markdown;
 
 /// <summary>
-/// Markdown source editor built on AvaloniaEdit with line numbers, word wrap, current-line highlight, and Ctrl+scroll zoom.
+/// Markdown source editor built on AvaloniaEdit with line numbers, word wrap,
+/// current-line highlight, Ctrl+scroll zoom, and OS light/dark chrome.
 /// </summary>
 public sealed class MarkdownSourceEditor : Border
 {
@@ -32,25 +34,21 @@ public sealed class MarkdownSourceEditor : Border
             nameof(HighlightingProfile),
             MarkdownSourceHighlightingProfile.Markdown);
 
-    private readonly TextEditor _editor;
+    readonly TextEditor _editor;
+    bool _themeHooked;
 
     /// <summary>Creates a styled Markdown source editor.</summary>
     public MarkdownSourceEditor()
     {
-        Background = new SolidColorBrush(Color.Parse("#1e1e1e"));
-        BorderBrush = new SolidColorBrush(Color.Parse("#2d2d30"));
         BorderThickness = new Thickness(1);
         CornerRadius = new CornerRadius(4);
         ClipToBounds = true;
 
         _editor = new TextEditor
         {
-            Background = new SolidColorBrush(Color.Parse("#1e1e1e")),
-            Foreground = new SolidColorBrush(Color.Parse("#d4d4d4")),
             FontFamily = EditorFontFamily,
             ShowLineNumbers = true,
             WordWrap = true,
-            LineNumbersForeground = new SolidColorBrush(Color.Parse("#6e7681")),
             LineNumbersMargin = new Thickness(8, 10, 6, 10),
             Padding = new Thickness(0, 10, 12, 10),
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
@@ -60,14 +58,16 @@ public sealed class MarkdownSourceEditor : Border
 
         _editor.Options.HighlightCurrentLine = true;
         _editor.Options.AcceptsTab = true;
-
-        _editor.TextArea.CaretBrush = new SolidColorBrush(Color.Parse("#aeafad"));
-        _editor.TextArea.SelectionBrush = new SolidColorBrush(Color.Parse("#264f78"));
         _editor.TextArea.SelectionForeground = Brushes.White;
 
         Child = _editor;
-
         _editor.TextChanged += OnEditorTextChanged;
+        _editor.TextArea.Caret.PositionChanged += (_, _) =>
+        {
+            // Keep caret visible while typing near the soft keyboard.
+            if (VisualRoot is not null)
+                EnsureCaretVisible();
+        };
 
         CtrlScrollZoom.Attach(this, () => ZoomScale, value => ZoomScale = value);
         CtrlScrollZoom.Attach(_editor, () => ZoomScale, value => ZoomScale = value);
@@ -76,6 +76,10 @@ public sealed class MarkdownSourceEditor : Border
         _editor.Watermark = PlaceholderText ?? string.Empty;
         UpdateTypography();
         ApplySyntaxHighlighting();
+        ApplyThemeChrome(ResolveLight());
+
+        AttachedToVisualTree += OnAttachedToVisualTree;
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
 
     /// <summary>Shared monospace font family for gutter and editor.</summary>
@@ -130,6 +134,31 @@ public sealed class MarkdownSourceEditor : Border
     /// <summary>Focuses the underlying text editor.</summary>
     public void FocusEditor() => _editor.Focus();
 
+    /// <summary>
+    /// Scrolls so the caret remains inside the visible editor viewport
+    /// (soft keyboard / resized host).
+    /// </summary>
+    public void EnsureCaretVisible()
+    {
+        try
+        {
+            _editor.TextArea.Caret.BringCaretToView();
+        }
+        catch
+        {
+            // Layout may not be ready yet during the first attach frame.
+        }
+    }
+
+    /// <summary>Moves the caret to <paramref name="offset"/> and scrolls it into view.</summary>
+    public void MoveCaretTo(int offset, bool ensureVisible = true)
+    {
+        offset = Math.Clamp(offset, 0, _editor.Document?.TextLength ?? 0);
+        _editor.CaretOffset = offset;
+        if (ensureVisible)
+            EnsureCaretVisible();
+    }
+
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -161,21 +190,97 @@ public sealed class MarkdownSourceEditor : Border
         }
     }
 
-    private void OnEditorTextChanged(object? sender, EventArgs e)
+    void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        HookTheme();
+        ApplyThemeChrome(ResolveLight());
+    }
+
+    void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e) =>
+        UnhookTheme();
+
+    void HookTheme()
+    {
+        if (_themeHooked || Application.Current is null)
+            return;
+        Application.Current.ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        _themeHooked = true;
+    }
+
+    void UnhookTheme()
+    {
+        if (!_themeHooked || Application.Current is null)
+            return;
+        Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
+        _themeHooked = false;
+    }
+
+    void OnActualThemeVariantChanged(object? sender, EventArgs e) =>
+        ApplyThemeChrome(ResolveLight());
+
+    static bool ResolveLight()
+    {
+        var variant = Application.Current?.ActualThemeVariant ?? ThemeVariant.Default;
+        if (variant == ThemeVariant.Light)
+            return true;
+        if (variant == ThemeVariant.Dark)
+            return false;
+
+        // ThemeVariant.Default — follow platform preference when available.
+        try
+        {
+            var platform = Application.Current?.PlatformSettings;
+            if (platform is not null)
+                return platform.GetColorValues().ThemeVariant != PlatformThemeVariant.Dark;
+        }
+        catch
+        {
+            // Headless / incomplete platform hosts.
+        }
+
+        return true;
+    }
+
+    void ApplyThemeChrome(bool light)
+    {
+        if (light)
+        {
+            Background = new SolidColorBrush(Color.Parse("#ffffff"));
+            BorderBrush = new SolidColorBrush(Color.Parse("#d0d7de"));
+            _editor.Background = new SolidColorBrush(Color.Parse("#ffffff"));
+            _editor.Foreground = new SolidColorBrush(Color.Parse("#1f2328"));
+            _editor.LineNumbersForeground = new SolidColorBrush(Color.Parse("#656d76"));
+            _editor.TextArea.CaretBrush = new SolidColorBrush(Color.Parse("#1f2328"));
+            _editor.TextArea.SelectionBrush = new SolidColorBrush(Color.Parse("#b6e3ff"));
+        }
+        else
+        {
+            Background = new SolidColorBrush(Color.Parse("#1e1e1e"));
+            BorderBrush = new SolidColorBrush(Color.Parse("#2d2d30"));
+            _editor.Background = new SolidColorBrush(Color.Parse("#1e1e1e"));
+            _editor.Foreground = new SolidColorBrush(Color.Parse("#d4d4d4"));
+            _editor.LineNumbersForeground = new SolidColorBrush(Color.Parse("#6e7681"));
+            _editor.TextArea.CaretBrush = new SolidColorBrush(Color.Parse("#aeafad"));
+            _editor.TextArea.SelectionBrush = new SolidColorBrush(Color.Parse("#264f78"));
+        }
+    }
+
+    void OnEditorTextChanged(object? sender, EventArgs e)
     {
         if (!string.Equals(Text, _editor.Text, StringComparison.Ordinal))
             SetCurrentValue(TextProperty, _editor.Text);
 
         TextChanged?.Invoke(this, new TextChangedEventArgs(null));
+        EnsureCaretVisible();
     }
 
-    private void UpdateTypography()
+    void UpdateTypography()
     {
         _editor.FontSize = MarkdownZoom.ScaledFontSize(BaseFontSize, ZoomScale);
         _editor.Options.LineHeightFactor = 1.35;
     }
 
-    private void ApplySyntaxHighlighting()
+    void ApplySyntaxHighlighting()
     {
         _editor.SyntaxHighlighting = MarkdownSyntaxHighlighting.GetDefinition(HighlightingProfile);
     }
