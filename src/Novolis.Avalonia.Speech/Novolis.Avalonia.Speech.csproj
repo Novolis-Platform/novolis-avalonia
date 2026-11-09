@@ -21,7 +21,6 @@
     <LibraryReference Include="Novolis.Audio.Voice.EdgeTts" />
     <LibraryReference Include="Novolis.Manuscript.Export.Audio" />
     <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
-    <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
   </ItemGroup>
 

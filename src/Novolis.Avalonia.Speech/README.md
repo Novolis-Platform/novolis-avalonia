@@ -6,19 +6,45 @@
 
 # Novolis.Avalonia.Speech
 
-Application-level speech front for Avalonia hosts.
+Application speech front plus interconnected Avalonia controls for selecting,
+configuring, and using speech providers.
+
+**Default:** Edge Read Aloud (online MP3, no Azure credentials).  
+**Optional:** Azure Speech via Microsoft Entra login (tenant / subscription /
+resource autolookup) or manual endpoint + key.  
+**Fallback:** device voice (playback only).
 
 ## Install
 
-Add a package reference to `Novolis.Avalonia.Speech` and register
-`AddNovolisSpeech()` in the host's dependency-injection container.
+```xml
+<PackageReference Include="Novolis.Avalonia.Speech" Version="2026.1.*" />
+```
 
-## Usage
+```csharp
+services.AddNovolisSpeech();
+// Optional host-specific Entra discovery:
+services.AddSingleton<IAzureSpeechResourcePicker, MyAzureSpeechResourcePicker>();
+```
 
-It selects between the local `IVoiceService` and a configured
-`Novolis.Audio.Voice.AzureSpeech` client. Azure configuration is stored through
-the host's `ISecureTokenStore`; the package never provides a Novolis relay or
-subscription.
+## Interconnected controls
 
-Device voice is playback-only. Azure Speech is the path used when the caller
-needs MP3 bytes.
+Bind one shared `SpeechWorkspace` (registered by `AddNovolisSpeech`) to any of:
+
+| Control | Role |
+| --- | --- |
+| `SpeechSettingsPanel` | Composed chrome (providers + status + voice + Azure setup) |
+| `SpeechProviderPicker` | Edge / Azure / Device |
+| `SpeechStatusCard` | Provider + capability summary |
+| `SpeechVoicePicker` | Voice list for the active provider |
+| `AzureSpeechSetupPanel` | Entra login cascade or manual endpoint/key |
+
+```csharp
+var panel = new SpeechSettingsPanel { Workspace = workspace };
+await workspace.InitializeAsync(); // prefers Edge when Azure is not configured
+```
+
+## Notes
+
+- Azure credentials are stored through the host `ISecureTokenStore`.
+- The package never provides a Novolis relay or subscription.
+- Device voice cannot create MP3 files; Edge and configured Azure can.
