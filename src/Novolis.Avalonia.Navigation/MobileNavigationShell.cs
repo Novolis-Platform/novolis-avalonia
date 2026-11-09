@@ -217,7 +217,7 @@ public sealed class MobileNavigationShell : Grid
         {
             _primaryBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             var node = nodes[index];
-            var button = CreateNodeButton(node, $"MobileNavigationPrimary.{node.Id}");
+            var button = CreateNodeButton(node, $"MobileNavigationPrimary.{node.Id}", primary: true);
             _primaryBar.Children.Add(button);
             Grid.SetColumn(button, index);
         }
@@ -275,18 +275,33 @@ public sealed class MobileNavigationShell : Grid
         }
     }
 
-    Button CreateNodeButton(MobileMenuNode node, string automationId)
+    Button CreateNodeButton(MobileMenuNode node, string automationId, bool primary = false)
     {
         var label = node.Label;
-        if (!string.IsNullOrWhiteSpace(node.Subtitle))
+        if (!primary && !string.IsNullOrWhiteSpace(node.Subtitle))
             label += $"\n{node.Subtitle}";
-        if (node.Kind == MobileMenuNodeKind.Group)
+        if (!primary && node.Kind == MobileMenuNodeKind.Group)
             label += "  ›";
         if (node.Kind == MobileMenuNodeKind.Toggle)
             label += node.IsChecked ? "  On" : "  Off";
 
         var button = CreateChromeButton(label, automationId, () => _navigation.Activate(node.Id));
-        button.HorizontalContentAlignment = HorizontalAlignment.Left;
+        button.HorizontalContentAlignment = primary
+            ? HorizontalAlignment.Center
+            : HorizontalAlignment.Left;
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        if (button.Content is TextBlock labelBlock)
+        {
+            labelBlock.TextAlignment = primary ? TextAlignment.Center : TextAlignment.Left;
+            labelBlock.HorizontalAlignment = HorizontalAlignment.Stretch;
+        }
+
+        if (primary)
+        {
+            button.Padding = new Thickness(6, 8);
+            button.FontSize = GraphicalProfileColors.CaptionSize;
+        }
+
         button.IsEnabled = node.IsEnabled;
         BindBrush(
             button,
@@ -310,7 +325,14 @@ public sealed class MobileNavigationShell : Grid
     {
         var button = new Button
         {
-            Content = text,
+            Content = new TextBlock
+            {
+                Text = text,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                TextAlignment = TextAlignment.Center,
+            },
             FontFamily = Profile.BodyFont,
             FontSize = GraphicalProfileColors.CaptionSize,
             FontWeight = FontWeight.Bold,
