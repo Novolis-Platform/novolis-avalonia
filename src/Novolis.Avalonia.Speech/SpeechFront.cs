@@ -6,7 +6,6 @@ using Novolis.Audio.Voice;
 using Novolis.Audio.Voice.AzureSpeech;
 using Novolis.Audio.Voice.EdgeTts;
 using Novolis.Avalonia.Mobile;
-using Novolis.Manuscript.Export.Audio;
 
 namespace Novolis.Avalonia.Speech;
 
@@ -297,15 +296,18 @@ public sealed class SpeechFront : IDisposable
 
         if (_provider == SpeechProvider.EdgeTts)
         {
-            var settings = new VoiceSettings
+            var shortName = options?.VoiceName ?? EdgeVoiceCatalog.ToShortName(EdgeVoice.EnUsAva);
+            if (!EdgeVoiceCatalog.TryParse(shortName, out var edgeVoice))
+                edgeVoice = EdgeVoice.EnUsAva;
+            var edgeOptions = new EdgeTtsSynthesisOptions
             {
-                Voice = options?.VoiceName ?? EdgeVoiceCatalog.ToShortName(EdgeVoice.EnUsAva),
-                RatePercent = options?.RatePercent ?? -4,
-                PitchHertz = options?.PitchHertz ?? 0,
-                VolumePercent = options?.VolumePercent ?? 0,
+                Voice = edgeVoice,
+                Rate = new ProsodyPercent(options?.RatePercent ?? -4),
+                Pitch = new ProsodyHertz(options?.PitchHertz ?? 0),
+                Volume = new ProsodyPercent(options?.VolumePercent ?? 0),
             };
             return await _edgeClient
-                .SynthesizeToMp3Async(text, settings.ToEdgeTtsOptions(), cancellationToken)
+                .SynthesizeToMp3Async(text, edgeOptions, cancellationToken)
                 .ConfigureAwait(false);
         }
 
