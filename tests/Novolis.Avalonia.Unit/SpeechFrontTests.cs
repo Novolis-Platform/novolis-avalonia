@@ -34,6 +34,18 @@ public sealed class SpeechFrontTests
     }
 
     [Test]
+    public async Task Edge_tts_selection_enables_mp3_without_azure()
+    {
+        var front = new SpeechFront(new CapturingVoice(), new MemoryTokenStore());
+
+        await front.UseEdgeTtsAsync();
+
+        await Assert.That(front.Provider).IsEqualTo(SpeechProvider.EdgeTts);
+        await Assert.That(front.Capabilities.CanCreateMp3).IsTrue();
+        await Assert.That(front.IsAzureConfigured).IsFalse();
+    }
+
+    [Test]
     public async Task Azure_key_setup_is_persisted_and_enables_mp3_capability()
     {
         var store = new MemoryTokenStore();

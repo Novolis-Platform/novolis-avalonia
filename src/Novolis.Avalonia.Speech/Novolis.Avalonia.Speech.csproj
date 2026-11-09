@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <PackageId>Novolis.Avalonia.Speech</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Application speech front for device voice playback and user-owned Azure Speech MP3 synthesis.</Description>
+    <Description>Application speech front for device voice, Edge Read Aloud MP3, and user-owned Azure Speech.</Description>
     <RootNamespace>Novolis.Avalonia.Speech</RootNamespace>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <LibraryReference Include="Novolis.Audio.Voice.Abstractions" />
     <LibraryReference Include="Novolis.Audio.Voice.AzureSpeech" />
+    <LibraryReference Include="Novolis.Audio.Voice.EdgeTts" />
     <LibraryReference Include="Novolis.Manuscript.Export.Audio" />
     <ProjectReference Include="..\Novolis.Avalonia.Mobile\Novolis.Avalonia.Mobile.csproj" />
   </ItemGroup>

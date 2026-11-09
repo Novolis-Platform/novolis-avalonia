@@ -4,15 +4,17 @@ using Azure.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Novolis.Audio.Voice;
 using Novolis.Audio.Voice.AzureSpeech;
+using Novolis.Audio.Voice.EdgeTts;
 using Novolis.Avalonia.Mobile;
+using Novolis.Manuscript.Export.Audio;
 
 namespace Novolis.Avalonia.Speech;
 
 /// <summary>
-/// Application speech front that selects local device playback or a user's
-/// Azure Speech resource.
+/// Application speech front that selects local device playback, Edge Read Aloud
+/// MP3 synthesis, or a user's Azure Speech resource.
 /// </summary>
-public sealed class SpeechFront
+public sealed class SpeechFront : IDisposable
 {
     const string SecureStateKey = "speech.azure.state";
     static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -21,6 +23,7 @@ public sealed class SpeechFront
     readonly ISecureTokenStore _secureStore;
     readonly IAzureSpeechCredentialFactory _credentialFactory;
     readonly SemaphoreSlim _initialization = new(1, 1);
+    readonly EdgeTtsClient _edgeClient = new();
     AzureSpeechSetup? _azureSetup;
     AzureSpeechClient? _azureClient;
     SpeechProvider _provider = SpeechProvider.DeviceVoice;
@@ -54,7 +57,8 @@ public sealed class SpeechFront
     public SpeechCapabilities Capabilities => new(
         CanDevicePlayback: true,
         CanAzurePlayback: IsAzureConfigured,
-        CanCreateMp3: IsAzureConfigured);
+        CanCreateMp3: _provider == SpeechProvider.EdgeTts
+            || (_provider == SpeechProvider.AzureSpeech && IsAzureConfigured));
 
     /// <summary>Loads encrypted user configuration once during application startup.</summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -76,14 +80,21 @@ public sealed class SpeechFront
                 try
                 {
                     var state = JsonSerializer.Deserialize<PersistedSpeechState>(json, JsonOptions);
-                    if (state?.Azure is not null)
+                    if (state is not null)
                     {
-                        state.Azure.Validate();
-                        _azureSetup = state.Azure;
-                        ReplaceAzureClient(CreateClient(state.Azure));
-                        _provider = state.Provider == SpeechProvider.AzureSpeech
-                            ? SpeechProvider.AzureSpeech
-                            : SpeechProvider.DeviceVoice;
+                        if (state.Azure is not null)
+                        {
+                            state.Azure.Validate();
+                            _azureSetup = state.Azure;
+                            ReplaceAzureClient(CreateClient(state.Azure));
+                        }
+
+                        _provider = state.Provider switch
+                        {
+                            SpeechProvider.AzureSpeech when IsAzureConfigured => SpeechProvider.AzureSpeech,
+                            SpeechProvider.EdgeTts => SpeechProvider.EdgeTts,
+                            _ => SpeechProvider.DeviceVoice,
+                        };
                     }
                 }
                 catch (JsonException)
@@ -113,6 +124,15 @@ public sealed class SpeechFront
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
         _provider = SpeechProvider.DeviceVoice;
+        await SaveStateAsync(cancellationToken).ConfigureAwait(false);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Switches to Edge Read Aloud MP3 synthesis (no Azure credentials).</summary>
+    public async Task UseEdgeTtsAsync(CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        _provider = SpeechProvider.EdgeTts;
         await SaveStateAsync(cancellationToken).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);
     }
@@ -231,29 +251,29 @@ public sealed class SpeechFront
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Removes the stored Azure configuration and returns to device speech.</summary>
+    /// <summary>Removes the stored Azure configuration and returns to Edge Read Aloud.</summary>
     public async Task RemoveAzureAsync(CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
         _azureSetup = null;
         ReplaceAzureClient(null);
-        _provider = SpeechProvider.DeviceVoice;
-        await _secureStore.RemoveAsync(SecureStateKey, cancellationToken).ConfigureAwait(false);
+        _provider = SpeechProvider.EdgeTts;
+        await SaveStateAsync(cancellationToken).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
-    /// Reads text through the selected provider. Azure playback is handed to
+    /// Reads text through the selected provider. MP3 playback is handed to
     /// the caller because only the host knows how to play MP3 bytes.
     /// </summary>
     public async Task ReadAsync(
         string text,
-        Func<byte[], CancellationToken, Task> playAzureMp3Async,
+        Func<byte[], CancellationToken, Task> playMp3Async,
         AzureSpeechSynthesisOptions? azureOptions = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
-        ArgumentNullException.ThrowIfNull(playAzureMp3Async);
+        ArgumentNullException.ThrowIfNull(playMp3Async);
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
         if (_provider == SpeechProvider.DeviceVoice)
@@ -263,10 +283,10 @@ public sealed class SpeechFront
         }
 
         var mp3 = await CreateMp3Async(text, azureOptions, cancellationToken).ConfigureAwait(false);
-        await playAzureMp3Async(mp3, cancellationToken).ConfigureAwait(false);
+        await playMp3Async(mp3, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Creates MP3 bytes through Azure Speech.</summary>
+    /// <summary>Creates MP3 bytes through Edge Read Aloud or Azure Speech.</summary>
     public async Task<byte[]> CreateMp3Async(
         string text,
         AzureSpeechSynthesisOptions? options = null,
@@ -274,6 +294,21 @@ public sealed class SpeechFront
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_provider == SpeechProvider.EdgeTts)
+        {
+            var settings = new VoiceSettings
+            {
+                Voice = options?.VoiceName ?? EdgeVoiceCatalog.ToShortName(EdgeVoice.EnUsAva),
+                RatePercent = options?.RatePercent ?? -4,
+                PitchHertz = options?.PitchHertz ?? 0,
+                VolumePercent = options?.VolumePercent ?? 0,
+            };
+            return await _edgeClient
+                .SynthesizeToMp3Async(text, settings.ToEdgeTtsOptions(), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         EnsureAzureConfigured();
 
         options ??= new AzureSpeechSynthesisOptions
@@ -284,6 +319,14 @@ public sealed class SpeechFront
         return await _azureClient!
             .SynthesizeToMp3Async(text, options, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        ReplaceAzureClient(null);
+        _edgeClient.Dispose();
+        _initialization.Dispose();
     }
 
     void ReplaceAzureClient(AzureSpeechClient? client)
@@ -319,7 +362,8 @@ public sealed class SpeechFront
         if (!IsAzureConfigured)
         {
             throw new SpeechCapabilityException(
-                "Azure Speech is not configured. Add your own Speech endpoint and credentials first.");
+                "Azure Speech is not configured. Add your own Speech endpoint and credentials first, " +
+                "or switch to Edge Read Aloud.");
         }
     }
 

@@ -6,6 +6,9 @@ public enum SpeechProvider
     /// <summary>Use the device's local voice engine without a network request.</summary>
     DeviceVoice,
 
+    /// <summary>Use the unofficial Edge Read Aloud service (MP3; network; no Azure key).</summary>
+    EdgeTts,
+
     /// <summary>Use the user's Azure Speech resource.</summary>
     AzureSpeech,
 }

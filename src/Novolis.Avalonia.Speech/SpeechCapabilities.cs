@@ -6,9 +6,15 @@ public sealed record SpeechCapabilities(
     bool CanAzurePlayback,
     bool CanCreateMp3)
 {
-    /// <summary>Capabilities when no Azure resource has been configured.</summary>
+    /// <summary>Capabilities when only local device speech is selected.</summary>
     public static SpeechCapabilities DeviceOnly { get; } = new(
         CanDevicePlayback: true,
         CanAzurePlayback: false,
         CanCreateMp3: false);
+
+    /// <summary>Capabilities when Edge Read Aloud is selected (MP3 without Azure credentials).</summary>
+    public static SpeechCapabilities EdgeTts { get; } = new(
+        CanDevicePlayback: true,
+        CanAzurePlayback: false,
+        CanCreateMp3: true);
 }

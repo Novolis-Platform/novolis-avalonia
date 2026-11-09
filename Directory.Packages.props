@@ -35,6 +35,8 @@
     <PackageVersion Include="Novolis.Avalonia.Ndjson" Version="2026.1.*" />
     <PackageVersion Include="Novolis.IO.Ndjson" Version="2026.1.*" />
     <PackageVersion Include="Novolis.Audio.Voice.AzureSpeech" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Audio.Voice.EdgeTts" Version="2026.1.*" />
+    <PackageVersion Include="Novolis.Manuscript.Export.Audio" Version="2026.1.*" />
     <PackageVersion Include="Xamarin.AndroidX.Browser" Version="1.10.0.1" />
     <PackageVersion Include="Xamarin.AndroidX.Core" Version="1.19.0.1" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.3" />
