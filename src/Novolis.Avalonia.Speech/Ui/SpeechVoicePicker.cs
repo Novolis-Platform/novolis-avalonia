@@ -71,7 +71,13 @@ public sealed class SpeechVoicePicker : Border
         Refresh();
     }
 
-    void OnWorkspaceChanged(object? sender, EventArgs e) => Refresh();
+    void OnWorkspaceChanged(object? sender, EventArgs e)
+    {
+        if (global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            Refresh();
+        else
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(Refresh);
+    }
 
     void Refresh()
     {

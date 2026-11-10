@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
 
 namespace Novolis.Avalonia.Speech;
@@ -75,7 +76,7 @@ public sealed class AzureSpeechSetupPanel : Border
             }
             catch (Exception ex)
             {
-                _resourceStatus.Text = ex.Message;
+                SetResourceStatus(ex.Message);
             }
         };
         _signOut.Click += async (_, _) =>
@@ -103,7 +104,7 @@ public sealed class AzureSpeechSetupPanel : Border
             }
             catch (Exception ex)
             {
-                _resourceStatus.Text = ex.Message;
+                SetResourceStatus(ex.Message);
             }
         };
         _resourceGroupPicker.SelectionChanged += async (_, _) =>
@@ -117,7 +118,7 @@ public sealed class AzureSpeechSetupPanel : Border
             }
             catch (Exception ex)
             {
-                _resourceStatus.Text = ex.Message;
+                SetResourceStatus(ex.Message);
             }
         };
         _speechResourcePicker.SelectionChanged += async (_, _) =>
@@ -131,7 +132,7 @@ public sealed class AzureSpeechSetupPanel : Border
             }
             catch (Exception ex)
             {
-                _resourceStatus.Text = ex.Message;
+                SetResourceStatus(ex.Message);
             }
         };
 
@@ -241,7 +242,21 @@ public sealed class AzureSpeechSetupPanel : Border
         Refresh();
     }
 
-    void OnWorkspaceChanged(object? sender, EventArgs e) => Refresh();
+    void OnWorkspaceChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            Refresh();
+        else
+            Dispatcher.UIThread.Post(Refresh);
+    }
+
+    void SetResourceStatus(string message)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            _resourceStatus.Text = message;
+        else
+            Dispatcher.UIThread.Post(() => _resourceStatus.Text = message);
+    }
 
     void Refresh()
     {
@@ -297,25 +312,25 @@ public sealed class AzureSpeechSetupPanel : Border
 
         if (!Uri.TryCreate(_endpointBox.Text?.Trim(), UriKind.Absolute, out var endpoint))
         {
-            _resourceStatus.Text = "Enter a valid https endpoint.";
+            SetResourceStatus("Enter a valid https endpoint.");
             return;
         }
 
         var key = _keyBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(key))
         {
-            _resourceStatus.Text = "Enter the subscription key.";
+            SetResourceStatus("Enter the subscription key.");
             return;
         }
 
         try
         {
             await _workspace.ConnectManualAsync(endpoint, key);
-            _keyBox.Text = string.Empty;
+            await Dispatcher.UIThread.InvokeAsync(() => _keyBox.Text = string.Empty);
         }
         catch (Exception ex)
         {
-            _resourceStatus.Text = ex.Message;
+            SetResourceStatus(ex.Message);
         }
     }
 

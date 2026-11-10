@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using Novolis.Audio.Voice.AzureSpeech;
 using Novolis.Audio.Voice.EdgeTts;
 using Novolis.Manuscript.Export.Audio;
@@ -497,5 +498,16 @@ public sealed class SpeechWorkspace
         }
     }
 
-    void Notify() => Changed?.Invoke(this, EventArgs.Empty);
+    void Notify()
+    {
+        // Sign-in / ARM lookups resume on a thread-pool thread after ConfigureAwait(false).
+        // Avalonia controls listening to Changed must only refresh on the UI thread.
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => Changed?.Invoke(this, EventArgs.Empty));
+    }
 }
