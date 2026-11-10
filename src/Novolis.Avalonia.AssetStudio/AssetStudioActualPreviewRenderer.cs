@@ -369,18 +369,30 @@ internal static class AssetStudioActualPreviewRenderer
         out int sampleCount,
         out string backendLabel)
     {
-        var gpu = new IlgpuRayTracingBackend(deterministic: false);
-        backendLabel = gpu.BackendLabel;
-        if (IsRealGpu(backendLabel))
+        try
         {
-            sampleCount = GpuPreviewSamples;
+            var gpu = new IlgpuRayTracingBackend(deterministic: false);
+            backendLabel = gpu.BackendLabel;
+            if (IsRealGpu(backendLabel))
+            {
+                sampleCount = GpuPreviewSamples;
+                return gpu;
+            }
+
+            // Keep ILGPU's own CPU-accelerator fallback instead of double-wrapping.
+            sampleCount = CpuPreviewSamples;
             return gpu;
         }
-
-        gpu.Dispose();
-        sampleCount = CpuPreviewSamples;
-        backendLabel = "CPU (deterministic)";
-        return new CpuRayTracingBackend(deterministic: true);
+        catch (Exception exception) when (
+            exception is TypeInitializationException
+                or PlatformNotSupportedException
+                or NotSupportedException
+                or InvalidOperationException)
+        {
+            backendLabel = $"CPU (deterministic · {exception.GetBaseException().Message})";
+            sampleCount = CpuPreviewSamples;
+            return new CpuRayTracingBackend(deterministic: true);
+        }
     }
 
     private static void RenderSamples(

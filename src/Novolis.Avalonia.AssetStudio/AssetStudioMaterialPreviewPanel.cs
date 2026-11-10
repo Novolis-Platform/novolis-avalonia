@@ -4,8 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Novolis.Visual.Assets;
 using Novolis.Visual.Compile;
+using Novolis.Visual.Definitions;
 using Novolis.Visual.Materials;
 using Novolis.Avalonia.GraphicalProfile;
 using Profile = Novolis.Avalonia.GraphicalProfile.GraphicalProfile;
@@ -24,6 +26,7 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
     private readonly ComboBox _target;
     private AssetRecipe? _asset;
     private AssetInstance? _assetInstance;
+    private int _renderVersion;
 
     public AssetStudioMaterialPreviewPanel()
         : base(
@@ -88,21 +91,24 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
             : string.Join(
                 ", ",
                 graph.Channels.Select(channel => channel.Channel.ToString()));
-        var target = _target.SelectedItem?.ToString() ?? "CPU Reference";
-        var status = compilation is null
+        var target = _target.SelectedItem?.ToString() ?? "Path Trace";
+        var compileStatus = compilation is null
             ? "not compiled"
             : compilation.Success
-                ? "ready"
-                : "needs attention";
+                ? "compile ready"
+                : compilation.IsValid
+                    ? "compile approximate"
+                    : "compile needs attention";
         _summary.Text = _asset is { } asset
-            ? $"{asset.DisplayName} · {target} · {status}\n" +
+            ? $"{asset.DisplayName} · {target} · {compileStatus}\n" +
               $"Material slots: {asset.MaterialSlots.Length}\n" +
-              "Asset viewport: generic assembly"
-            : $"{graph!.DisplayName} · {target} · {status}\n" +
+              "Asset viewport: softbox path trace"
+            : $"{graph!.DisplayName} · {target} · {compileStatus}\n" +
               $"Channels: {channels}\n" +
               "Preview shape: " +
               (_shape.SelectedItem?.ToString() ?? "Material Sphere");
-        if (target is not ("CPU Reference" or "Deterministic Path Trace"))
+
+        if (target is not ("CPU Reference" or "Path Trace" or "Deterministic Path Trace"))
         {
             _summary.Text +=
                 "\nUnsupported · this target has no registered execution path.";
@@ -111,40 +117,98 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
             return;
         }
 
-        if (compilation is { Success: true })
-        {
-            try
-            {
-                var png = _asset is null
-                    ? AssetStudioActualPreviewRenderer.Render(
-                        compilation,
-                        _shape.SelectedItem?.ToString() ?? "Material Sphere",
-                        width: 360,
-                        height: 260)
-                    : AssetStudioActualPreviewRenderer.RenderAsset(
-                        compilation,
-                        _asset,
-                        _assetInstance,
-                        width: 360,
-                        height: 260);
-                using var stream = new MemoryStream(
-                    png,
-                    writable: false);
-                _image.Source = new Bitmap(stream);
-                _image.IsVisible = true;
-            }
-            catch (Exception exception)
-            {
-                _image.Source = null;
-                _image.IsVisible = false;
-                _summary.Text += $"\nThumbnail unavailable · {exception.Message}";
-            }
-        }
-        else
+        if (compilation is null)
         {
             _image.Source = null;
             _image.IsVisible = false;
+            return;
         }
+
+        if (!compilation.IsValid)
+        {
+            var errors = string.Join(
+                " · ",
+                compilation.Diagnostics
+                    .Where(diagnostic =>
+                        diagnostic.Severity == VisualDiagnosticSeverity.Error)
+                    .Select(diagnostic => $"{diagnostic.Code}: {diagnostic.Message}")
+                    .Take(3));
+            _summary.Text += string.IsNullOrWhiteSpace(errors)
+                ? "\nPreview blocked · compile has errors."
+                : $"\nPreview blocked · {errors}";
+            _image.Source = null;
+            _image.IsVisible = false;
+            return;
+        }
+
+        var version = ++_renderVersion;
+        _summary.Text += "\nRendering path-trace preview…";
+        var shape = _shape.SelectedItem?.ToString() ?? "Material Sphere";
+        var assetSnapshot = _asset;
+        var instanceSnapshot = _assetInstance;
+        _ = Task.Run<object>(() =>
+            {
+                try
+                {
+                    return assetSnapshot is null
+                        ? AssetStudioActualPreviewRenderer.Render(
+                            compilation,
+                            shape,
+                            width: 480,
+                            height: 360)
+                        : AssetStudioActualPreviewRenderer.RenderAsset(
+                            compilation,
+                            assetSnapshot,
+                            instanceSnapshot,
+                            width: 480,
+                            height: 360);
+                }
+                catch (Exception exception)
+                {
+                    return exception;
+                }
+            })
+            .ContinueWith(
+                task =>
+                {
+                    if (version != _renderVersion)
+                    {
+                        return;
+                    }
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (version != _renderVersion)
+                        {
+                            return;
+                        }
+
+                        if (task.Result is Exception exception)
+                        {
+                            _image.Source = null;
+                            _image.IsVisible = false;
+                            _summary.Text +=
+                                $"\nThumbnail unavailable · {exception.GetBaseException().Message}";
+                            return;
+                        }
+
+                        var png = (byte[])task.Result;
+                        using var stream = new MemoryStream(png, writable: false);
+                        _image.Source = new Bitmap(stream);
+                        _image.IsVisible = true;
+                        // Drop the transient "Rendering…" line once the frame lands.
+                        var lines = (_summary.Text ?? string.Empty)
+                            .Split('\n')
+                            .Where(line =>
+                                !line.StartsWith(
+                                    "Rendering path-trace preview",
+                                    StringComparison.Ordinal))
+                            .ToArray();
+                        _summary.Text = string.Join('\n', lines) +
+                                        $"\nPreview ready · {png.Length} byte PNG";
+                    });
+                },
+                TaskScheduler.Default);
     }
 
     private static Control CreateContent(
@@ -168,8 +232,8 @@ public sealed class AssetStudioMaterialPreviewPanel : AssetStudioPanel
         {
             ItemsSource = new[]
             {
+                "Path Trace",
                 "CPU Reference",
-                "Deterministic Path Trace",
                 "Raster / HDR (Unsupported)",
                 "Bake (Unsupported)",
             },

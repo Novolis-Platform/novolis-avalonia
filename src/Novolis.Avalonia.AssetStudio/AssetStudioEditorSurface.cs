@@ -518,7 +518,7 @@ public sealed class AssetStudioEditorSurface : UserControl
         await _preview.RefreshAsync(
             _authoringSession.Document,
             cancellationToken);
-        if (_activeMaterialCompilation is { Success: true } compilation &&
+        if (_activeMaterialCompilation is { IsValid: true } compilation &&
             _authoringSession.Document is { } document)
         {
             if (document.Asset is { } asset)

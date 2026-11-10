@@ -128,7 +128,7 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
     {
         ArgumentNullException.ThrowIfNull(compilation);
         ArgumentException.ThrowIfNullOrWhiteSpace(materialName);
-        if (!compilation.Success)
+        if (!compilation.IsValid)
         {
             return;
         }
@@ -136,8 +136,8 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
         var png = AssetStudioActualPreviewRenderer.Render(
             compilation,
             "Material Sphere",
-            width: 360,
-            height: 260);
+            width: 480,
+            height: 360);
         _lastResult = new AssetStudioPreviewResult(
             "CPU material viewport",
             "Ready",
@@ -155,7 +155,7 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
     {
         ArgumentNullException.ThrowIfNull(compilation);
         ArgumentNullException.ThrowIfNull(asset);
-        if (!compilation.Success)
+        if (!compilation.IsValid)
         {
             return;
         }
@@ -164,8 +164,8 @@ public sealed class AssetStudioPreviewPanel : AssetStudioPanel
             compilation,
             asset,
             instance,
-            width: 360,
-            height: 260);
+            width: 480,
+            height: 360);
         _lastResult = new AssetStudioPreviewResult(
             "CPU asset viewport",
             "Ready",

@@ -66,6 +66,25 @@ public sealed class MaterialAssetStudioPanelTests
     }
 
     [Test]
+    public async Task Blank_untitled_material_path_traces_to_png()
+    {
+        var material = AssetStudioBlankDocumentFactory.CreateBlankMaterial();
+        var compilation = VisualMaterialCompiler.CompileMaterial(
+            material,
+            options: new VisualCompileOptions(
+                registry: VisualCompiler.CreateDefaultRegistry(),
+                strict: true));
+        await Assert.That(compilation.IsValid).IsTrue();
+
+        var png = AssetStudioActualPreviewRenderer.Render(
+            compilation,
+            "Material Sphere",
+            width: 160,
+            height: 120);
+        await Assert.That(png.Length).IsGreaterThan(100);
+    }
+
+    [Test]
     public async Task Asset_preview_renders_generic_component_geometry_to_png()
     {
         var template = VisualPresetCatalog.CreateDefault()
