@@ -5,9 +5,9 @@ namespace Novolis.Avalonia.Controls.Sketch;
 /// </summary>
 public static class SketchFloodFill
 {
-    const int MaxDimension = 768;
-    const int MaxPixels = 250_000;
-    const double PadWorld = 8;
+    internal const int MaxDimension = 768;
+    internal const int MaxPixels = 250_000;
+    internal const double PadWorld = 8;
 
     /// <summary>
     /// Flood-fills from <paramref name="seed"/> treating visible stroke polylines (and closed edges)
@@ -21,173 +21,23 @@ public static class SketchFloodFill
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(isLayerVisible);
 
-        var strokes = elements
-            .Where(e => isLayerVisible(e.LayerId) && e.Kind == SketchElementKind.Stroke && e.Points.Count >= 2)
-            .ToList();
+        var strokes = SketchFloodFillRaster.CollectStrokes(elements, isLayerVisible);
         if (strokes.Count == 0)
             return null;
 
-        var minX = seed.X;
-        var minY = seed.Y;
-        var maxX = seed.X;
-        var maxY = seed.Y;
-        var maxWidth = 2.0;
-        foreach (var s in strokes)
-        {
-            maxWidth = Math.Max(maxWidth, s.StrokeWidth);
-            foreach (var p in s.Points)
-            {
-                minX = Math.Min(minX, p.X);
-                minY = Math.Min(minY, p.Y);
-                maxX = Math.Max(maxX, p.X);
-                maxY = Math.Max(maxY, p.Y);
-            }
-        }
-
-        var pad = Math.Max(PadWorld, maxWidth * 2);
-        minX -= pad;
-        minY -= pad;
-        maxX += pad;
-        maxY += pad;
-
-        var worldW = Math.Max(1e-6, maxX - minX);
-        var worldH = Math.Max(1e-6, maxY - minY);
-        var scale = Math.Min(MaxDimension / worldW, MaxDimension / worldH);
-        scale = Math.Clamp(scale, 0.5, 16);
-        var width = Math.Max(3, (int)Math.Ceiling(worldW * scale));
-        var height = Math.Max(3, (int)Math.Ceiling(worldH * scale));
-        if (width * height > MaxPixels)
-        {
-            var shrink = Math.Sqrt((double)MaxPixels / (width * height));
-            scale *= shrink;
-            width = Math.Max(3, (int)Math.Ceiling(worldW * scale));
-            height = Math.Max(3, (int)Math.Ceiling(worldH * scale));
-        }
-
-        var barriers = new bool[width * height];
-        void Stamp(int x, int y, int radius)
-        {
-            var r2 = radius * radius;
-            for (var dy = -radius; dy <= radius; dy++)
-            {
-                var yy = y + dy;
-                if ((uint)yy >= (uint)height)
-                    continue;
-                for (var dx = -radius; dx <= radius; dx++)
-                {
-                    if (dx * dx + dy * dy > r2)
-                        continue;
-                    var xx = x + dx;
-                    if ((uint)xx >= (uint)width)
-                        continue;
-                    barriers[yy * width + xx] = true;
-                }
-            }
-        }
-
-        void StampSegment(SketchPoint a, SketchPoint b, int radius)
-        {
-            var ax = (a.X - minX) * scale;
-            var ay = (a.Y - minY) * scale;
-            var bx = (b.X - minX) * scale;
-            var by = (b.Y - minY) * scale;
-            var steps = Math.Max(1, (int)Math.Ceiling(Math.Max(Math.Abs(bx - ax), Math.Abs(by - ay))));
-            for (var i = 0; i <= steps; i++)
-            {
-                var t = i / (double)steps;
-                var x = (int)Math.Round(ax + (bx - ax) * t);
-                var y = (int)Math.Round(ay + (by - ay) * t);
-                Stamp(x, y, radius);
-            }
-        }
-
-        foreach (var stroke in strokes)
-        {
-            var radius = Math.Max(1, (int)Math.Round(Math.Max(0.75, stroke.StrokeWidth) * scale * 0.5));
-            var pts = stroke.Points;
-            for (var i = 0; i < pts.Count - 1; i++)
-                StampSegment(pts[i], pts[i + 1], radius);
-            if (stroke.Closed || IsNearlyClosed(pts))
-                StampSegment(pts[^1], pts[0], radius);
-        }
-
-        // Morphological dilate once so 1px gaps at stroke joints don't leak.
-        Dilate(barriers, width, height);
-
-        var sx = (int)Math.Round((seed.X - minX) * scale);
-        var sy = (int)Math.Round((seed.Y - minY) * scale);
-        if ((uint)sx >= (uint)width || (uint)sy >= (uint)height)
-            return null;
-        if (barriers[sy * width + sx])
-        {
-            // Nudge seed toward empty neighbors if we landed on ink.
-            if (!TryFindEmptyNear(barriers, width, height, sx, sy, out sx, out sy))
-                return null;
-        }
-
-        var filled = new bool[width * height];
-        var queue = new Queue<(int X, int Y)>();
-        void TryEnqueue(int x, int y)
-        {
-            if ((uint)x >= (uint)width || (uint)y >= (uint)height)
-                return;
-            var i = y * width + x;
-            if (filled[i] || barriers[i])
-                return;
-            filled[i] = true;
-            queue.Enqueue((x, y));
-        }
-
-        queue.Enqueue((sx, sy));
-        filled[sy * width + sx] = true;
-        var count = 0;
-        var hitBorder = false;
-
-        while (queue.Count > 0)
-        {
-            var (x, y) = queue.Dequeue();
-            count++;
-            if (count > MaxPixels)
-                return null;
-            if (x == 0 || y == 0 || x == width - 1 || y == height - 1)
-            {
-                hitBorder = true;
-                break;
-            }
-
-            TryEnqueue(x + 1, y);
-            TryEnqueue(x - 1, y);
-            TryEnqueue(x, y + 1);
-            TryEnqueue(x, y - 1);
-        }
-
-        if (hitBorder || count < 8)
+        var layout = SketchFloodFillRaster.CreateLayout(strokes, seed);
+        var barriers = SketchFloodFillRaster.BuildBarriers(layout, strokes);
+        if (!SketchFloodFillRaster.TryResolveSeedIndex(barriers, layout, seed, out var sx, out var sy))
             return null;
 
-        // Local TryEnqueue was previously after the loop; keep contour extraction only here.
-        var contour = TraceOuterContour(filled, width, height);
-        if (contour.Count < 3)
-            return BoundsOfFilled(filled, width, height, minX, minY, scale);
+        var filled = SketchFloodFillRaster.FloodFill(barriers, layout, sx, sy);
+        if (filled is null)
+            return null;
 
-        var world = new List<SketchPoint>(contour.Count);
-        foreach (var (x, y) in contour)
-        {
-            world.Add(new SketchPoint(minX + (x + 0.5) / scale, minY + (y + 0.5) / scale));
-        }
-
-        var simplified = Simplify(world, epsilon: Math.Max(0.35 / scale, 0.15));
-        if (simplified.Count >= 3)
-        {
-            if (Distance(simplified[0], simplified[^1]) > 1e-6)
-                simplified.Add(simplified[0]);
-            return simplified;
-        }
-
-        // Contour simplify collapsed — fall back to filled AABB.
-        return BoundsOfFilled(filled, width, height, minX, minY, scale);
+        return SketchFloodFillRaster.ToWorldRegion(filled, layout);
     }
 
-    static IReadOnlyList<SketchPoint>? BoundsOfFilled(
+    internal static IReadOnlyList<SketchPoint>? BoundsOfFilled(
         bool[] filled,
         int width,
         int height,
@@ -225,7 +75,7 @@ public static class SketchFloodFill
         ];
     }
 
-    static void Dilate(bool[] map, int width, int height)
+    internal static void Dilate(bool[] map, int width, int height)
     {
         var copy = (bool[])map.Clone();
         for (var y = 0; y < height; y++)
@@ -249,7 +99,7 @@ public static class SketchFloodFill
         }
     }
 
-    static bool TryFindEmptyNear(bool[] barriers, int width, int height, int sx, int sy, out int x, out int y)
+    internal static bool TryFindEmptyNear(bool[] barriers, int width, int height, int sx, int sy, out int x, out int y)
     {
         for (var r = 1; r <= 6; r++)
         {
@@ -276,17 +126,17 @@ public static class SketchFloodFill
         return false;
     }
 
-    static bool IsNearlyClosed(IReadOnlyList<SketchPoint> pts) =>
+    internal static bool IsNearlyClosed(IReadOnlyList<SketchPoint> pts) =>
         pts.Count >= 3 && Distance(pts[0], pts[^1]) < 1e-6;
 
-    static double Distance(SketchPoint a, SketchPoint b)
+    internal static double Distance(SketchPoint a, SketchPoint b)
     {
         var dx = a.X - b.X;
         var dy = a.Y - b.Y;
         return Math.Sqrt(dx * dx + dy * dy);
     }
 
-    static List<(int X, int Y)> TraceOuterContour(bool[] filled, int width, int height)
+    internal static List<(int X, int Y)> TraceOuterContour(bool[] filled, int width, int height)
     {
         var start = (-1, -1);
         for (var y = 0; y < height && start.Item1 < 0; y++)
@@ -344,7 +194,7 @@ public static class SketchFloodFill
         return path;
     }
 
-    static List<SketchPoint> Simplify(IReadOnlyList<SketchPoint> points, double epsilon)
+    internal static List<SketchPoint> Simplify(IReadOnlyList<SketchPoint> points, double epsilon)
     {
         if (points.Count < 3)
             return [.. points];

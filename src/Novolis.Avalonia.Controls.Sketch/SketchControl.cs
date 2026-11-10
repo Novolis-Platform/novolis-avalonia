@@ -14,7 +14,7 @@ namespace Novolis.Avalonia.Controls.Sketch;
 /// Paint-light sketch surface: pen, line, spline, box, circle, speech bubble, text, text box,
 /// eraser, select with rotate, fuse groups, grid snap, meetup, Gridify, and image paste.
 /// </summary>
-public sealed class SketchControl : Control
+public sealed partial class SketchControl : Control
 {
     const double MinSampleDistance = 2.0;
     const double HitToleranceScreen = 8.0;
@@ -502,24 +502,15 @@ public sealed class SketchControl : Control
     /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (_textEditor is not null)
-        {
-            EndTextEdit(commit: true);
-            InvalidateVisual();
-        }
+        _ = TryEndTextEditOnPress();
 
         Focus();
         var screen = e.GetPosition(this);
         var props = e.GetCurrentPoint(this).Properties;
         _lastScreen = screen;
 
-        if (props.IsMiddleButtonPressed || (_spaceDown && props.IsLeftButtonPressed))
-        {
-            _panning = true;
-            e.Pointer.Capture(this);
-            e.Handled = true;
+        if (TryBeginPan(e, screen, props))
             return;
-        }
 
         if (!props.IsLeftButtonPressed)
             return;
@@ -529,112 +520,13 @@ public sealed class SketchControl : Control
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
 
-        switch (Tool)
-        {
-            case SketchTool.Pen:
-                _draft = [world];
-                _dragMode = DragMode.Draw;
-                e.Pointer.Capture(this);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-
-            case SketchTool.Line:
-            case SketchTool.Spline:
-                HandleVertexClick(world, e.ClickCount);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-
-            case SketchTool.Rect:
-            case SketchTool.Ellipse:
-            case SketchTool.SpeechBubble:
-            case SketchTool.TextBox:
-                _draft = [world, world];
-                _dragMode = DragMode.ShapeDrag;
-                _dragStartWorld = world;
-                e.Pointer.Capture(this);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-
-            case SketchTool.Text:
-                PlaceTextLabel(world);
-                e.Handled = true;
-                return;
-
-            case SketchTool.Eraser:
-                _eraserBatch = [];
-                EraseAt(world);
-                _dragMode = DragMode.Erase;
-                e.Pointer.Capture(this);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-
-            case SketchTool.Fill:
-                ApplyPaintBucket(screen);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-        }
-
-        // Select
-        if (TryHitRotateGrip(screen))
-        {
-            BeginGeometryDrag(doc, DragMode.Rotate, world);
-            e.Pointer.Capture(this);
-            e.Handled = true;
+        if (TryHandleToolPress(e, world, screen))
             return;
-        }
 
-        if (TryHitGrip(screen, out var grip, out _))
-        {
-            BeginGeometryDrag(doc, DragMode.Resize, world);
-            _activeGrip = grip;
-            e.Pointer.Capture(this);
-            e.Handled = true;
+        if (TryHandleSelectionPress(e, doc, world, screen, shift, ctrl))
             return;
-        }
 
-        var hit = HitTestStroke(screen);
-        if (hit is not null)
-        {
-            if (e.ClickCount >= 2 && hit.Kind is SketchElementKind.Text or SketchElementKind.TextBox)
-            {
-                doc.Select(hit.Id);
-                RaiseSelectionIfNeeded();
-                BeginTextEdit(hit);
-                e.Handled = true;
-                InvalidateVisual();
-                return;
-            }
-
-            if (shift || ctrl)
-                doc.ToggleSelection(hit.Id);
-            else if (!doc.Selection.Contains(hit.Id))
-                doc.Select(hit.Id);
-
-            RaiseSelectionIfNeeded();
-            if (doc.Selection.Contains(hit.Id))
-                BeginGeometryDrag(doc, DragMode.Move, world);
-
-            e.Pointer.Capture(this);
-            e.Handled = true;
-            InvalidateVisual();
-            return;
-        }
-
-        _dragMode = DragMode.Marquee;
-        _marqueeStartScreen = screen;
-        _marqueeScreen = new Rect(screen, screen);
-        _marqueeAdditive = shift || ctrl;
-        if (!_marqueeAdditive)
-            doc.Select(null);
-        RaiseSelectionIfNeeded();
-        e.Pointer.Capture(this);
-        e.Handled = true;
-        InvalidateVisual();
+        BeginMarquee(e, doc, screen, shift, ctrl);
     }
 
     /// <inheritdoc />
@@ -1244,45 +1136,60 @@ public sealed class SketchControl : Control
         if (_dragOriginalPoints is null)
             return;
 
-        if (_dragMode == DragMode.Move)
+        switch (_dragMode)
         {
-            var dx = world.X - _dragStartWorld.X;
-            var dy = world.Y - _dragStartWorld.Y;
-            if (SnapEnabled)
-            {
-                var g = Math.Max(1e-9, GridSize);
-                dx = Math.Round(dx / g) * g;
-                dy = Math.Round(dy / g) * g;
-            }
+            case DragMode.Move:
+                ApplyLiveMoveDrag(doc, world);
+                break;
+            case DragMode.Rotate:
+                ApplyLiveRotateDrag(doc, world);
+                break;
+            default:
+                ApplyLiveResizeDrag(doc, world);
+                break;
+        }
+    }
 
-            foreach (var (id, original) in _dragOriginalPoints)
-            {
-                var stroke = doc.Find(id);
-                if (stroke is null)
-                    continue;
-                stroke.Points = original.Select(p => new SketchPoint(p.X + dx, p.Y + dy)).ToList();
-            }
-
-            return;
+    void ApplyLiveMoveDrag(SketchDocument doc, SketchPoint world)
+    {
+        var dx = world.X - _dragStartWorld.X;
+        var dy = world.Y - _dragStartWorld.Y;
+        if (SnapEnabled)
+        {
+            var g = Math.Max(1e-9, GridSize);
+            dx = Math.Round(dx / g) * g;
+            dy = Math.Round(dy / g) * g;
         }
 
-        if (_dragMode == DragMode.Rotate && _dragUnionBounds is { } rotUnion && _dragOriginalRotations is not null)
+        foreach (var (id, original) in _dragOriginalPoints!)
         {
-            var center = rotUnion.Center;
-            var startAngle = Math.Atan2(_dragStartWorld.Y - center.Y, _dragStartWorld.X - center.X);
-            var curAngle = Math.Atan2(world.Y - center.Y, world.X - center.X);
-            var deltaDeg = (curAngle - startAngle) * 180.0 / Math.PI;
-            foreach (var (id, _) in _dragOriginalPoints)
-            {
-                var stroke = doc.Find(id);
-                if (stroke is null)
-                    continue;
-                stroke.RotationDegrees = _dragOriginalRotations[id] + deltaDeg;
-            }
-
-            return;
+            var stroke = doc.Find(id);
+            if (stroke is null)
+                continue;
+            stroke.Points = original.Select(p => new SketchPoint(p.X + dx, p.Y + dy)).ToList();
         }
+    }
 
+    void ApplyLiveRotateDrag(SketchDocument doc, SketchPoint world)
+    {
+        if (_dragUnionBounds is not { } rotUnion || _dragOriginalRotations is null)
+            return;
+
+        var center = rotUnion.Center;
+        var startAngle = Math.Atan2(_dragStartWorld.Y - center.Y, _dragStartWorld.X - center.X);
+        var curAngle = Math.Atan2(world.Y - center.Y, world.X - center.X);
+        var deltaDeg = (curAngle - startAngle) * 180.0 / Math.PI;
+        foreach (var (id, _) in _dragOriginalPoints!)
+        {
+            var stroke = doc.Find(id);
+            if (stroke is null)
+                continue;
+            stroke.RotationDegrees = _dragOriginalRotations[id] + deltaDeg;
+        }
+    }
+
+    void ApplyLiveResizeDrag(SketchDocument doc, SketchPoint world)
+    {
         if (_dragUnionBounds is not { } oldUnion)
             return;
 
@@ -1290,7 +1197,7 @@ public sealed class SketchControl : Control
         if (SnapEnabled)
             newBounds = SnapRect(newBounds);
 
-        foreach (var (id, original) in _dragOriginalPoints)
+        foreach (var (id, original) in _dragOriginalPoints!)
         {
             var stroke = doc.Find(id);
             if (stroke is null)
