@@ -8,7 +8,7 @@ using Novolis.Visual.Materials;
 namespace Novolis.Avalonia.AssetStudio;
 
 /// <summary>
-/// Always-available CPU reference preview for small visual recipes.
+/// Always-available path-trace preview for Asset Studio recipes (ILGPU when present).
 /// </summary>
 public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
 {
@@ -46,8 +46,8 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
         var request = new AssetStudioPreviewRequest(
             document,
             "cpu-pathtrace",
-            width: 360,
-            height: 260,
+            width: 480,
+            height: 360,
             shape: document.Asset is null ? "Material Sphere" : "Selected Asset",
             camera: "default-camera",
             quality: "preview",
@@ -225,7 +225,7 @@ public sealed class CpuAssetStudioPreviewService : IAssetStudioPreviewService
                 TargetId,
                 Kind,
                 VisualCapabilityStatus.Exact,
-                "Deterministic CPU path tracing is available.");
+                "ILGPU path tracing when a GPU is available; deterministic CPU fallback otherwise.");
 
         public ValueTask<
             Novolis.AssetStudio.Authoring.AssetStudioPreviewResult> PreviewAsync(

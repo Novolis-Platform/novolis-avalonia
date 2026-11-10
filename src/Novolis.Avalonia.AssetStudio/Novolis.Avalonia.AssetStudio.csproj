@@ -21,12 +21,14 @@
     <LibraryReference Include="Novolis.Visual.Baking" />
     <LibraryReference Include="Novolis.Visual.Adapters.Rendering" />
     <LibraryReference Include="Novolis.Rendering.Backends.Cpu" />
+    <LibraryReference Include="Novolis.Rendering.Backends.Igpu" />
+    <LibraryReference Include="Novolis.Rendering.PathTrace.Demos" />
     <LibraryReference Include="Novolis.Rendering.Compile" />
     <LibraryReference Include="Novolis.Rendering.Presentation.Abstractions" />
     <LibraryReference Include="Novolis.Rendering.Runtime" />
     <LibraryReference Include="Novolis.Rendering.Scene" />
     <LibraryReference Include="Novolis.Rendering.Materials" />
-    <LibraryReference Include="Novolis.Modeling.Scene" />
+    <LibraryReference Include="Novolis.Math.Arrays" />
     <LibraryReference Include="Novolis.Math.Geometry" />
     <LibraryReference Include="Novolis.Avalonia.GraphicalProfile" />
     <LibraryReference Include="Novolis.Avalonia.Layout" />
