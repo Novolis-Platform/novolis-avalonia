@@ -232,6 +232,7 @@ public sealed class SpeechWorkspace
         if (_resourcePicker is null)
             throw new SpeechCapabilityException("Azure resource discovery is not available on this host.");
 
+        string? autoSubscriptionId = null;
         await RunBusyAsync(async () =>
         {
             WantAzureSetup = true;
@@ -243,10 +244,17 @@ public sealed class SpeechWorkspace
             _selectedResourceGroup = null;
             var items = await _resourcePicker.SignInAsync(cancellationToken).ConfigureAwait(false);
             _subscriptions.AddRange(items);
+            if (items.Count == 1)
+                autoSubscriptionId = items[0].Id;
             SetStatus(items.Count == 0
-                ? "Signed in, but no subscriptions were returned."
-                : $"Signed in · {items.Count} subscription(s).");
+                ? "Signed in, but no enabled subscriptions were returned for this account."
+                : items.Count == 1
+                    ? $"Signed in · loading Speech resources for {items[0].DisplayName}…"
+                    : $"Signed in · {items.Count} subscription(s). Pick one below.");
         }, cancellationToken).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(autoSubscriptionId))
+            await SelectSubscriptionAsync(autoSubscriptionId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Loads Speech resource groups for a subscription.</summary>
@@ -258,20 +266,33 @@ public sealed class SpeechWorkspace
         if (_resourcePicker is null)
             throw new SpeechCapabilityException("Azure resource discovery is not available on this host.");
 
+        // Commit selection before busy Notify so Refresh does not clear the ComboBox.
+        _selectedSubscriptionId = subscriptionId;
+        _selectedResourceGroup = null;
+        _resourceGroups.Clear();
+        _speechResources.Clear();
+        SetStatus("Looking up Speech resource groups…");
+        Notify();
+
+        string? autoGroup = null;
         await RunBusyAsync(async () =>
         {
-            _selectedSubscriptionId = subscriptionId;
-            _selectedResourceGroup = null;
-            _resourceGroups.Clear();
-            _speechResources.Clear();
             var groups = await _resourcePicker
                 .GetSpeechResourceGroupsAsync(subscriptionId, cancellationToken)
                 .ConfigureAwait(false);
+            _resourceGroups.Clear();
             _resourceGroups.AddRange(groups);
+            if (groups.Count == 1)
+                autoGroup = groups[0].Name;
             SetStatus(groups.Count == 0
                 ? "No Speech resource groups in that subscription."
-                : $"Found {groups.Count} resource group(s) with Speech.");
+                : groups.Count == 1
+                    ? $"Found 1 resource group · loading Speech resources…"
+                    : $"Found {groups.Count} resource group(s) with Speech. Pick one below.");
         }, cancellationToken).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(autoGroup))
+            await SelectResourceGroupAsync(autoGroup, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Loads Speech resources in a resource group.</summary>
@@ -283,17 +304,21 @@ public sealed class SpeechWorkspace
         if (_resourcePicker is null || string.IsNullOrWhiteSpace(_selectedSubscriptionId))
             throw new SpeechCapabilityException("Select a subscription before a resource group.");
 
+        _selectedResourceGroup = resourceGroupName;
+        _speechResources.Clear();
+        SetStatus("Looking up Speech resources…");
+        Notify();
+
         await RunBusyAsync(async () =>
         {
-            _selectedResourceGroup = resourceGroupName;
-            _speechResources.Clear();
             var resources = await _resourcePicker
                 .GetSpeechResourcesAsync(_selectedSubscriptionId, resourceGroupName, cancellationToken)
                 .ConfigureAwait(false);
+            _speechResources.Clear();
             _speechResources.AddRange(resources);
             SetStatus(resources.Count == 0
                 ? "No Speech resources in that group."
-                : $"Found {resources.Count} Speech resource(s).");
+                : $"Found {resources.Count} Speech resource(s). Pick one below.");
         }, cancellationToken).ConfigureAwait(false);
     }
 

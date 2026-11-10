@@ -98,6 +98,9 @@ public sealed class AzureSpeechSetupPanel : Border
         {
             if (_suppress || _workspace is null || _subscriptionPicker.SelectedItem is not AzureSubscriptionChoice sub)
                 return;
+            if (string.Equals(_workspace.SelectedSubscriptionId, sub.Id, StringComparison.OrdinalIgnoreCase)
+                && _workspace.ResourceGroups.Count > 0)
+                return;
             try
             {
                 await _workspace.SelectSubscriptionAsync(sub.Id);
@@ -111,6 +114,9 @@ public sealed class AzureSpeechSetupPanel : Border
         {
             if (_suppress || _workspace is null
                 || _resourceGroupPicker.SelectedItem is not AzureSpeechResourceGroupChoice group)
+                return;
+            if (string.Equals(_workspace.SelectedResourceGroup, group.Name, StringComparison.OrdinalIgnoreCase)
+                && _workspace.SpeechResources.Count > 0)
                 return;
             try
             {
@@ -277,19 +283,31 @@ public sealed class AzureSpeechSetupPanel : Border
         StyleSelected(_automaticMode, automatic);
         StyleSelected(_manualMode, !automatic);
 
-        IsEnabled = !_workspace.IsBusy;
+        // Keep pickers selectable once they have items — IsBusy only gates sign-in actions.
+        // Disabling ComboBoxes during ARM made the cascade feel frozen after login.
+        _signIn.IsEnabled = !_workspace.IsBusy;
+        _signOut.IsEnabled = !_workspace.IsBusy;
+        _saveManual.IsEnabled = !_workspace.IsBusy;
+        _disconnect.IsEnabled = !_workspace.IsBusy;
+        _subscriptionPicker.IsEnabled = _workspace.Subscriptions.Count > 0;
+        _resourceGroupPicker.IsEnabled = _workspace.ResourceGroups.Count > 0;
+        _speechResourcePicker.IsEnabled = _workspace.SpeechResources.Count > 0;
         _resourceStatus.Text = _workspace.StatusDetail;
 
         _suppress = true;
         try
         {
-            _subscriptionPicker.ItemsSource = _workspace.Subscriptions;
-            _subscriptionPicker.SelectedItem = _workspace.Subscriptions.FirstOrDefault(s =>
+            // New arrays so Avalonia sees ItemsSource changes after Clear/AddRange.
+            var subscriptions = _workspace.Subscriptions.ToArray();
+            var groups = _workspace.ResourceGroups.ToArray();
+            var resources = _workspace.SpeechResources.ToArray();
+            _subscriptionPicker.ItemsSource = subscriptions;
+            _subscriptionPicker.SelectedItem = subscriptions.FirstOrDefault(s =>
                 string.Equals(s.Id, _workspace.SelectedSubscriptionId, StringComparison.OrdinalIgnoreCase));
-            _resourceGroupPicker.ItemsSource = _workspace.ResourceGroups;
-            _resourceGroupPicker.SelectedItem = _workspace.ResourceGroups.FirstOrDefault(g =>
+            _resourceGroupPicker.ItemsSource = groups;
+            _resourceGroupPicker.SelectedItem = groups.FirstOrDefault(g =>
                 string.Equals(g.Name, _workspace.SelectedResourceGroup, StringComparison.OrdinalIgnoreCase));
-            _speechResourcePicker.ItemsSource = _workspace.SpeechResources;
+            _speechResourcePicker.ItemsSource = resources;
 
             _progress.Text = ResolveProgress(_workspace);
         }
