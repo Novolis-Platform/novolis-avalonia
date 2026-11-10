@@ -103,7 +103,7 @@ public sealed class MobileNavigationShell : Grid
             new(GridLength.Auto),
         };
         _header.ColumnSpacing = GraphicalProfileColors.ControlGap;
-        _header.Margin = new Thickness(12, 8, 12, 6);
+        _header.Margin = new Thickness(10, 4, 10, 2);
         _header.Children.Add(_backButton);
         Grid.SetColumn(_backButton, 0);
         _header.Children.Add(_title);
@@ -111,8 +111,8 @@ public sealed class MobileNavigationShell : Grid
         _header.Children.Add(_menuButton);
         Grid.SetColumn(_menuButton, 2);
         _title.FontFamily = Profile.BodyFont;
-        _title.FontSize = GraphicalProfileColors.IntervalTitleSize;
-        _title.FontWeight = FontWeight.Bold;
+        _title.FontSize = GraphicalProfileColors.NavigationSize;
+        _title.FontWeight = FontWeight.SemiBold;
         _title.VerticalAlignment = VerticalAlignment.Center;
         _title.TextTrimming = TextTrimming.CharacterEllipsis;
 
@@ -120,8 +120,8 @@ public sealed class MobileNavigationShell : Grid
         _body.VerticalAlignment = VerticalAlignment.Stretch;
 
         _primaryBar.ColumnSpacing = GraphicalProfileColors.ControlGap;
-        _primaryBar.Margin = new Thickness(8, 6);
-        _primaryBar.MinHeight = GraphicalProfileColors.IconControl;
+        _primaryBar.Margin = new Thickness(6, 2);
+        _primaryBar.MinHeight = GraphicalProfileColors.TouchTarget;
 
         var overlayHeader = new Grid
         {
@@ -146,11 +146,7 @@ public sealed class MobileNavigationShell : Grid
         _overlayTitle.FontWeight = FontWeight.Bold;
         _overlayTitle.VerticalAlignment = VerticalAlignment.Center;
 
-        _overlayCard.Padding = new Thickness(
-            GraphicalProfileColors.CardPadding,
-            GraphicalProfileColors.CardPadding,
-            GraphicalProfileColors.CardPadding,
-            GraphicalProfileColors.PageInset);
+        _overlayCard.Padding = new Thickness(12, 10, 12, 12);
         _overlayCard.BorderThickness = new Thickness(GraphicalProfileColors.Stroke);
         _overlayCard.CornerRadius = new CornerRadius(GraphicalProfileColors.CardRadius);
         _overlayCard.Child = new StackPanel
@@ -277,7 +273,10 @@ public sealed class MobileNavigationShell : Grid
 
     Button CreateNodeButton(MobileMenuNode node, string automationId, bool primary = false)
     {
-        var label = node.Label;
+        var iconsOnly = primary && _navigation.GetPrimaryNodes().Count <= 3;
+        var label = iconsOnly
+            ? PrimaryGlyph(node)
+            : node.Label;
         if (!primary && !string.IsNullOrWhiteSpace(node.Subtitle))
             label += $"\n{node.Subtitle}";
         if (!primary && node.Kind == MobileMenuNodeKind.Group)
@@ -298,16 +297,25 @@ public sealed class MobileNavigationShell : Grid
 
         if (primary)
         {
-            button.Padding = new Thickness(6, 8);
-            button.FontSize = GraphicalProfileColors.CaptionSize;
+            button.Padding = new Thickness(iconsOnly ? 4 : 6, 6);
+            button.FontSize = iconsOnly
+                ? GraphicalProfileColors.NavigationSize
+                : GraphicalProfileColors.CaptionSize;
         }
 
         button.IsEnabled = node.IsEnabled;
+        button.Classes.Clear();
+        if (node.IsSelected)
+            button.Classes.Add("primary-button");
+        else if (primary)
+            button.Classes.Add("nav-button");
+        else
+            button.Classes.Add("action-button");
         BindBrush(
             button,
             Button.BackgroundProperty,
-            node.IsSelected ? Profile.AccentFillResourceKey : Profile.RaisedResourceKey,
-            node.IsSelected ? Profile.AccentFillBrush : Profile.RaisedBrush);
+            node.IsSelected ? Profile.AccentFillResourceKey : Profile.SurfaceResourceKey,
+            node.IsSelected ? Profile.AccentFillBrush : Profile.SurfaceBrush);
         BindBrush(
             button,
             Button.ForegroundProperty,
@@ -333,33 +341,43 @@ public sealed class MobileNavigationShell : Grid
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 TextAlignment = TextAlignment.Center,
             },
+            Classes = { "nav-button" },
             FontFamily = Profile.BodyFont,
             FontSize = GraphicalProfileColors.CaptionSize,
-            FontWeight = FontWeight.Bold,
+            FontWeight = FontWeight.SemiBold,
             MinHeight = GraphicalProfileColors.TouchTarget,
             MinWidth = GraphicalProfileColors.IconControl,
-            Padding = new Thickness(10, 7),
-            BorderThickness = new Thickness(GraphicalProfileColors.Stroke),
+            Padding = new Thickness(8, 4),
+            BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(GraphicalProfileColors.ControlRadius),
         };
         button.SetValue(AutomationProperties.AutomationIdProperty, automationId);
         BindBrush(
             button,
             Button.BackgroundProperty,
-            Profile.RaisedResourceKey,
-            Profile.RaisedBrush);
+            Profile.SurfaceResourceKey,
+            Profile.SurfaceBrush);
         BindBrush(
             button,
             Button.ForegroundProperty,
             Profile.TextResourceKey,
             Profile.TextBrush);
-        BindBrush(
-            button,
-            Button.BorderBrushProperty,
-            Profile.BorderResourceKey,
-            Profile.BorderBrush);
         button.Click += (_, _) => action();
         return button;
+    }
+
+    static string PrimaryGlyph(MobileMenuNode node)
+    {
+        if (!string.IsNullOrWhiteSpace(node.IconKey))
+        {
+            var key = node.IconKey.Trim();
+            return key.Length <= 2 ? key.ToUpperInvariant() : key[..1].ToUpperInvariant();
+        }
+
+        var label = node.Label.Trim();
+        return string.IsNullOrEmpty(label)
+            ? "?"
+            : char.ToUpperInvariant(label[0]).ToString();
     }
 
     static void BindBrush(
