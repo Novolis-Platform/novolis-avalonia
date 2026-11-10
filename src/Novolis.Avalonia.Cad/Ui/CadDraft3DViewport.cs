@@ -383,108 +383,129 @@ public sealed class CadDraft3DViewport : Control
         switch (entity.Kind.ToLowerInvariant())
         {
             case "line" or "wall" or "dimension" when entity.A is not null && entity.B is not null:
-            {
-                var a = CadVec.To(entity.A);
-                var b = CadVec.To(entity.B);
-                DrawWorldLine(context, vp, size, a, b, pen);
-                if (entity.Kind.Equals("wall", StringComparison.OrdinalIgnoreCase))
-                {
-                    var h = entity.Height > 0 ? entity.Height : 2.4f;
-                    DrawWorldLine(context, vp, size, a + new Vector3(0, h, 0), b + new Vector3(0, h, 0), pen);
-                    DrawWorldLine(context, vp, size, a, a + new Vector3(0, h, 0), pen);
-                    DrawWorldLine(context, vp, size, b, b + new Vector3(0, h, 0), pen);
-                }
-
+                DrawLineWallDimensionEntity(context, vp, size, entity, pen);
                 break;
-            }
             case "rect" when entity.A is not null && entity.B is not null:
-            {
-                var a = CadVec.To(entity.A);
-                var b = CadVec.To(entity.B);
-                var p0 = new Vector3(a.X, a.Y, a.Z);
-                var p1 = new Vector3(b.X, a.Y, a.Z);
-                var p2 = new Vector3(b.X, a.Y, b.Z);
-                var p3 = new Vector3(a.X, a.Y, b.Z);
-                DrawWorldLine(context, vp, size, p0, p1, pen);
-                DrawWorldLine(context, vp, size, p1, p2, pen);
-                DrawWorldLine(context, vp, size, p2, p3, pen);
-                DrawWorldLine(context, vp, size, p3, p0, pen);
+                DrawRectEntity(context, vp, size, entity, pen);
                 break;
-            }
             case "circle" when entity.Center is not null:
-            {
-                var c = CadVec.To(entity.Center);
-                var r = entity.Radius;
-                Vector3? prev = null;
-                for (var i = 0; i <= 32; i++)
-                {
-                    var ang = i / 32f * MathF.PI * 2f;
-                    var pt = c + new Vector3(MathF.Cos(ang) * r, 0, MathF.Sin(ang) * r);
-                    if (prev is { } prevPt)
-                        DrawWorldLine(context, vp, size, prevPt, pt, pen);
-                    prev = pt;
-                }
-
+                DrawCircleEntity(context, vp, size, entity, pen);
                 break;
-            }
             case "box" when entity.Center is not null && entity.HalfExtents is { Length: >= 3 }:
-            {
-                var c = CadVec.To(entity.Center);
-                var hx = entity.HalfExtents[0];
-                var hy = entity.HalfExtents[1];
-                var hz = entity.HalfExtents[2];
-                var corners = new Vector3[8];
-                var n = 0;
-                for (var iy = -1; iy <= 1; iy += 2)
-                for (var iz = -1; iz <= 1; iz += 2)
-                for (var ix = -1; ix <= 1; ix += 2)
-                    corners[n++] = c + new Vector3(ix * hx, iy * hy, iz * hz);
-
-                int[] edges =
-                [
-                    0, 1, 1, 3, 3, 2, 2, 0,
-                    4, 5, 5, 7, 7, 6, 6, 4,
-                    0, 4, 1, 5, 2, 6, 3, 7,
-                ];
-                for (var i = 0; i < edges.Length; i += 2)
-                    DrawWorldLine(context, vp, size, corners[edges[i]], corners[edges[i + 1]], pen);
+                DrawBoxEntity(context, vp, size, entity, pen);
                 break;
-            }
             case "sphere" when entity.Center is not null:
-            {
-                var c = CadVec.To(entity.Center);
-                var r = entity.Radius;
-                DrawCircleXZ(context, vp, size, c, r, pen);
-                DrawCircleXY(context, vp, size, c, r, pen);
-                DrawCircleYZ(context, vp, size, c, r, pen);
+                DrawSphereEntity(context, vp, size, entity, pen);
                 break;
-            }
             case "cylinder" when entity.Center is not null:
-            {
-                var c = CadVec.To(entity.Center);
-                var r = entity.Radius;
-                var h = entity.Height > 0 ? entity.Height : r * 2;
-                var bottom = c - new Vector3(0, h * 0.5f, 0);
-                var top = c + new Vector3(0, h * 0.5f, 0);
-                DrawCircleXZ(context, vp, size, bottom, r, pen);
-                DrawCircleXZ(context, vp, size, top, r, pen);
-                for (var i = 0; i < 4; i++)
-                {
-                    var ang = i / 4f * MathF.PI * 2f;
-                    var o = new Vector3(MathF.Cos(ang) * r, 0, MathF.Sin(ang) * r);
-                    DrawWorldLine(context, vp, size, bottom + o, top + o, pen);
-                }
-
+                DrawCylinderEntity(context, vp, size, entity, pen);
                 break;
-            }
             default:
-            {
-                var pts = CadVec.EnumerateWorldPoints(entity).ToList();
-                for (var i = 1; i < pts.Count; i++)
-                    DrawWorldLine(context, vp, size, pts[i - 1], pts[i], pen);
+                DrawEntityPolylineFallback(context, vp, size, entity, pen);
                 break;
-            }
         }
+    }
+
+    private static void DrawLineWallDimensionEntity(
+        DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var a = CadVec.To(entity.A!);
+        var b = CadVec.To(entity.B!);
+        DrawWorldLine(context, vp, size, a, b, pen);
+        if (!entity.Kind.Equals("wall", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var h = entity.Height > 0 ? entity.Height : 2.4f;
+        var up = new Vector3(0, h, 0);
+        DrawWorldLine(context, vp, size, a + up, b + up, pen);
+        DrawWorldLine(context, vp, size, a, a + up, pen);
+        DrawWorldLine(context, vp, size, b, b + up, pen);
+    }
+
+    private static void DrawRectEntity(DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var a = CadVec.To(entity.A!);
+        var b = CadVec.To(entity.B!);
+        var p0 = new Vector3(a.X, a.Y, a.Z);
+        var p1 = new Vector3(b.X, a.Y, a.Z);
+        var p2 = new Vector3(b.X, a.Y, b.Z);
+        var p3 = new Vector3(a.X, a.Y, b.Z);
+        DrawWorldLine(context, vp, size, p0, p1, pen);
+        DrawWorldLine(context, vp, size, p1, p2, pen);
+        DrawWorldLine(context, vp, size, p2, p3, pen);
+        DrawWorldLine(context, vp, size, p3, p0, pen);
+    }
+
+    private static void DrawCircleEntity(DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var c = CadVec.To(entity.Center!);
+        var r = entity.Radius;
+        Vector3? prev = null;
+        for (var i = 0; i <= 32; i++)
+        {
+            var ang = i / 32f * MathF.PI * 2f;
+            var pt = c + new Vector3(MathF.Cos(ang) * r, 0, MathF.Sin(ang) * r);
+            if (prev is { } prevPt)
+                DrawWorldLine(context, vp, size, prevPt, pt, pen);
+            prev = pt;
+        }
+    }
+
+    private static void DrawBoxEntity(DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var c = CadVec.To(entity.Center!);
+        var hx = entity.HalfExtents![0];
+        var hy = entity.HalfExtents[1];
+        var hz = entity.HalfExtents[2];
+        var corners = new Vector3[8];
+        var n = 0;
+        for (var iy = -1; iy <= 1; iy += 2)
+        for (var iz = -1; iz <= 1; iz += 2)
+        for (var ix = -1; ix <= 1; ix += 2)
+            corners[n++] = c + new Vector3(ix * hx, iy * hy, iz * hz);
+
+        int[] edges =
+        [
+            0, 1, 1, 3, 3, 2, 2, 0,
+            4, 5, 5, 7, 7, 6, 6, 4,
+            0, 4, 1, 5, 2, 6, 3, 7,
+        ];
+        for (var i = 0; i < edges.Length; i += 2)
+            DrawWorldLine(context, vp, size, corners[edges[i]], corners[edges[i + 1]], pen);
+    }
+
+    private static void DrawSphereEntity(DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var c = CadVec.To(entity.Center!);
+        var r = entity.Radius;
+        DrawCircleXZ(context, vp, size, c, r, pen);
+        DrawCircleXY(context, vp, size, c, r, pen);
+        DrawCircleYZ(context, vp, size, c, r, pen);
+    }
+
+    private static void DrawCylinderEntity(DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var c = CadVec.To(entity.Center!);
+        var r = entity.Radius;
+        var h = entity.Height > 0 ? entity.Height : r * 2;
+        var bottom = c - new Vector3(0, h * 0.5f, 0);
+        var top = c + new Vector3(0, h * 0.5f, 0);
+        DrawCircleXZ(context, vp, size, bottom, r, pen);
+        DrawCircleXZ(context, vp, size, top, r, pen);
+        for (var i = 0; i < 4; i++)
+        {
+            var ang = i / 4f * MathF.PI * 2f;
+            var o = new Vector3(MathF.Cos(ang) * r, 0, MathF.Sin(ang) * r);
+            DrawWorldLine(context, vp, size, bottom + o, top + o, pen);
+        }
+    }
+
+    private static void DrawEntityPolylineFallback(
+        DrawingContext context, Matrix4x4 vp, Size size, CadEntity entity, IPen pen)
+    {
+        var pts = CadVec.EnumerateWorldPoints(entity).ToList();
+        for (var i = 1; i < pts.Count; i++)
+            DrawWorldLine(context, vp, size, pts[i - 1], pts[i], pen);
     }
 
     private static void DrawCircleXZ(DrawingContext context, Matrix4x4 vp, Size size, Vector3 c, float r, IPen pen)
@@ -717,80 +738,111 @@ public sealed class CadDraft3DViewport : Control
         switch (entity.Kind.ToLowerInvariant())
         {
             case "line" or "wall" or "dimension":
-                if (grip == GripKind.LineA)
-                    entity.A = CadVec.Xyz(world.X, world.Y, world.Z);
-                else if (grip == GripKind.LineB)
-                    entity.B = CadVec.Xyz(world.X, world.Y, world.Z);
+                ApplyLineWallGrip(entity, grip, world);
                 break;
-
             case "rect" when entity.A is not null && entity.B is not null:
-            {
-                var a = CadVec.To(entity.A);
-                if (grip == GripKind.RectA)
-                    entity.A = CadVec.Xyz(world.X, a.Y, world.Z);
-                else if (grip == GripKind.RectB)
-                    entity.B = CadVec.Xyz(world.X, a.Y, world.Z);
+                ApplyRectGrip(entity, grip, world);
                 break;
-            }
-
-            case "circle" when entity.Center is not null && grip == GripKind.CircleRadius:
-            {
-                var c = CadVec.To(entity.Center);
-                entity.Radius = MathF.Max(0.05f, Vector3.Distance(
-                    new Vector3(world.X, 0, world.Z),
-                    new Vector3(c.X, 0, c.Z)));
+            case "circle" when entity.Center is not null:
+                ApplyCircleGrip(entity, grip, world);
                 break;
-            }
+            case "box" when entity.Center is not null && entity.HalfExtents is { Length: >= 3 }:
+                ApplyBoxGrip(entity, grip, world);
+                break;
+        }
+    }
 
-            case "circle" when entity.Center is not null && grip == GripKind.CircleCenter:
+    private static void ApplyLineWallGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        if (grip == GripKind.LineA)
+            entity.A = CadVec.Xyz(world.X, world.Y, world.Z);
+        else if (grip == GripKind.LineB)
+            entity.B = CadVec.Xyz(world.X, world.Y, world.Z);
+    }
+
+    private static void ApplyRectGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        var a = CadVec.To(entity.A!);
+        if (grip == GripKind.RectA)
+            entity.A = CadVec.Xyz(world.X, a.Y, world.Z);
+        else if (grip == GripKind.RectB)
+            entity.B = CadVec.Xyz(world.X, a.Y, world.Z);
+    }
+
+    private static void ApplyCircleGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        if (grip == GripKind.CircleRadius)
+        {
+            var c = CadVec.To(entity.Center!);
+            entity.Radius = MathF.Max(0.05f, Vector3.Distance(
+                new Vector3(world.X, 0, world.Z),
+                new Vector3(c.X, 0, c.Z)));
+            return;
+        }
+
+        if (grip == GripKind.CircleCenter)
+            entity.Center = CadVec.Xyz(world.X, world.Y, world.Z);
+    }
+
+    private static void ApplyBoxGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        switch (grip)
+        {
+            case GripKind.BoxMinX:
+                ResizeBoxAxisX(entity, world, min: true);
+                break;
+            case GripKind.BoxMaxX:
+                ResizeBoxAxisX(entity, world, min: false);
+                break;
+            case GripKind.BoxMinZ:
+                ResizeBoxAxisZ(entity, world, min: true);
+                break;
+            case GripKind.BoxMaxZ:
+                ResizeBoxAxisZ(entity, world, min: false);
+                break;
+            case GripKind.BoxCenter:
                 entity.Center = CadVec.Xyz(world.X, world.Y, world.Z);
                 break;
+        }
+    }
 
-            case "box" when entity.Center is not null && entity.HalfExtents is { Length: >= 3 }:
-            {
-                var c = CadVec.To(entity.Center);
-                var he = entity.HalfExtents;
-                switch (grip)
-                {
-                    case GripKind.BoxMinX:
-                    {
-                        var maxX = c.X + he[0];
-                        var newHx = MathF.Max(0.05f, (maxX - world.X) * 0.5f);
-                        he[0] = newHx;
-                        entity.Center = CadVec.Xyz(maxX - newHx, c.Y, c.Z);
-                        break;
-                    }
-                    case GripKind.BoxMaxX:
-                    {
-                        var minX = c.X - he[0];
-                        var newHx = MathF.Max(0.05f, (world.X - minX) * 0.5f);
-                        he[0] = newHx;
-                        entity.Center = CadVec.Xyz(minX + newHx, c.Y, c.Z);
-                        break;
-                    }
-                    case GripKind.BoxMinZ:
-                    {
-                        var maxZ = c.Z + he[2];
-                        var newHz = MathF.Max(0.05f, (maxZ - world.Z) * 0.5f);
-                        he[2] = newHz;
-                        entity.Center = CadVec.Xyz(c.X, c.Y, maxZ - newHz);
-                        break;
-                    }
-                    case GripKind.BoxMaxZ:
-                    {
-                        var minZ = c.Z - he[2];
-                        var newHz = MathF.Max(0.05f, (world.Z - minZ) * 0.5f);
-                        he[2] = newHz;
-                        entity.Center = CadVec.Xyz(c.X, c.Y, minZ + newHz);
-                        break;
-                    }
-                    case GripKind.BoxCenter:
-                        entity.Center = CadVec.Xyz(world.X, world.Y, world.Z);
-                        break;
-                }
+    private static void ResizeBoxAxisX(CadEntity entity, Vector3 world, bool min)
+    {
+        var c = CadVec.To(entity.Center!);
+        var he = entity.HalfExtents!;
+        if (min)
+        {
+            var maxX = c.X + he[0];
+            var newHx = MathF.Max(0.05f, (maxX - world.X) * 0.5f);
+            he[0] = newHx;
+            entity.Center = CadVec.Xyz(maxX - newHx, c.Y, c.Z);
+        }
+        else
+        {
+            var minX = c.X - he[0];
+            var newHx = MathF.Max(0.05f, (world.X - minX) * 0.5f);
+            he[0] = newHx;
+            entity.Center = CadVec.Xyz(minX + newHx, c.Y, c.Z);
+        }
+    }
 
-                break;
-            }
+    private static void ResizeBoxAxisZ(CadEntity entity, Vector3 world, bool min)
+    {
+        var c = CadVec.To(entity.Center!);
+        var he = entity.HalfExtents!;
+        if (min)
+        {
+            var maxZ = c.Z + he[2];
+            var newHz = MathF.Max(0.05f, (maxZ - world.Z) * 0.5f);
+            he[2] = newHz;
+            entity.Center = CadVec.Xyz(c.X, c.Y, maxZ - newHz);
+        }
+        else
+        {
+            var minZ = c.Z - he[2];
+            var newHz = MathF.Max(0.05f, (world.Z - minZ) * 0.5f);
+            he[2] = newHz;
+            entity.Center = CadVec.Xyz(c.X, c.Y, minZ + newHz);
         }
     }
 

@@ -351,122 +351,140 @@ public sealed class CadDraftViewport : Control
         switch (entity.Kind.ToLowerInvariant())
         {
             case "line" when entity.A is not null && entity.B is not null:
-                context.DrawLine(pen, WorldToScreen(CadVec.To(entity.A)), WorldToScreen(CadVec.To(entity.B)));
+                DrawPlanLineEntity(context, pen, entity);
                 break;
             case "circle" when entity.Center is not null:
-            {
-                var c = WorldToScreen(CadVec.To(entity.Center));
-                var r = entity.Radius * _scale;
-                context.DrawEllipse(null, pen, c, r, r);
+                DrawPlanCircleEntity(context, pen, entity);
                 break;
-            }
             case "rect" when entity.A is not null && entity.B is not null:
                 DrawRectFootprint(context, pen, CadVec.To(entity.A), CadVec.To(entity.B));
                 break;
             case "spline" when entity.ControlPoints is { Count: >= 2 } && entity.Knots is not null:
-            {
-                var degree = entity.Degree <= 0 ? 3 : entity.Degree;
-                var cps = entity.ControlPoints.Select(p => CadVec.To(p)).ToArray();
-                var samples = Novolis.Math.Geometry.NurbsCurve.Tessellate(degree, cps, entity.Knots, entity.Weights, 64);
-                for (var i = 1; i < samples.Length; i++)
-                    context.DrawLine(pen, WorldToScreen(samples[i - 1]), WorldToScreen(samples[i]));
+                DrawPlanSplineEntity(context, pen, entity);
                 break;
-            }
             case "box" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he):
-            {
-                var solidPen = SolidFootprintPen(selected, dimmed);
-                DrawRectFootprint(
-                    context,
-                    solidPen,
-                    new Vector3(boxCenter.X - System.Math.Abs(he.X), 0, boxCenter.Z - System.Math.Abs(he.Z)),
-                    new Vector3(boxCenter.X + System.Math.Abs(he.X), 0, boxCenter.Z + System.Math.Abs(he.Z)));
-                DrawSolidMarker(context, WorldToScreen(boxCenter), selected);
+                DrawPlanBoxEntity(context, selected, dimmed, boxCenter, he);
                 break;
-            }
             case "wall" when entity.A is not null && entity.B is not null:
-            {
-                var a = CadVec.To(entity.A);
-                var b = CadVec.To(entity.B);
-                var wallPen = new Pen(color, selected ? 3.5 : System.Math.Max(1.5, entity.Thickness * _scale * 0.5));
-                context.DrawLine(wallPen, WorldToScreen(a), WorldToScreen(b));
+                DrawPlanWallEntity(context, color, selected, entity);
                 break;
-            }
             case "space" when entity.Points is { Count: >= 2 }:
-            {
-                var pts = entity.Points;
-                if (entity.Color is { Length: >= 3 })
-                {
-                    var geo = new StreamGeometry();
-                    using (var gctx = geo.Open())
-                    {
-                        gctx.BeginFigure(WorldToScreen(CadVec.To(pts[0])), isFilled: true);
-                        for (var i = 1; i < pts.Count; i++)
-                            gctx.LineTo(WorldToScreen(CadVec.To(pts[i])));
-                        gctx.EndFigure(isClosed: true);
-                    }
-
-                    context.DrawGeometry(ToBrush(entity.Color, dimmed ? 0.12f : 0.32f), null, geo);
-                }
-
-                for (var i = 0; i < pts.Count; i++)
-                {
-                    var a = WorldToScreen(CadVec.To(pts[i]));
-                    var b = WorldToScreen(CadVec.To(pts[(i + 1) % pts.Count]));
-                    context.DrawLine(pen, a, b);
-                }
-
+                DrawPlanSpaceEntity(context, pen, entity, dimmed);
                 break;
-            }
             case "opening":
-            {
-                var ring = entity.Footprint ?? entity.Points;
-                if (ring is { Count: >= 2 })
-                {
-                    var openPen = new Pen(ToBrush([0.85f, 0.7f, 0.35f], alpha), selected ? 2.5 : 1.5);
-                    for (var i = 0; i < ring.Count; i++)
-                    {
-                        var a = WorldToScreen(CadVec.To(ring[i]));
-                        var b = WorldToScreen(CadVec.To(ring[(i + 1) % ring.Count]));
-                        context.DrawLine(openPen, a, b);
-                    }
-                }
-                else if (entity.A is not null && entity.B is not null)
-                {
-                    context.DrawLine(pen, WorldToScreen(CadVec.To(entity.A)), WorldToScreen(CadVec.To(entity.B)));
-                }
-
+                DrawPlanOpeningEntity(context, pen, entity, alpha, selected);
                 break;
-            }
             case "cylinder" or "cone" when entity.Center is not null:
-            {
-                var c = WorldToScreen(CadVec.To(entity.Center));
-                var r = entity.Radius * _scale;
-                context.DrawEllipse(null, SolidFootprintPen(selected, dimmed), c, r, r);
-                DrawSolidMarker(context, c, selected);
+                DrawPlanRadialSolidEntity(context, entity, selected, dimmed);
                 break;
-            }
             case "sphere" when entity.Center is not null:
-            {
-                var c = WorldToScreen(CadVec.To(entity.Center));
-                var r = entity.Radius * _scale;
-                context.DrawEllipse(null, SolidFootprintPen(selected, dimmed), c, r, r);
-                DrawSolidMarker(context, c, selected);
+                DrawPlanRadialSolidEntity(context, entity, selected, dimmed);
                 break;
-            }
             case "wedge" when entity.Center is not null:
-            {
-                var center = CadVec.To(entity.Center);
-                var hx = entity.HalfExtents is { Length: >= 1 } ? entity.HalfExtents[0] : 0.5f;
-                var hz = entity.HalfExtents is { Length: >= 3 } ? entity.HalfExtents[2] : hx;
-                DrawRectFootprint(
-                    context,
-                    SolidFootprintPen(selected, dimmed),
-                    new Vector3(center.X - hx, 0, center.Z - hz),
-                    new Vector3(center.X + hx, 0, center.Z + hz));
-                DrawSolidMarker(context, WorldToScreen(center), selected);
+                DrawPlanWedgeEntity(context, selected, dimmed, entity);
                 break;
+        }
+    }
+
+    private void DrawPlanLineEntity(DrawingContext context, IPen pen, CadEntity entity) =>
+        context.DrawLine(pen, WorldToScreen(CadVec.To(entity.A!)), WorldToScreen(CadVec.To(entity.B!)));
+
+    private void DrawPlanCircleEntity(DrawingContext context, IPen pen, CadEntity entity)
+    {
+        var c = WorldToScreen(CadVec.To(entity.Center!));
+        var r = entity.Radius * _scale;
+        context.DrawEllipse(null, pen, c, r, r);
+    }
+
+    private void DrawPlanSplineEntity(DrawingContext context, IPen pen, CadEntity entity)
+    {
+        var degree = entity.Degree <= 0 ? 3 : entity.Degree;
+        var cps = entity.ControlPoints!.Select(p => CadVec.To(p)).ToArray();
+        var samples = Novolis.Math.Geometry.NurbsCurve.Tessellate(degree, cps, entity.Knots!, entity.Weights, 64);
+        for (var i = 1; i < samples.Length; i++)
+            context.DrawLine(pen, WorldToScreen(samples[i - 1]), WorldToScreen(samples[i]));
+    }
+
+    private void DrawPlanBoxEntity(DrawingContext context, bool selected, bool dimmed, Vector3 boxCenter, Vector3 he)
+    {
+        var solidPen = SolidFootprintPen(selected, dimmed);
+        DrawRectFootprint(
+            context,
+            solidPen,
+            new Vector3(boxCenter.X - System.Math.Abs(he.X), 0, boxCenter.Z - System.Math.Abs(he.Z)),
+            new Vector3(boxCenter.X + System.Math.Abs(he.X), 0, boxCenter.Z + System.Math.Abs(he.Z)));
+        DrawSolidMarker(context, WorldToScreen(boxCenter), selected);
+    }
+
+    private void DrawPlanWallEntity(DrawingContext context, IBrush color, bool selected, CadEntity entity)
+    {
+        var a = CadVec.To(entity.A!);
+        var b = CadVec.To(entity.B!);
+        var wallPen = new Pen(color, selected ? 3.5 : System.Math.Max(1.5, entity.Thickness * _scale * 0.5));
+        context.DrawLine(wallPen, WorldToScreen(a), WorldToScreen(b));
+    }
+
+    private void DrawPlanSpaceEntity(DrawingContext context, IPen pen, CadEntity entity, bool dimmed)
+    {
+        var pts = entity.Points!;
+        if (entity.Color is { Length: >= 3 })
+        {
+            var geo = new StreamGeometry();
+            using (var gctx = geo.Open())
+            {
+                gctx.BeginFigure(WorldToScreen(CadVec.To(pts[0])), isFilled: true);
+                for (var i = 1; i < pts.Count; i++)
+                    gctx.LineTo(WorldToScreen(CadVec.To(pts[i])));
+                gctx.EndFigure(isClosed: true);
+            }
+
+            context.DrawGeometry(ToBrush(entity.Color, dimmed ? 0.12f : 0.32f), null, geo);
+        }
+
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var a = WorldToScreen(CadVec.To(pts[i]));
+            var b = WorldToScreen(CadVec.To(pts[(i + 1) % pts.Count]));
+            context.DrawLine(pen, a, b);
+        }
+    }
+
+    private void DrawPlanOpeningEntity(DrawingContext context, IPen pen, CadEntity entity, float alpha, bool selected)
+    {
+        var ring = entity.Footprint ?? entity.Points;
+        if (ring is { Count: >= 2 })
+        {
+            var openPen = new Pen(ToBrush([0.85f, 0.7f, 0.35f], alpha), selected ? 2.5 : 1.5);
+            for (var i = 0; i < ring.Count; i++)
+            {
+                var a = WorldToScreen(CadVec.To(ring[i]));
+                var b = WorldToScreen(CadVec.To(ring[(i + 1) % ring.Count]));
+                context.DrawLine(openPen, a, b);
             }
         }
+        else if (entity.A is not null && entity.B is not null)
+            context.DrawLine(pen, WorldToScreen(CadVec.To(entity.A)), WorldToScreen(CadVec.To(entity.B)));
+    }
+
+    private void DrawPlanRadialSolidEntity(DrawingContext context, CadEntity entity, bool selected, bool dimmed)
+    {
+        var c = WorldToScreen(CadVec.To(entity.Center!));
+        var r = entity.Radius * _scale;
+        context.DrawEllipse(null, SolidFootprintPen(selected, dimmed), c, r, r);
+        DrawSolidMarker(context, c, selected);
+    }
+
+    private void DrawPlanWedgeEntity(DrawingContext context, bool selected, bool dimmed, CadEntity entity)
+    {
+        var center = CadVec.To(entity.Center!);
+        var hx = entity.HalfExtents is { Length: >= 1 } ? entity.HalfExtents[0] : 0.5f;
+        var hz = entity.HalfExtents is { Length: >= 3 } ? entity.HalfExtents[2] : hx;
+        DrawRectFootprint(
+            context,
+            SolidFootprintPen(selected, dimmed),
+            new Vector3(center.X - hx, 0, center.Z - hz),
+            new Vector3(center.X + hx, 0, center.Z + hz));
+        DrawSolidMarker(context, WorldToScreen(center), selected);
     }
 
     private void DrawGrips(DrawingContext context)
@@ -516,84 +534,105 @@ public sealed class CadDraftViewport : Control
         if (_gripEntity is null || _activeGrip is null)
             return;
 
-        var elev = _settings.Settings.DrawElevation;
         switch (_gripEntity.Kind.ToLowerInvariant())
         {
             case "line":
-                if (_activeGrip == GripKind.LineA)
-                    _gripEntity.A = CadVec.Plan(world.X, world.Z, CadVec.To(_gripEntity.A).Y);
-                else if (_activeGrip == GripKind.LineB)
-                    _gripEntity.B = CadVec.Plan(world.X, world.Z, CadVec.To(_gripEntity.B).Y);
+                ApplyPlanLineGrip(_gripEntity, _activeGrip.Value, world);
                 break;
-
             case "box" when _gripEntity.Center is not null && _gripEntity.HalfExtents is { Length: >= 3 }:
-            {
-                var c = CadVec.To(_gripEntity.Center);
-                var he = _gripEntity.HalfExtents;
-                switch (_activeGrip)
-                {
-                    case GripKind.BoxMinX:
-                        {
-                            var maxX = c.X + he[0];
-                            var newHx = System.Math.Max(0.05f, (maxX - world.X) * 0.5f);
-                            var newCx = maxX - newHx;
-                            he[0] = newHx;
-                            _gripEntity.Center = CadVec.Xyz(newCx, c.Y, c.Z);
-                            break;
-                        }
-                    case GripKind.BoxMaxX:
-                        {
-                            var minX = c.X - he[0];
-                            var newHx = System.Math.Max(0.05f, (world.X - minX) * 0.5f);
-                            var newCx = minX + newHx;
-                            he[0] = newHx;
-                            _gripEntity.Center = CadVec.Xyz(newCx, c.Y, c.Z);
-                            break;
-                        }
-                    case GripKind.BoxMinZ:
-                        {
-                            var maxZ = c.Z + he[2];
-                            var newHz = System.Math.Max(0.05f, (maxZ - world.Z) * 0.5f);
-                            var newCz = maxZ - newHz;
-                            he[2] = newHz;
-                            _gripEntity.Center = CadVec.Xyz(c.X, c.Y, newCz);
-                            break;
-                        }
-                    case GripKind.BoxMaxZ:
-                        {
-                            var minZ = c.Z - he[2];
-                            var newHz = System.Math.Max(0.05f, (world.Z - minZ) * 0.5f);
-                            var newCz = minZ + newHz;
-                            he[2] = newHz;
-                            _gripEntity.Center = CadVec.Xyz(c.X, c.Y, newCz);
-                            break;
-                        }
-                }
-
+                ApplyPlanBoxGrip(_gripEntity, _activeGrip.Value, world);
                 break;
-            }
-
             case "circle" when _gripEntity.Center is not null && _activeGrip == GripKind.CircleRadius:
-            {
-                var c = CadVec.To(_gripEntity.Center);
-                _gripEntity.Radius = System.Math.Max(0.05f, Vector3.Distance(
-                    new Vector3(c.X, 0, c.Z),
-                    new Vector3(world.X, 0, world.Z)));
+                ApplyPlanCircleRadiusGrip(_gripEntity, world);
                 break;
-            }
-
             case "rect" when _gripEntity.A is not null && _gripEntity.B is not null:
-            {
-                var a = CadVec.To(_gripEntity.A);
-                if (_activeGrip == GripKind.RectA)
-                    _gripEntity.A = CadVec.Plan(world.X, world.Z, a.Y);
-                else if (_activeGrip == GripKind.RectB)
-                    _gripEntity.B = CadVec.Plan(world.X, world.Z, a.Y);
+                ApplyPlanRectGrip(_gripEntity, _activeGrip.Value, world);
                 break;
-            }
         }
+    }
 
-        _ = elev;
+    private static void ApplyPlanLineGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        if (grip == GripKind.LineA)
+            entity.A = CadVec.Plan(world.X, world.Z, CadVec.To(entity.A!).Y);
+        else if (grip == GripKind.LineB)
+            entity.B = CadVec.Plan(world.X, world.Z, CadVec.To(entity.B!).Y);
+    }
+
+    private static void ApplyPlanRectGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        var a = CadVec.To(entity.A!);
+        if (grip == GripKind.RectA)
+            entity.A = CadVec.Plan(world.X, world.Z, a.Y);
+        else if (grip == GripKind.RectB)
+            entity.B = CadVec.Plan(world.X, world.Z, a.Y);
+    }
+
+    private static void ApplyPlanCircleRadiusGrip(CadEntity entity, Vector3 world)
+    {
+        var c = CadVec.To(entity.Center!);
+        entity.Radius = System.Math.Max(0.05f, Vector3.Distance(
+            new Vector3(c.X, 0, c.Z),
+            new Vector3(world.X, 0, world.Z)));
+    }
+
+    private static void ApplyPlanBoxGrip(CadEntity entity, GripKind grip, Vector3 world)
+    {
+        switch (grip)
+        {
+            case GripKind.BoxMinX:
+                ResizePlanBoxAxisX(entity, world, min: true);
+                break;
+            case GripKind.BoxMaxX:
+                ResizePlanBoxAxisX(entity, world, min: false);
+                break;
+            case GripKind.BoxMinZ:
+                ResizePlanBoxAxisZ(entity, world, min: true);
+                break;
+            case GripKind.BoxMaxZ:
+                ResizePlanBoxAxisZ(entity, world, min: false);
+                break;
+        }
+    }
+
+    private static void ResizePlanBoxAxisX(CadEntity entity, Vector3 world, bool min)
+    {
+        var c = CadVec.To(entity.Center!);
+        var he = entity.HalfExtents!;
+        if (min)
+        {
+            var maxX = c.X + he[0];
+            var newHx = System.Math.Max(0.05f, (maxX - world.X) * 0.5f);
+            he[0] = newHx;
+            entity.Center = CadVec.Xyz(maxX - newHx, c.Y, c.Z);
+        }
+        else
+        {
+            var minX = c.X - he[0];
+            var newHx = System.Math.Max(0.05f, (world.X - minX) * 0.5f);
+            he[0] = newHx;
+            entity.Center = CadVec.Xyz(minX + newHx, c.Y, c.Z);
+        }
+    }
+
+    private static void ResizePlanBoxAxisZ(CadEntity entity, Vector3 world, bool min)
+    {
+        var c = CadVec.To(entity.Center!);
+        var he = entity.HalfExtents!;
+        if (min)
+        {
+            var maxZ = c.Z + he[2];
+            var newHz = System.Math.Max(0.05f, (maxZ - world.Z) * 0.5f);
+            he[2] = newHz;
+            entity.Center = CadVec.Xyz(c.X, c.Y, maxZ - newHz);
+        }
+        else
+        {
+            var minZ = c.Z - he[2];
+            var newHz = System.Math.Max(0.05f, (world.Z - minZ) * 0.5f);
+            he[2] = newHz;
+            entity.Center = CadVec.Xyz(c.X, c.Y, minZ + newHz);
+        }
     }
 
     private static IEnumerable<(GripKind Kind, Vector3 World)> EnumerateGrips(CadEntity entity)

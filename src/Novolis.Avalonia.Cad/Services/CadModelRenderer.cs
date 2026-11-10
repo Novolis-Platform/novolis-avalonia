@@ -284,52 +284,17 @@ public sealed class CadModelRenderer
         switch (entity.Kind.ToLowerInvariant())
         {
             case "line" when entity.A is not null && entity.B is not null:
-                World.DrawLine(CadVec.To(entity.A) + new Vector3(0, 0.02f, 0), CadVec.To(entity.B) + new Vector3(0, 0.02f, 0), baseColor);
+                DrawModelLine(entity, baseColor);
                 break;
             case "circle" when entity.Center is not null:
-            {
-                var c = CadVec.To(entity.Center) with { Y = 0.02f };
-                const int segments = 48;
-                Vector3? prev = null;
-                for (var i = 0; i <= segments; i++)
-                {
-                    var a = i * (MathF.PI * 2f / segments);
-                    var p = c + new Vector3(MathF.Cos(a) * entity.Radius, 0, MathF.Sin(a) * entity.Radius);
-                    if (prev is { } q)
-                        World.DrawLine(q, p, baseColor);
-                    prev = p;
-                }
-
+                DrawModelCircle(entity, baseColor);
                 break;
-            }
             case "rect" when entity.A is not null && entity.B is not null:
-            {
-                var a = CadVec.To(entity.A) with { Y = 0.02f };
-                var b = CadVec.To(entity.B) with { Y = 0.02f };
-                var p0 = a;
-                var p1 = new Vector3(b.X, 0.02f, a.Z);
-                var p2 = b;
-                var p3 = new Vector3(a.X, 0.02f, b.Z);
-                World.DrawLine(p0, p1, baseColor);
-                World.DrawLine(p1, p2, baseColor);
-                World.DrawLine(p2, p3, baseColor);
-                World.DrawLine(p3, p0, baseColor);
+                DrawModelRect(entity, baseColor);
                 break;
-            }
             case "spline" when entity.ControlPoints is { Count: >= 2 } && entity.Knots is not null:
-            {
-                var degree = entity.Degree <= 0 ? 3 : entity.Degree;
-                var cps = entity.ControlPoints.Select(p => CadVec.To(p)).ToArray();
-                var samples = NurbsCurve.Tessellate(degree, cps, entity.Knots, entity.Weights, 64);
-                for (var i = 1; i < samples.Length; i++)
-                {
-                    var a = samples[i - 1] with { Y = 0.02f };
-                    var b = samples[i] with { Y = 0.02f };
-                    World.DrawLine(a, b, baseColor);
-                }
-
+                DrawModelSpline(entity, baseColor);
                 break;
-            }
             case "box" when CadShipGeometry.TryGetBox(entity, out var boxCenter, out var he):
                 World.DrawCube(boxCenter, System.Math.Abs(he.X) * 2f, System.Math.Abs(he.Y) * 2f, System.Math.Abs(he.Z) * 2f, baseColor);
                 break;
@@ -343,32 +308,85 @@ public sealed class CadModelRenderer
                 DrawOpening(entity, selected ? Selected : Color.FromArgb(255, 140, 120, 70));
                 break;
             case "cylinder" when entity.Center is not null:
-                World.DrawCylinder(
-                    CadVec.To(entity.Center) - new Vector3(0, entity.Height * 0.5f, 0),
-                    entity.Radius,
-                    entity.Radius,
-                    entity.Height,
-                    24,
-                    baseColor);
+                DrawModelCylinder(entity, baseColor);
                 break;
             case "sphere" when entity.Center is not null:
                 World.DrawSphere(CadVec.To(entity.Center), entity.Radius, baseColor);
                 break;
             case "mesh" when entity.MeshVertices is { Count: > 0 } && entity.MeshIndices is { Count: > 0 }:
-            {
-                var mesh = CadSolidTessellator.FromStored(entity);
-                for (var i = 0; i < mesh.Indices.Count; i += 3)
-                {
-                    var a = mesh.Vertices[mesh.Indices[i]];
-                    var b = mesh.Vertices[mesh.Indices[i + 1]];
-                    var c = mesh.Vertices[mesh.Indices[i + 2]];
-                    World.DrawLine(a, b, baseColor);
-                    World.DrawLine(b, c, baseColor);
-                    World.DrawLine(c, a, baseColor);
-                }
-
+                DrawModelStoredMesh(entity, baseColor);
                 break;
-            }
+        }
+    }
+
+    private static void DrawModelLine(CadEntity entity, Color baseColor)
+    {
+        var lift = new Vector3(0, 0.02f, 0);
+        World.DrawLine(CadVec.To(entity.A!) + lift, CadVec.To(entity.B!) + lift, baseColor);
+    }
+
+    private static void DrawModelCircle(CadEntity entity, Color baseColor)
+    {
+        var c = CadVec.To(entity.Center!) with { Y = 0.02f };
+        const int segments = 48;
+        Vector3? prev = null;
+        for (var i = 0; i <= segments; i++)
+        {
+            var a = i * (MathF.PI * 2f / segments);
+            var p = c + new Vector3(MathF.Cos(a) * entity.Radius, 0, MathF.Sin(a) * entity.Radius);
+            if (prev is { } q)
+                World.DrawLine(q, p, baseColor);
+            prev = p;
+        }
+    }
+
+    private static void DrawModelRect(CadEntity entity, Color baseColor)
+    {
+        var a = CadVec.To(entity.A!) with { Y = 0.02f };
+        var b = CadVec.To(entity.B!) with { Y = 0.02f };
+        var p0 = a;
+        var p1 = new Vector3(b.X, 0.02f, a.Z);
+        var p2 = b;
+        var p3 = new Vector3(a.X, 0.02f, b.Z);
+        World.DrawLine(p0, p1, baseColor);
+        World.DrawLine(p1, p2, baseColor);
+        World.DrawLine(p2, p3, baseColor);
+        World.DrawLine(p3, p0, baseColor);
+    }
+
+    private static void DrawModelSpline(CadEntity entity, Color baseColor)
+    {
+        var degree = entity.Degree <= 0 ? 3 : entity.Degree;
+        var cps = entity.ControlPoints!.Select(p => CadVec.To(p)).ToArray();
+        var samples = NurbsCurve.Tessellate(degree, cps, entity.Knots!, entity.Weights, 64);
+        for (var i = 1; i < samples.Length; i++)
+        {
+            var a = samples[i - 1] with { Y = 0.02f };
+            var b = samples[i] with { Y = 0.02f };
+            World.DrawLine(a, b, baseColor);
+        }
+    }
+
+    private static void DrawModelCylinder(CadEntity entity, Color baseColor) =>
+        World.DrawCylinder(
+            CadVec.To(entity.Center!) - new Vector3(0, entity.Height * 0.5f, 0),
+            entity.Radius,
+            entity.Radius,
+            entity.Height,
+            24,
+            baseColor);
+
+    private static void DrawModelStoredMesh(CadEntity entity, Color baseColor)
+    {
+        var mesh = CadSolidTessellator.FromStored(entity);
+        for (var i = 0; i < mesh.Indices.Count; i += 3)
+        {
+            var a = mesh.Vertices[mesh.Indices[i]];
+            var b = mesh.Vertices[mesh.Indices[i + 1]];
+            var c = mesh.Vertices[mesh.Indices[i + 2]];
+            World.DrawLine(a, b, baseColor);
+            World.DrawLine(b, c, baseColor);
+            World.DrawLine(c, a, baseColor);
         }
     }
 
