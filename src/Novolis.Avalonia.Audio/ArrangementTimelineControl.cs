@@ -7,7 +7,7 @@ using Novolis.Audio.Edit;
 namespace Novolis.Avalonia.Audio;
 
 /// <summary>Multi-track Magix-style arrangement: tools, cross-track drag, mute/solo, waveforms.</summary>
-public sealed class ArrangementTimelineControl : Control
+public sealed partial class ArrangementTimelineControl : Control
 {
     const double HeaderWidth = 120;
     const double RulerHeight = 22;
@@ -94,218 +94,6 @@ public sealed class ArrangementTimelineControl : Control
         var tracks = _project?.Tracks.Count ?? 1;
         var height = Math.Max(TrackHeight, tracks * TrackHeight + RulerHeight + 8);
         return new Size(width, height);
-    }
-
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
-    {
-        base.OnPointerPressed(e);
-        if (_project is null)
-            return;
-
-        var pos = e.GetPosition(this);
-        e.Pointer.Capture(this);
-
-        if (pos.Y < RulerHeight)
-        {
-            var time = TimeFromX(pos.X);
-            _selectionStart = time;
-            _selectionEnd = time;
-            SeekRequested?.Invoke(time);
-            _gesture = new PointerGesture(GestureKind.SelectRange, null, null, time, pos);
-            InvalidateVisual();
-            return;
-        }
-
-        var trackIndex = TrackIndexAt(pos.Y);
-        if (trackIndex < 0 || trackIndex >= _project.Tracks.Count)
-            return;
-
-        var track = _project.Tracks[trackIndex];
-
-        if (pos.X < HeaderWidth)
-        {
-            var localY = pos.Y - (RulerHeight + trackIndex * TrackHeight);
-            if (localY <= MuteSoloHeight)
-            {
-                BeforeMutation?.Invoke();
-                if (pos.X < HeaderWidth * 0.5)
-                    track.Mute = !track.Mute;
-                else
-                    track.Solo = !track.Solo;
-                ArrangementChanged?.Invoke();
-            }
-            else
-            {
-                _selectedTrackId = track.Id;
-                TrackSelected?.Invoke(track.Id);
-            }
-
-            InvalidateVisual();
-            return;
-        }
-
-        var timeAt = TimeFromX(pos.X);
-        SeekRequested?.Invoke(timeAt);
-        _selectedTrackId = track.Id;
-        TrackSelected?.Invoke(track.Id);
-
-        ArrangementClip? hit = null;
-        foreach (var clip in track.Clips)
-        {
-            if (!clip.Contains(timeAt))
-                continue;
-            hit = clip;
-            break;
-        }
-
-        if (Tool is ArrangementTool.Delete && hit is not null)
-        {
-            DeleteClipRequested?.Invoke(hit.Id);
-            return;
-        }
-
-        if (Tool is ArrangementTool.Split)
-        {
-            if (hit is not null)
-            {
-                _selectedClipId = hit.Id;
-                ClipSelected?.Invoke(hit.Id);
-                SplitAtRequested?.Invoke(timeAt);
-            }
-
-            return;
-        }
-
-        if (Tool is ArrangementTool.Draw && hit is null)
-        {
-            DrawAtRequested?.Invoke(track.Id, timeAt);
-            return;
-        }
-
-        if (hit is null)
-        {
-            if (Tool is ArrangementTool.Select)
-            {
-                _gesture = new PointerGesture(GestureKind.SelectRange, null, track.Id, timeAt, pos);
-                _selectionStart = timeAt;
-                _selectionEnd = timeAt;
-            }
-
-            InvalidateVisual();
-            return;
-        }
-
-        _selectedClipId = hit.Id;
-        ClipSelected?.Invoke(hit.Id);
-
-        if (Tool is ArrangementTool.Select or ArrangementTool.Move)
-        {
-            var clipLeft = HeaderWidth + hit.TimelineStart.TotalSeconds * PixelsPerSecond;
-            var clipRight = HeaderWidth + hit.TimelineEnd.TotalSeconds * PixelsPerSecond;
-            GestureKind kind;
-            if (Tool is ArrangementTool.Select && pos.X - clipLeft < 8)
-                kind = GestureKind.TrimStart;
-            else if (Tool is ArrangementTool.Select && clipRight - pos.X < 8)
-                kind = GestureKind.TrimEnd;
-            else
-                kind = GestureKind.MoveClip;
-
-            BeforeMutation?.Invoke();
-            _gesture = new PointerGesture(kind, hit.Id, track.Id, timeAt, pos)
-            {
-                OriginStart = hit.TimelineStart,
-                OriginDuration = hit.Duration,
-                OriginOffset = hit.SourceOffset,
-                OriginTrackId = track.Id,
-            };
-        }
-
-        InvalidateVisual();
-    }
-
-    protected override void OnPointerMoved(PointerEventArgs e)
-    {
-        base.OnPointerMoved(e);
-        if (_project is null || _gesture is null)
-            return;
-
-        var pos = e.GetPosition(this);
-        var time = TimeFromX(pos.X);
-
-        switch (_gesture.Kind)
-        {
-            case GestureKind.SelectRange:
-                _selectionEnd = time;
-                SeekRequested?.Invoke(time);
-                break;
-            case GestureKind.MoveClip when _gesture.ClipId is { } moveId:
-            {
-                var clip = _project.FindClip(moveId);
-                if (clip is null || _gesture.OriginStart is not { } origin)
-                    break;
-                var delta = time - _gesture.AnchorTime;
-                var next = origin + delta;
-                if (next < TimeSpan.Zero)
-                    next = TimeSpan.Zero;
-                next = TimeSpan.FromSeconds(Math.Round(next.TotalSeconds * 20) / 20.0);
-                clip.TimelineStart = next;
-
-                var destIndex = TrackIndexAt(pos.Y);
-                if (destIndex >= 0 && destIndex < _project.Tracks.Count)
-                {
-                    var dest = _project.Tracks[destIndex];
-                    if (_gesture.OriginTrackId is { } from && from != dest.Id)
-                    {
-                        AudioEditOps.MoveClipToTrack(_project, moveId, dest.Id);
-                        _gesture.OriginTrackId = dest.Id;
-                        _selectedTrackId = dest.Id;
-                        TrackSelected?.Invoke(dest.Id);
-                    }
-                }
-
-                break;
-            }
-            case GestureKind.TrimStart when _gesture.ClipId is { } ts:
-            {
-                var clip = _project.FindClip(ts);
-                if (clip is null
-                    || _gesture.OriginStart is not { } oStart
-                    || _gesture.OriginDuration is not { } oDur
-                    || _gesture.OriginOffset is not { } oOff)
-                    break;
-                var clamped = time < oStart ? oStart : time;
-                if (clamped >= oStart + oDur - TimeSpan.FromMilliseconds(30))
-                    break;
-                var d = clamped - oStart;
-                clip.TimelineStart = clamped;
-                clip.SourceOffset = oOff + d;
-                clip.Duration = oDur - d;
-                break;
-            }
-            case GestureKind.TrimEnd when _gesture.ClipId is { } te:
-            {
-                var clip = _project.FindClip(te);
-                if (clip is null
-                    || _gesture.OriginStart is not { } oStart
-                    || _gesture.OriginDuration is not { } oDur
-                    || _gesture.OriginOffset is not { } oOff)
-                    break;
-                var asset = _project.FindAsset(clip.AssetId);
-                var maxDur = asset is null ? oDur : asset.Duration - oOff;
-                var newEnd = time;
-                if (newEnd < oStart + TimeSpan.FromMilliseconds(30))
-                    newEnd = oStart + TimeSpan.FromMilliseconds(30);
-                var newDur = newEnd - oStart;
-                if (newDur > maxDur)
-                    newDur = maxDur;
-                clip.TimelineStart = oStart;
-                clip.SourceOffset = oOff;
-                clip.Duration = newDur;
-                break;
-            }
-        }
-
-        InvalidateVisual();
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -468,7 +256,7 @@ public sealed class ArrangementTimelineControl : Control
         }
     }
 
-    enum GestureKind
+    internal enum GestureKind
     {
         SelectRange,
         MoveClip,
@@ -476,7 +264,7 @@ public sealed class ArrangementTimelineControl : Control
         TrimEnd,
     }
 
-    sealed class PointerGesture
+    internal sealed class PointerGesture
     {
         public PointerGesture(GestureKind kind, Guid? clipId, Guid? trackId, TimeSpan anchorTime, Point origin)
         {

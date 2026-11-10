@@ -45,56 +45,8 @@ public static class ShipAnalysisPanel
 
         void Rebuild()
         {
-            syncing = true;
-            try
-            {
-                loadCaseBox.ItemsSource = session.Design.LoadCases.Select(c => c.Id).ToList();
-                loadCaseBox.SelectedItem = session.ActiveLoadCaseId
-                    ?? session.Design.LoadCases.FirstOrDefault()?.Id;
-
-                var breaches = new List<BreachItem> { new("(none)", null) };
-                breaches.AddRange(session.Design.Compartments.Select(c => new BreachItem(c.Name, c.Id.Value)));
-                breachBox.ItemsSource = breaches;
-                breachBox.SelectedIndex = 0;
-                if (session.BreachCompartmentId is { } bid)
-                {
-                    var idx = breaches.FindIndex(b => b.Id == bid);
-                    if (idx >= 0)
-                        breachBox.SelectedIndex = idx;
-                }
-            }
-            finally
-            {
-                syncing = false;
-            }
-
-            var report = session.Analysis;
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"ANALYZE · load {report.ActiveLoadCaseId}");
-            sb.AppendLine($"Mass {report.TotalMassKg / 1000f:0.##} t · worst {report.Worst}");
-            if (session.ActiveAnalysisCategory is { } cat)
-            {
-                sb.AppendLine();
-                sb.AppendLine($"Overlay: {cat}");
-                foreach (var f in report.Findings.Where(x => x.Category == cat).Take(20))
-                    sb.AppendLine($"  [{f.Severity}] {f.Code}: {f.Message}");
-            }
-            else
-            {
-                sb.AppendLine();
-                foreach (var f in report.Findings.Take(16))
-                    sb.AppendLine($"  [{f.Severity}] {f.Category}/{f.Code}: {f.Message}");
-            }
-
-            if (report.DecompressionCascade.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("Decompression cascade:");
-                foreach (var name in report.DecompressionCascade.Take(12))
-                    sb.AppendLine($"  · {name}");
-            }
-
-            findings.Text = sb.ToString();
+            SyncLoadAndBreachSelectors(session, loadCaseBox, breachBox, v => syncing = v);
+            findings.Text = FormatAnalysisFindings(session);
         }
 
         session.Changed += Rebuild;
@@ -111,6 +63,81 @@ public static class ShipAnalysisPanel
         form.Children.Add(Labeled("Breach", breachBox));
         form.Children.Add(findings);
         return form;
+    }
+
+    static void SyncLoadAndBreachSelectors(
+        ShipDesignSession session,
+        ComboBox loadCaseBox,
+        ComboBox breachBox,
+        Action<bool> setSyncing)
+    {
+        setSyncing(true);
+        try
+        {
+            loadCaseBox.ItemsSource = session.Design.LoadCases.Select(c => c.Id).ToList();
+            loadCaseBox.SelectedItem = session.ActiveLoadCaseId
+                ?? session.Design.LoadCases.FirstOrDefault()?.Id;
+            SyncBreachSelector(session, breachBox);
+        }
+        finally
+        {
+            setSyncing(false);
+        }
+    }
+
+    static void SyncBreachSelector(ShipDesignSession session, ComboBox breachBox)
+    {
+        var breaches = new List<BreachItem> { new("(none)", null) };
+        breaches.AddRange(session.Design.Compartments.Select(c => new BreachItem(c.Name, c.Id.Value)));
+        breachBox.ItemsSource = breaches;
+        breachBox.SelectedIndex = 0;
+        if (session.BreachCompartmentId is not { } bid)
+            return;
+
+        var idx = breaches.FindIndex(b => b.Id == bid);
+        if (idx >= 0)
+            breachBox.SelectedIndex = idx;
+    }
+
+    static string FormatAnalysisFindings(ShipDesignSession session)
+    {
+        var report = session.Analysis;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"ANALYZE · load {report.ActiveLoadCaseId}");
+        sb.AppendLine($"Mass {report.TotalMassKg / 1000f:0.##} t · worst {report.Worst}");
+        AppendFindingLines(sb, session, report);
+        AppendDecompressionCascade(sb, report);
+        return sb.ToString();
+    }
+
+    static void AppendFindingLines(
+        System.Text.StringBuilder sb,
+        ShipDesignSession session,
+        ShipAnalysisReport report)
+    {
+        if (session.ActiveAnalysisCategory is { } cat)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"Overlay: {cat}");
+            foreach (var f in report.Findings.Where(x => x.Category == cat).Take(20))
+                sb.AppendLine($"  [{f.Severity}] {f.Code}: {f.Message}");
+            return;
+        }
+
+        sb.AppendLine();
+        foreach (var f in report.Findings.Take(16))
+            sb.AppendLine($"  [{f.Severity}] {f.Category}/{f.Code}: {f.Message}");
+    }
+
+    static void AppendDecompressionCascade(System.Text.StringBuilder sb, ShipAnalysisReport report)
+    {
+        if (report.DecompressionCascade.Count == 0)
+            return;
+
+        sb.AppendLine();
+        sb.AppendLine("Decompression cascade:");
+        foreach (var name in report.DecompressionCascade.Take(12))
+            sb.AppendLine($"  · {name}");
     }
 
     private static Control Labeled(string label, Control control)

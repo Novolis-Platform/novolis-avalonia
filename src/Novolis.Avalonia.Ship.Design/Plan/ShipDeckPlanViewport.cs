@@ -10,7 +10,7 @@ using System.Numerics;
 namespace Novolis.Avalonia.Ship.Design.Plan;
 
 /// <summary>Ship-native XZ deck plan — semantic authoring surface (not CAD IsolateLevel).</summary>
-public sealed class ShipDeckPlanViewport : Control
+public sealed partial class ShipDeckPlanViewport : Control
 {
     private readonly ShipDesignSession _session;
     private readonly ShipArchitectToolController _tools;
@@ -527,75 +527,6 @@ public sealed class ShipDeckPlanViewport : Control
         }
 
         return false;
-    }
-
-    private void ApplyGrip(ShipObjectId oid, ShipGrip grip, Vector3 world)
-    {
-        var bh = _session.Design.Bulkheads.FirstOrDefault(b => b.Id.Value == oid.Value);
-        if (bh is not null && grip.Kind is ShipGripKind.Endpoint or ShipGripKind.Vertex)
-        {
-            var path = ShipPlanPaths.ExtractPathXz(bh.Geometry);
-            var idx = NearestIndex(path, grip.X, grip.Z);
-            if (idx >= 0)
-            {
-                path[idx] = [world.X, world.Z];
-                _session.Mutate(d => ShipDesignMutations.UpdateBulkheadPath(d, bh.Id, path));
-            }
-
-            return;
-        }
-
-        var room = _session.Design.Compartments.FirstOrDefault(c => c.Id.Value == oid.Value);
-        if (room is not null && grip.Kind is ShipGripKind.Vertex or ShipGripKind.Endpoint)
-        {
-            var poly = ShipPlanPaths.ExtractPathXz(room.Geometry);
-            var idx = NearestIndex(poly, grip.X, grip.Z);
-            if (idx >= 0)
-            {
-                poly[idx] = [world.X, world.Z];
-                _session.Mutate(d => ShipDesignMutations.UpdateCompartmentPolygon(d, room.Id, poly));
-            }
-
-            return;
-        }
-
-        var passage = _session.Design.Passages.FirstOrDefault(p => p.Id.Value == oid.Value);
-        if (passage is not null)
-        {
-            if (grip.Kind is ShipGripKind.Endpoint or ShipGripKind.Vertex)
-            {
-                var path = ShipPlanPaths.ExtractPathXz(passage.Geometry);
-                var idx = NearestIndex(path, grip.X, grip.Z);
-                if (idx >= 0)
-                {
-                    path[idx] = [world.X, world.Z];
-                    _session.Mutate(d => ShipDesignMutations.UpdatePassagePath(d, passage.Id, path));
-                }
-
-                return;
-            }
-
-            if (grip.Kind == ShipGripKind.Width)
-            {
-                var path = ShipPlanPaths.ExtractPathXz(passage.Geometry);
-                var t = ShipPlanPaths.NearestParameter(path, world.X, world.Z);
-                var on = ShipPlanPaths.PointAlong(path, t);
-                var dist = MathF.Sqrt((world.X - on[0]) * (world.X - on[0]) + (world.Z - on[1]) * (world.Z - on[1]));
-                _session.Mutate(d => ShipDesignMutations.SetPassageWidth(d, passage.Id, System.Math.Max(0.6f, dist * 2f)));
-                return;
-            }
-        }
-
-        var opening = _session.Design.Openings.FirstOrDefault(o => o.Id.Value == oid.Value);
-        if (opening is not null && grip.Kind == ShipGripKind.Slide)
-        {
-            var host = _session.Design.Bulkheads.FirstOrDefault(b => b.Id.Value == opening.HostId.Value);
-            if (host is null)
-                return;
-            var path = ShipPlanPaths.ExtractPathXz(host.Geometry);
-            var t = ShipPlanPaths.NearestParameter(path, world.X, world.Z);
-            _session.Mutate(d => ShipDesignMutations.MoveOpeningAlongHost(d, opening.Id, t));
-        }
     }
 
     private static int NearestIndex(IReadOnlyList<float[]> path, float x, float z)
